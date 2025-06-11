@@ -1,0 +1,285 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HUD</title>
+  <style>
+    :root {
+      --bg-color: rgba(20, 20, 20, 0.8);
+      --accent-color: #4A90E2;
+      --text-primary: #FFFFFF;
+      --text-secondary: #A0A0A0;
+      --hud-gap: 10px;
+      --hud-padding: 6px 10px;
+      --hud-radius: 6px;
+      --hud-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      --font-family: 'Inter', sans-serif;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: var(--font-family);
+    }
+    body {
+      overflow: hidden;
+      background: transparent;
+    }
+    #hudContainer {
+      position: absolute;
+      top: var(--hud-top, 20px);
+      right: var(--hud-right, 20px);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--hud-gap);
+      cursor: default;
+      user-select: none;
+    }
+    .hud-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-color);
+      border-left: 4px solid var(--accent-color);
+      border-radius: var(--hud-radius);
+      padding: var(--hud-padding);
+      min-height: 36px;
+      box-shadow: var(--hud-shadow);
+      font-size: 13px;
+      transition: transform 0.2s ease;
+    }
+    .hud-card:hover {
+      transform: translateY(-2px);
+    }
+    .hud-icon {
+      width: 20px;
+      height: 20px;
+      background-size: contain;
+      background-position: center;
+      opacity: 0.9;
+      flex-shrink: 0;
+    }
+    .hud-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-label {
+      font-size: 9px;
+      color: var(--text-secondary);
+    }
+    .hud-value {
+      font-size: 14px;
+      color: var(--text-primary);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #serverLogo img {
+      height: 28px;
+      width: auto;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #000;
+    }
+    .value-update {
+      animation: pulse 0.8s ease-in-out;
+    }
+    @keyframes pulse {
+      50% { opacity: 0.5; }
+    }
+    #hudContainer.move-mode {
+      cursor: grab;
+      outline: 2px dashed var(--accent-color);
+    }
+    /* Admin Overlay */
+    #adminLogin {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.75);
+    }
+    #adminLogin .panel {
+      background: rgba(30,30,30,0.95);
+      border-radius: var(--hud-radius);
+      padding: 24px;
+      width: 260px;
+      text-align: center;
+    }
+    #adminLogin h2 {
+      color: var(--accent-color);
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+    #adminLogin input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 12px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #111;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    #adminLogin button {
+      width: 100%;
+      padding: 8px;
+      background: var(--accent-color);
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #adminLogin button:hover {
+      background: #3a7dc4;
+    }
+  </style>
+</head>
+<body>
+  <div id="hudContainer">
+    <div class="hud-card" id="serverLogo">
+      <img src="https://imgimp.xyz/images/Stoic-2025-03-29_01-08-14-67e747fe5997c.png" alt="Server Logo">
+    </div>
+    <div class="hud-card">
+      <div class="hud-icon" style="background-image:url('icons/discord.svg')"></div>
+      <div class="hud-content">
+        <div class="hud-label">DISCORD</div>
+        <div class="hud-value">discord.gg/QWWWV6Zyaa</div>
+      </div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-icon" style="background-image:url('icons/job.svg')"></div>
+      <div class="hud-content">
+        <div class="hud-label">JOB</div>
+        <div class="hud-value" id="jobDisplay">Unemployed</div>
+      </div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-icon" style="background-image:url('icons/cash.svg')"></div>
+      <div class="hud-content">
+        <div class="hud-label">CASH</div>
+        <div class="hud-value value-update" id="cashDisplay">$0</div>
+      </div>
+    </div>
+    <div class="hud-card">
+      <div class="hud-icon" style="background-image:url('icons/bank.svg')"></div>
+      <div class="hud-content">
+        <div class="hud-label">BANK</div>
+        <div class="hud-value value-update" id="bankDisplay">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminLogin">
+    <div class="panel">
+      <h2>Admin Login</h2>
+      <input type="password" placeholder="Enter Password" id="adminPassword">
+      <button id="adminSubmit">Login</button>
+    </div>
+  </div>
+
+  <script>
+    const hud = document.getElementById('hudContainer');
+    let moving = false, offset = { x:0, y:0 };
+
+    function savePos(r, t) {
+      localStorage.setItem('hudRight', r);
+      localStorage.setItem('hudTop', t);
+    }
+    function loadPos() {
+      return {
+        r: parseInt(localStorage.getItem('hudRight')) || 20,
+        t: parseInt(localStorage.getItem('hudTop')) || 20
+      };
+    }
+
+    (function initPos() {
+      const p = loadPos();
+      hud.style.right = p.r + 'px';
+      hud.style.top = p.t + 'px';
+    })();
+
+    hud.addEventListener('mousedown', e => {
+      if (!hud.classList.contains('move-mode')) return;
+      moving = true;
+      offset.x = e.clientX;
+      offset.y = e.clientY;
+      offset.r = parseInt(hud.style.right);
+      offset.t = parseInt(hud.style.top);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    function onMove(e) {
+      const dx = e.clientX - offset.x;
+      const dy = e.clientY - offset.y;
+      hud.style.right = (offset.r - dx) + 'px';
+      hud.style.top   = (offset.t + dy) + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      hud.classList.remove('move-mode');
+      savePos(parseInt(hud.style.right), parseInt(hud.style.top));
+      fetch(`https://${GetParentResourceName()}/closeUI`, { method:'POST' });
+    }
+
+    window.addEventListener('message', ev => {
+      const d = ev.data;
+      switch(d.action) {
+        case 'toggleMove':
+          hud.classList.toggle('move-mode');
+          break;
+        case 'updateCash':
+          updateUI({ cash: d.cash, bank: d.bank });
+          break;
+        case 'updateJob':
+          updateUI({ job: d.job });
+          break;
+        case 'openAdmin':
+          document.getElementById('adminLogin').style.display = 'flex';
+          break;
+      }
+    });
+
+    function updateUI(data) {
+      const map = {
+        cashDisplay: data.cash !== undefined ? `$${data.cash}` : undefined,
+        bankDisplay: data.bank !== undefined ? `$${data.bank}` : undefined,
+        jobDisplay: data.job !== undefined ? data.job : undefined
+      };
+      for (const [id, val] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (el && val !== undefined && el.textContent !== val) {
+          el.textContent = val;
+          el.classList.add('value-update');
+          setTimeout(() => el.classList.remove('value-update'), 800);
+        }
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        hud.classList.remove('move-mode');
+        document.getElementById('adminLogin').style.display = 'none';
+        fetch(`https://${GetParentResourceName()}/closeUI`, { method:'POST' });
+      }
+    });
+
+    // Admin login handler
+    document.getElementById('adminSubmit').addEventListener('click', () => {
+      const pass = document.getElementById('adminPassword').value;
+      fetch(`https://${GetParentResourceName()}/adminAuth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      }).then(() => {
+        document.getElementById('adminLogin').style.display = 'none';
+      });
+    });
+  </script>
+</body>
+</html>
