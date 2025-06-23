@@ -120,6 +120,20 @@ local function ensureSchemas(cb)
     end
 end
 
+local function getDiscordId(src)
+    -- src is the server ID of the player
+    for _, id in ipairs(GetPlayerIdentifiers(src)) do
+        -- FiveM Discord identifiers come as "discord:123456789012345678"
+        local prefix, discord = id:match("^(%w+):(%d+)$")
+        if prefix == "discord" then
+            return discord
+        end
+    end
+    return nil
+end
+
+
+
 local function debugPrint(msg)
     if debug then
         print(("[az-fw-money] %s"):format(msg))
@@ -455,6 +469,7 @@ exports('isAdmin',            isAdmin)
 exports('getMoney',           GetMoney)
 exports('updateMoney',        UpdateMoney)
 exports('logAdminCommand',    logAdminCommand)
+exports('getDiscordId',       getDiscordId)
 --------------------------------------
 -- Player Connecting: Update HUD on join
 --------------------------------------
