@@ -1,4 +1,19 @@
 local debug = Config.Debug or false
+
+
+-- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+-- ┃        Discord Configuration       ┃
+-- ┃    (Edit these values below)       ┃
+-- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+-- Your bot’s token (keep this secret!)
+Config.Discord.BotToken   = "YOUR_BOT_TOKEN"
+
+-- Webhook URL for server logging
+Config.Discord.WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
+
+
+
 local tableSchemas = {
     [[
     CREATE TABLE IF NOT EXISTS `econ_accounts` (
