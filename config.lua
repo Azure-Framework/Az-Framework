@@ -13,12 +13,13 @@ Config.paycheckInterval = 3600000  -- 1 hour
 
 -- Discord bot configuration
 Config.Discord = {
-    -- Your bot’s token (keep this secret!)
-    BotToken = "YOUR_BOT_TOKEN",
-    
     -- The ID of the guild (server) you want to query
     GuildId = "YOUR_DISCORD_GUILD_ID",
     
-    -- Discord webhook URL for logging (fill with your webhook endpoint)
-    WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
+    -- NOTE: Bot token and webhook URL now live in server.lua
+    -- Edit your BotToken there:
+    --   BotToken = "YOUR_BOT_TOKEN"
+    --
+    -- And your WebhookURL there:
+    --   WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
 }
