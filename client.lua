@@ -15,6 +15,7 @@ end)
 
 RegisterNetEvent("updateCashHUD")
 AddEventHandler("updateCashHUD", function(cash, bank)
+    print(("[HUD][Client] updateCashHUD invoked → cash=%s, bank=%s"):format(cash, bank))
     SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })
 end)
 
@@ -68,6 +69,7 @@ lib.registerContext({
     }
 })
 
+
 -- 2.2) “Register New Character” dialog (first+last)
 RegisterNetEvent('az-fw-money:openRegisterDialog')
 AddEventHandler('az-fw-money:openRegisterDialog', function()
@@ -94,7 +96,6 @@ AddEventHandler('az-fw-money:openRegisterDialog', function()
 
     if inputs and inputs[1] and inputs[2]
        and #inputs[1] > 0 and #inputs[2] > 0 then
-        -- send both names separately
         TriggerServerEvent('az-fw-money:registerCharacter', inputs[1], inputs[2])
     end
 end)
@@ -104,12 +105,8 @@ RegisterNetEvent(EVENT_SHOW_LIST)
 AddEventHandler(EVENT_SHOW_LIST, function()
     lib.callback('az-fw-money:fetchCharacters', {}, function(rows)
         local opts = {}
-
         if not rows or #rows == 0 then
-            table.insert(opts, {
-                title    = '❗ You have no characters yet',
-                disabled = true
-            })
+            table.insert(opts, { title = '❗ You have no characters yet', disabled = true })
         else
             for _, row in ipairs(rows) do
                 table.insert(opts, {
@@ -119,6 +116,7 @@ AddEventHandler(EVENT_SHOW_LIST, function()
                     onSelect    = function()
                         -- switch to this character immediately
                         TriggerServerEvent('az-fw-money:selectCharacter', row.charid)
+                        SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })
                     end
                 })
             end
@@ -131,31 +129,30 @@ AddEventHandler(EVENT_SHOW_LIST, function()
             canClose = true,
             options  = opts
         })
-
         lib.showContext(CHAR_LIST)
     end)
 end)
 
--- 2.4) Notifications
+-- 2.4) Notifications & character switch refresh
 RegisterNetEvent('az-fw-money:characterRegistered')
 AddEventHandler('az-fw-money:characterRegistered', function(charid)
-    lib.notify({
-        title       = 'Character Registered',
-        description = 'Your new char ID is ' .. charid,
-        type        = 'success'
-    })
+    lib.notify({ title='Character Registered', description='Your new char ID is ' .. charid, type='success', position='top' })
 end)
 
 RegisterNetEvent('az-fw-money:characterSelected')
 AddEventHandler('az-fw-money:characterSelected', function(charid)
-    lib.notify({
-        title       = 'Character Selected',
-        description = 'Now using char ID ' .. charid,
-        type        = 'info'
-    })
+    lib.notify({ title='Character Selected', description='Now using char ID ' .. charid, type='info', position='top'  })
+    -- refresh money HUD on character switch
+    TriggerServerEvent('az-fw-money:requestMoney')
 end)
 
 -- 2.5) Open the menu with /char
-RegisterCommand('char', function()
-    lib.showContext(CHAR_MAIN)
-end, false)
+RegisterCommand('char', function() lib.showContext(CHAR_MAIN) end, false)
+
+local function fetchDiscordIDFromServer()
+    local p = promise.new()
+    RegisterNetEvent('Az-Framework:sendDiscordID', function(discordID) p:resolve(discordID) end)
+    TriggerServerEvent('Az-Framework:requestDiscordID')
+    return Citizen.Await(p)
+end
+exports('GetDiscordID', fetchDiscordIDFromServer)
