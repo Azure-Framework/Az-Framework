@@ -7,29 +7,30 @@ if Config.Departments then
         print('[az-fw-departments] MySQL-Async ready!')
 
         -- Create user money table if it doesn't exist
-        MySQL.Async.execute([[ 
+        MySQL.Async.execute([[
             CREATE TABLE IF NOT EXISTS `econ_user_money` (
                 `discordid` VARCHAR(255) NOT NULL PRIMARY KEY,
                 `cash` INT NOT NULL DEFAULT 0,
                 `bank` INT NOT NULL DEFAULT 0,
                 `last_daily` BIGINT NOT NULL DEFAULT 0
             )
-        ]], {}, function(rowsChanged)
+        ]], {}, function()
             print('[az-fw-departments] Ensured table econ_user_money exists.')
         end)
 
         -- Create departments table if it doesn't exist
-        MySQL.Async.execute([[ 
+        MySQL.Async.execute([[
             CREATE TABLE IF NOT EXISTS `econ_departments` (
                 `discordid` VARCHAR(255) NOT NULL PRIMARY KEY,
                 `department` VARCHAR(100) NOT NULL,
                 `paycheck` INT NOT NULL DEFAULT 0
             )
-        ]], {}, function(rowsChanged)
+        ]], {}, function()
             print('[az-fw-departments] Ensured table econ_departments exists.')
         end)
     end)
 
+    ----------------------------------------------------------------
     -- Utility: get the Discord ID from a player’s identifiers
     local function getDiscordId(playerId)
         print('[DEBUG] getDiscordId called for player', playerId)
@@ -45,36 +46,54 @@ if Config.Departments then
         return nil
     end
 
-    -- Utility: refresh money HUD for a player
+    ----------------------------------------------------------------
+    -- Utility: refresh money HUD for a player, now returns both cash and checking‐bank
     local function sendMoneyToClient(playerId, discordId)
+        -- 1) fetch wallet cash
         MySQL.Async.fetchScalar(
             'SELECT cash FROM econ_user_money WHERE discordid = @id',
             { ['@id'] = discordId },
             function(cash)
-                TriggerClientEvent('az-fw-departments:refreshMoney', playerId, { cash = cash or 0 })
+                cash = cash or 0
+
+                -- 2) fetch checking account balance
+                MySQL.Async.fetchScalar(
+                    "SELECT balance FROM econ_accounts WHERE discordid = @id AND type = 'checking'",
+                    { ['@id'] = discordId },
+                    function(bank)
+                        bank = bank or 0
+
+                        -- 3) send both values to client
+                        TriggerClientEvent('az-fw-departments:refreshMoney', playerId, {
+                            cash = cash,
+                            bank = bank
+                        })
+                    end
+                )
             end
         )
     end
 
-    -- **New** Utility: refresh job HUD for a player
-function sendJobToClient(playerId, discordId)
-  if not discordId then
-    TriggerClientEvent('az-fw-departments:refreshJob', playerId, { job = "Unknown" })
-    return
-  end
 
-  MySQL.Async.fetchScalar(
-    'SELECT department FROM econ_departments WHERE discordid = @id',
-    { ['@id'] = discordId },
-    function(department)
-      local job = department or "Unemployed"
-      print("DEBUG: Sending job to player", playerId, "->", job)
-      TriggerClientEvent('az-fw-departments:refreshJob', playerId, { job = job })
+    -- Utility: refresh job HUD for a player
+    local function sendJobToClient(playerId, discordId)
+        if not discordId then
+            TriggerClientEvent('az-fw-departments:refreshJob', playerId, { job = "Unknown" })
+            return
+        end
+
+        MySQL.Async.fetchScalar(
+            'SELECT department FROM econ_departments WHERE discordid = @id',
+            { ['@id'] = discordId },
+            function(department)
+                local job = department or "Unemployed"
+                print("DEBUG: Sending job to player", playerId, "->", job)
+                TriggerClientEvent('az-fw-departments:refreshJob', playerId, { job = job })
+            end
+        )
     end
-  )
-end
 
-
+    ----------------------------------------------------------------
     -- Admin login handler
     RegisterServerEvent('az-fw-departments:attemptAdminLogin')
     AddEventHandler('az-fw-departments:attemptAdminLogin', function(username, password, cbId)
@@ -125,57 +144,36 @@ end
             end
         )
     end)
-function FetchDepartments(callback)
-    -- MySQL.Async.fetchAll is asynchronous. We pass the rows into the callback when ready.
-    MySQL.Async.fetchAll(
-        'SELECT discordid, department, paycheck FROM econ_departments',
-        {},
-        function(rows)
-            -- rows is an array of results: { { discordid = ..., department = ..., paycheck = ... }, ... }
-            if type(callback) == "function" then
-                callback(rows)
-            end
-        end
-    )
-end
 
-    -- Fetch all departments
-    RegisterServerEvent('az-fw-departments:requestDepartments')
-    AddEventHandler('az-fw-departments:requestDepartments', function(cbId)
+    ----------------------------------------------------------------
+    -- HUD update handler (single registration)
+    RegisterServerEvent('hud:requestDepartment')
+    AddEventHandler('hud:requestDepartment', function()
         local src = source
-        MySQL.Async.fetchAll(
-            'SELECT discordid, department, paycheck FROM econ_departments',
-            {},
-            function(rows)
-                TriggerClientEvent('az-fw-departments:nuiResponse', src, cbId, { departments = rows })
-            end
-        )
+        print('[DEBUG] Server received hud:requestDepartment from player id =', src)
+
+        -- Dump all identifiers for sanity
+        for _, ident in ipairs(GetPlayerIdentifiers(src)) do
+            print('   →', ident)
+        end
+
+        -- Attempt to get Discord ID
+        local discordId = getDiscordId(src)
+        print('[DEBUG] getDiscordId returned =', tostring(discordId))
+
+        if not discordId then
+            print('[DEBUG] Could not get a Discord ID for player', src)
+            TriggerClientEvent('hud:setDepartment', src, 'Unknown')
+            return
+        end
+
+        -- Send HUD updates
+        sendJobToClient(src, discordId)
+        sendMoneyToClient(src, discordId)
     end)
 
-    -- Update a department’s data
-RegisterServerEvent('hud:requestDepartment')
- AddEventHandler('hud:requestDepartment', function()
-   local src = source
-   local discordId = getDiscordId(src)
-  if not discordId then
-    TriggerClientEvent('hud:setDepartment', src, 'Unknown')
-    return
-  end
-
-  -- Query their department and send it to the HUD
-  MySQL.Async.fetchScalar(
-    'SELECT department FROM econ_departments WHERE discordid = @id',
-    { ['@id'] = discordId },
-    function(dept)
-      TriggerClientEvent('hud:setDepartment', src, dept or 'Unemployed')
-    end
-  )
- 
-   -- **NEW**: only send via the unified helper
-   sendJobToClient(src, discordId)
- end)
-
-    -- Distribute paychecks to all users in each department
+    ----------------------------------------------------------------
+    -- Distribute paychecks every Config.paycheckInterval
     local function distributePaychecks()
         print('[DEBUG] distributePaychecks started')
         MySQL.Async.fetchAll(
@@ -195,7 +193,7 @@ RegisterServerEvent('hud:requestDepartment')
                             ['@id']  = dept.discordid,
                             ['@pay'] = dept.paycheck,
                         },
-                        function(_)
+                        function()
                             for _, playerId in ipairs(GetPlayers()) do
                                 if getDiscordId(playerId) == dept.discordid then
                                     -- send ox_lib notification
@@ -206,9 +204,8 @@ RegisterServerEvent('hud:requestDepartment')
                                         duration    = 5000,
                                         position    = 'top',
                                     })
-                                    -- update money HUD
+                                    -- update HUD
                                     sendMoneyToClient(playerId, dept.discordid)
-                                    -- update job HUD (in case they switched department)
                                     sendJobToClient(playerId, dept.discordid)
                                     break
                                 end
@@ -220,67 +217,58 @@ RegisterServerEvent('hud:requestDepartment')
         )
     end
 
-    -- Schedule distributePaychecks every interval defined in Config.paycheckInterval
     Citizen.CreateThread(function()
         while true do
             Citizen.Wait(Config.paycheckInterval)
             distributePaychecks()
         end
     end)
-
-    -- Handle department request from client HUD
-    RegisterServerEvent('hud:requestDepartment')
-    AddEventHandler('hud:requestDepartment', function()
-        local src = source
-        print('[DEBUG] Server received hud:requestDepartment from player id =', src)
-
-        -- Dump all identifiers for sanity
-        print('[DEBUG] Identifiers for', src, ':')
-        for _, ident in ipairs(GetPlayerIdentifiers(src)) do
-            print('   →', ident)
-        end
-
-        -- Attempt to get Discord ID
-        local discordId = getDiscordId(src)
-        print('[DEBUG] getDiscordId returned =', tostring(discordId))
-
-        if not discordId then
-            print('[DEBUG] Could not get a Discord ID for player', src)
-            -- send default job
-            TriggerClientEvent('hud:setDepartment', src, 'Unknown')
-            return
-        end
-
-        -- Query their department and send it to the HUD
-        MySQL.Async.fetchScalar(
-            'SELECT department FROM econ_departments WHERE discordid = @id',
-            { ['@id'] = discordId },
-            function(dept)
-                print('[DEBUG] SQL returned department =', tostring(dept))
-                TriggerClientEvent('hud:setDepartment', src, dept or 'Unemployed')
-            end
-        )
-
-        -- **New**: also immediately send their job to the in‐game HUD
-        sendJobToClient(src, discordId)
-    end)
-
 else
     print('[az-fw-departments] Departments False. Departments WILL NOT WORK')
 end
 
--- Function to fetch all departments
+----------------------------------------------------------------
+-- Exports
+
+-- Fetch all departments
 local function getDepartments(callback)
     MySQL.Async.fetchAll(
         'SELECT discordid, department, paycheck FROM econ_departments',
         {},
         function(rows)
-            if callback then
+            if type(callback) == "function" then
                 callback(rows)
             end
         end
     )
 end
-
--- Export the function for other server scripts to use
 exports('getDepartments', getDepartments)
+
+-- Fetch a player's job name (department) from the database using their Discord ID
+local function getPlayerJob(playerId, callback)
+    local discordId = nil
+    for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
+        if id:match('^discord:') then
+            discordId = id:gsub('discord:', '')
+            break
+        end
+    end
+
+    if not discordId then
+        print(("[az-fw-departments] getPlayerJob: no discord ID for %d"):format(playerId))
+        return callback("Unknown")
+    end
+
+    MySQL.Async.fetchScalar(
+        'SELECT department FROM econ_departments WHERE discordid = @id',
+        { ['@id'] = discordId },
+        function(department)
+            local job = department or "Unemployed"
+            print(("[az-fw-departments] getPlayerJob: %d → Job: %s"):format(playerId, job))
+            callback(job)
+        end
+    )
+end
+
+
+exports('getPlayerJob', getPlayerJob)

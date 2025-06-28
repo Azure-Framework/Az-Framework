@@ -1,5 +1,5 @@
-local debug = Config.Debug or false
-
+local debug       = Config.Debug or false
+local debugPrint  -- forward declaration
 
 -- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 -- ┃        Discord Configuration       ┃
@@ -14,6 +14,17 @@ Config.Discord.WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
 
 
 
+
+local activeCharacters = {}
+
+
+debugPrint = function(msg)
+  if debug then
+    print(("[az-fw-money] %s"):format(msg))
+  end
+end
+
+-- Table schemas, including new user_characters, per-character money, and schema migration
 local tableSchemas = {
     [[
     CREATE TABLE IF NOT EXISTS `econ_accounts` (
@@ -70,12 +81,25 @@ local tableSchemas = {
       `discordid` varchar(255) NOT NULL,
       `user_id` int(11) NOT NULL,
       `name` varchar(100) NOT NULL,
-      PRIMARY KEY (`discordid`
+      PRIMARY KEY (`discordid`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
+    -- NEW: characters table
+    [[
+    CREATE TABLE IF NOT EXISTS `user_characters` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `discordid` varchar(255) NOT NULL,
+      `charid` varchar(100) NOT NULL,
+      `name` varchar(100) NOT NULL,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `discord_char` (`discordid`,`charid`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    -- UPDATED: per-character money table
     [[
     CREATE TABLE IF NOT EXISTS `econ_user_money` (
       `discordid` varchar(255) NOT NULL,
+      `charid` varchar(100) NOT NULL,
       `firstname` varchar(100) NOT NULL DEFAULT '',
       `lastname` varchar(100) NOT NULL DEFAULT '',
       `profile_picture` varchar(255) DEFAULT NULL,
@@ -86,9 +110,21 @@ local tableSchemas = {
       `exp_month` tinyint(4) DEFAULT NULL,
       `exp_year` smallint(6) DEFAULT NULL,
       `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-      PRIMARY KEY (`discordid`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+      PRIMARY KEY (`discordid`,`charid`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
+    -- MIGRATION: ensure existing table has new columns
+    [[
+    ALTER TABLE `econ_user_money`
+      ADD COLUMN IF NOT EXISTS `firstname` varchar(100) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS `lastname` varchar(100) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS `profile_picture` varchar(255) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS `card_number` varchar(16) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS `exp_month` tinyint(4) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS `exp_year` smallint(6) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS `card_status` enum('active','blocked') NOT NULL DEFAULT 'active';
+    ]],
+    -- LEVELS table
     [[
     CREATE TABLE IF NOT EXISTS `user_levels` (
       `identifier` varchar(100) NOT NULL,
@@ -99,6 +135,7 @@ local tableSchemas = {
       PRIMARY KEY (`identifier`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
     ]],
+    -- VEHICLES table
     [[
     CREATE TABLE IF NOT EXISTS `user_vehicles` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -124,6 +161,8 @@ local tableSchemas = {
     ]]
 }
 
+
+
 -- helper to run all schemas
 local function ensureSchemas(cb)
     local pending = #tableSchemas
@@ -133,69 +172,6 @@ local function ensureSchemas(cb)
             if pending == 0 and cb then cb() end
         end)
     end
-end
-
-local function getDiscordId(src)
-    -- src is the server ID of the player
-    for _, id in ipairs(GetPlayerIdentifiers(src)) do
-        -- FiveM Discord identifiers come as "discord:123456789012345678"
-        local prefix, discord = id:match("^(%w+):(%d+)$")
-        if prefix == "discord" then
-            return discord
-        end
-    end
-    return nil
-end
-
-
-
-local function debugPrint(msg)
-    if debug then
-        print(("[az-fw-money] %s"):format(msg))
-    end
-end
-
--- Helper to send a message to Discord via webhook
-local function sendWebhookLog(message)
-    if not Config.Discord.WebhookURL or Config.Discord.WebhookURL == "" then
-        debugPrint("Webhook URL not configured; skipping Discord log.")
-        return
-    end
-
-    local payload = {
-        username = "Server Logger",
-        content  = message,
-    }
-
-    PerformHttpRequest(Config.Discord.WebhookURL, function(statusCode)
-        if statusCode ~= 204 and statusCode ~= 200 then
-            debugPrint("Discord webhook error: " .. tostring(statusCode))
-        end
-    end, 'POST', json.encode(payload), {
-        ['Content-Type'] = 'application/json'
-    })
-end
-
--- Log an admin command attempt
-local function logAdminCommand(commandName, source, args, success)
-    local playerName = GetPlayerName(source) or "Unknown"
-    local statusIcon = success and "✅ Allowed" or "❌ Denied"
-    local argsStr    = args and table.concat(args, " ") or ""
-    local msg = string.format(
-        "**Admin Command:** `%s`\n**Player:** %s (ID %d)\n**Status:** %s\n**Args:** %s",
-        commandName, playerName, source, statusIcon, argsStr
-    )
-    sendWebhookLog(msg)
-end
-
--- Log large transactions (>= 1,000,000)
-local function logLargeTransaction(txType, source, amount, reason)
-    local playerName = GetPlayerName(source) or "Unknown"
-    local msg = string.format(
-        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %d)\n**Amount:** $%s\n**Reason:** %s",
-        txType, playerName, source, amount, reason
-    )
-    sendWebhookLog(msg)
 end
 
 -- Extract Discord ID (or return empty string)
@@ -264,19 +240,84 @@ local function isAdmin(playerSrc, cb)
     end)
 end
 
--- Database helpers
-local function GetMoney(discordID, callback)
+-- Helper to send a message to Discord via webhook
+local function sendWebhookLog(message)
+    if not Config.Discord.WebhookURL or Config.Discord.WebhookURL == "" then
+        debugPrint("Webhook URL not configured; skipping Discord log.")
+        return
+    end
+
+    local payload = {
+        username = "Server Logger",
+        content  = message,
+    }
+
+    PerformHttpRequest(Config.Discord.WebhookURL, function(statusCode)
+        if statusCode ~= 204 and statusCode ~= 200 then
+            debugPrint("Discord webhook error: " .. tostring(statusCode))
+        end
+    end, 'POST', json.encode(payload), {
+        ['Content-Type'] = 'application/json'
+    })
+end
+
+-- Log an admin command attempt
+local function logAdminCommand(commandName, source, args, success)
+    local playerName = GetPlayerName(source) or "Unknown"
+    local statusIcon = success and "✅ Allowed" or "❌ Denied"
+    local argsStr    = args and table.concat(args, " ") or ""
+    local msg = string.format(
+        "**Admin Command:** `%s`\n**Player:** %s (ID %d)\n**Status:** %s\n**Args:** %s",
+        commandName, playerName, source, statusIcon, argsStr
+    )
+    sendWebhookLog(msg)
+end
+
+-- Log large transactions (>= 1,000,000)
+local function logLargeTransaction(txType, source, amount, reason)
+    local playerName = GetPlayerName(source) or "Unknown"
+    local msg = string.format(
+        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %d)\n**Amount:** $%s\n**Reason:** %s",
+        txType, playerName, source, amount, reason
+    )
+    sendWebhookLog(msg)
+end
+
+
+-- -- Character selection: switch active character and update HUD
+-- RegisterNetEvent('az-fw-money:selectCharacter')
+-- AddEventHandler('az-fw-money:selectCharacter', function(charID)
+--     local src = source
+--     activeCharacters[src] = charID
+
+--     local discordID = getDiscordID(src)
+--     if discordID == "" then return end
+
+--     -- reload money for the selected character
+--     GetMoney(discordID, charID, function(data)
+--         TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
+--     end)
+-- end)
+
+-- Fetch money row for a specific discordID + charID, creating if missing
+function GetMoney(discordID, charID, callback)
     MySQL.Async.fetchAll([[
-        SELECT cash, bank, last_daily
-        FROM econ_user_money
-        WHERE discordid = @discordid
-    ]], { ['@discordid'] = discordID }, function(result)
+      SELECT cash, bank, last_daily
+      FROM econ_user_money
+      WHERE discordid = @discordid AND charid = @charid
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(result)
         if not result[1] then
             local data = { cash = 0, bank = 0, last_daily = 0 }
             MySQL.Async.execute([[
-                INSERT INTO econ_user_money (discordid, cash, bank, last_daily)
-                VALUES (@discordid, 0, 0, 0)
-            ]], { ['@discordid'] = discordID })
+              INSERT INTO econ_user_money (discordid, charid, cash, bank, last_daily)
+              VALUES (@discordid, @charid, 0, 0, 0)
+            ]], {
+              ['@discordid'] = discordID,
+              ['@charid']    = charID
+            })
             callback(data)
         else
             callback(result[1])
@@ -284,163 +325,128 @@ local function GetMoney(discordID, callback)
     end)
 end
 
--- Send cash+bank to a single client
-local function sendMoneyToClient(playerId, discordid)
-    MySQL.Async.fetchAll(
-      'SELECT cash, bank FROM econ_user_money WHERE discordid = @id',
-      { ['@id'] = discordid },
-      function(rows)
-        if rows[1] then
-          TriggerClientEvent('updateCashHUD', playerId, rows[1].cash, rows[1].bank)
-        end
-      end
-    )
-end
--- handle client asking “what’s my money?”
-RegisterServerEvent('az-fw-money:requestMoney')
-AddEventHandler('az-fw-money:requestMoney', function()
-  local src = source
-  local discordid = getDiscordId(src)
-  if not discordid then return end
-    sendMoneyToClient(src, discordid)
-end)
-
-local function UpdateMoney(discordID, data, cb)
+-- Update money row for discordID + charID
+function UpdateMoney(discordID, charID, data, cb)
     MySQL.Async.execute([[
-        UPDATE econ_user_money
-        SET cash = @cash,
-            bank = @bank,
-            last_daily = @last_daily
-        WHERE discordid = @discordid
+      UPDATE econ_user_money
+      SET cash = @cash,
+          bank = @bank,
+          last_daily = @last_daily
+      WHERE discordid = @discordid AND charid = @charid
     ]], {
-        ['@cash']       = data.cash,
-        ['@bank']       = data.bank,
-        ['@last_daily'] = data.last_daily,
-        ['@discordid']  = discordID
+      ['@cash']       = data.cash,
+      ['@bank']       = data.bank,
+      ['@last_daily'] = data.last_daily,
+      ['@discordid']  = discordID,
+      ['@charid']     = charID
     }, cb)
 end
 
--- on resource start, create all tables then initialize HUD
-AddEventHandler('onResourceStart', function(resName)
-    if GetCurrentResourceName() ~= resName then return end
+-- Send current cash/bank to client for active character
+local function sendMoneyToClient(playerId)
+    local discordID = getDiscordID(playerId)
+    local charID    = activeCharacters[playerId]
+    if discordID == "" or not charID then return end
 
-    debugPrint("Ensuring database schemas exist...")
-    ensureSchemas(function()
-        debugPrint("All schemas ensured; now updating HUD for online players.")
-        -- small delay to let DB settle
-        SetTimeout(1000, function()
-            for _, pid in ipairs(GetPlayers()) do
-                local dID = getDiscordID(pid)
-                if dID ~= "" then
-                    GetMoney(dID, function(data)
-                        TriggerClientEvent("updateCashHUD", pid, data.cash, data.bank)
-                    end)
-                end
-            end
-        end)
+    MySQL.Async.fetchAll([[
+      SELECT cash, bank
+      FROM econ_user_money
+      WHERE discordid = @discordid AND charid = @charid
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(rows)
+        if rows[1] then
+            TriggerClientEvent('updateCashHUD', playerId, rows[1].cash, rows[1].bank)
+        end
     end)
-end)
+end
 
+-- Utility: wrap money operations to automatically use active character
+local function withMoney(src, fn)
+    local discordID = getDiscordID(src)
+    local charID    = activeCharacters[src]
+    if discordID == "" or not charID then
+        return TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM","No character selected."} })
+    end
+    GetMoney(discordID, charID, function(data)
+        fn(discordID, charID, data)
+    end)
+end
 
---------------------------------------
--- Core economy functions
---------------------------------------
+-- Core economy functions now per-character
 function addMoney(source, amount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    GetMoney(dID, function(data)
+    withMoney(source, function(dID, cID, data)
         data.cash = data.cash + amount
-        UpdateMoney(dID, data, function()
+        UpdateMoney(dID, cID, data, function()
             TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then
-                logLargeTransaction("addMoney", source, amount, "addMoney() export")
-            end
+            if amount >= 1e6 then logLargeTransaction("addMoney", source, amount, "addMoney() export") end
         end)
     end)
 end
 
 function deductMoney(source, amount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    GetMoney(dID, function(data)
+    withMoney(source, function(dID, cID, data)
         data.cash = math.max(0, data.cash - amount)
-        UpdateMoney(dID, data, function()
+        UpdateMoney(dID, cID, data, function()
             TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then
-                logLargeTransaction("deductMoney", source, amount, "deductMoney() export")
-            end
-        end)
-    end)
-end
-
-function modifyMoney(source, amount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    GetMoney(dID, function(data)
-        data.cash = amount
-        UpdateMoney(dID, data, function()
-            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then
-                logLargeTransaction("modifyMoney", source, amount, "modifyMoney() export")
-            end
+            if amount >= 1e6 then logLargeTransaction("deductMoney", source, amount, "deductMoney() export") end
         end)
     end)
 end
 
 function depositMoney(source, amount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    GetMoney(dID, function(data)
+    withMoney(source, function(dID, cID, data)
         if data.cash < amount then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough cash to deposit."} })
         end
         data.cash = data.cash - amount
         data.bank = data.bank + amount
-        UpdateMoney(dID, data, function()
+        UpdateMoney(dID, cID, data, function()
             TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then
-                logLargeTransaction("depositMoney", source, amount, "depositMoney() export")
-            end
+            if amount >= 1e6 then logLargeTransaction("depositMoney", source, amount, "depositMoney() export") end
         end)
     end)
 end
 
 function withdrawMoney(source, amount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    GetMoney(dID, function(data)
+    withMoney(source, function(dID, cID, data)
         if data.bank < amount then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough bank funds to withdraw."} })
         end
         data.bank = data.bank - amount
         data.cash = data.cash + amount
-        UpdateMoney(dID, data, function()
+        UpdateMoney(dID, cID, data, function()
             TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then
-                logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export")
-            end
+            if amount >= 1e6 then logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export") end
         end)
     end)
 end
 
 function transferMoney(source, target, amount)
     local senderID = getDiscordID(source)
+    local senderChar = activeCharacters[source]
     local targetID = getDiscordID(target)
-    if senderID == "" or targetID == "" then
-        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Discord ID missing for sender/target."} })
+    local targetChar = activeCharacters[target]
+    if senderID == "" or not senderChar or targetID == "" or not targetChar then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Discord ID or character missing for sender/target."} })
     end
 
-    GetMoney(senderID, function(sData)
+    GetMoney(senderID, senderChar, function(sData)
         if sData.cash < amount then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough cash to transfer."} })
         end
-        GetMoney(targetID, function(tData)
+        GetMoney(targetID, targetChar, function(tData)
             sData.cash = sData.cash - amount
             tData.cash = tData.cash + amount
-            UpdateMoney(senderID, sData, function()
+
+            UpdateMoney(senderID, senderChar, sData, function()
                 TriggerClientEvent("updateCashHUD", source, sData.cash, sData.bank)
             end)
-            UpdateMoney(targetID, tData, function()
+            UpdateMoney(targetID, targetChar, tData, function()
                 TriggerClientEvent("updateCashHUD", target, tData.cash, tData.bank)
                 TriggerClientEvent("chat:addMessage", target, { args = {"^2SYSTEM","You received $"..amount} })
-                if amount >= 1e6 then
-                    logLargeTransaction("transferMoney", source, amount, "to ID "..target)
-                end
+                if amount >= 1e6 then logLargeTransaction("transferMoney", source, amount, "to ID "..target) end
             end)
             TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","You sent $"..amount} })
         end)
@@ -448,217 +454,144 @@ function transferMoney(source, target, amount)
 end
 
 function claimDailyReward(source, rewardAmount)
-    local dID = getDiscordID(source); if dID == "" then return end
-    local now = os.time()
-    GetMoney(dID, function(data)
+    withMoney(source, function(dID, cID, data)
+        local now = os.time()
         if now - tonumber(data.last_daily) < 86400 then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Daily reward already claimed."} })
         end
         data.cash = data.cash + rewardAmount
         data.last_daily = now
-        UpdateMoney(dID, data, function()
+        UpdateMoney(dID, cID, data, function()
             TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
             TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","Daily reward: $"..rewardAmount} })
-            if rewardAmount >= 1e6 then
-                logLargeTransaction("claimDailyReward", source, rewardAmount, "Daily reward")
-            end
+            if rewardAmount >= 1e6 then logLargeTransaction("claimDailyReward", source, rewardAmount, "Daily reward") end
         end)
     end)
 end
 
---------------------------------------
--- Exports
---------------------------------------
-exports('addMoney',           addMoney)
-exports('deductMoney',        deductMoney)
-exports('modifyMoney',        modifyMoney)
-exports('depositMoney',       depositMoney)
-exports('withdrawMoney',      withdrawMoney)
-exports('transferMoney',      transferMoney)
-exports('GetMoney',           GetMoney)
-exports('sendMoneyToClient',  sendMoneyToClient)
-exports('claimDailyReward',   claimDailyReward)
-exports('getDiscordID',       getDiscordID)
-exports('getDiscordRoleList', getDiscordRoleList)
-exports('isAdmin',            isAdmin)
-exports('getMoney',           GetMoney)
-exports('updateMoney',        UpdateMoney)
-exports('logAdminCommand',    logAdminCommand)
-exports('getDiscordId',       getDiscordId)
---------------------------------------
--- Player Connecting: Update HUD on join
---------------------------------------
+-- Get the active character ID for a player
+function GetPlayerCharacter(source)
+    return activeCharacters[source]
+end
+
+-- Get the active character's name for a player (async)
+function GetPlayerCharacterName(source, callback)
+    local discordID = getDiscordID(source)
+    local charID    = GetPlayerCharacter(source)
+    if not discordID or discordID == "" or not charID then
+        return callback("no_character", nil)
+    end
+
+    MySQL.Async.fetchScalar([[
+      SELECT name
+      FROM user_characters
+      WHERE discordid = @discordid AND charid = @charid
+      LIMIT 1
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(name)
+        if not name then
+            return callback("not_found", nil)
+        end
+        callback(nil, name)
+    end)
+end
+
+-- Get both cash & bank balances for the player’s active character
+function GetPlayerMoney(source, callback)
+    local discordID = getDiscordID(source)
+    local charID    = GetPlayerCharacter(source)
+    if not discordID or discordID == "" or not charID then
+        return callback("no_character", nil)
+    end
+
+    GetMoney(discordID, charID, function(data)
+        -- data has .cash and .bank
+        callback(nil, { cash = data.cash, bank = data.bank })
+    end)
+end
+
+-- on resource start: ensure tables and init HUD for all online players
+AddEventHandler('onResourceStart', function(resName)
+    if GetCurrentResourceName() ~= resName then return end
+
+    debugPrint("Ensuring database schemas exist...")
+    ensureSchemas(function()
+        debugPrint("All schemas ensured; now initializing HUDs.")
+        SetTimeout(1000, function()
+            for _, pid in ipairs(GetPlayers()) do
+                -- leave activeCharacters nil until they register/select
+                sendMoneyToClient(pid)
+            end
+        end)
+    end)
+end)
+
+-- Player connecting: simply defer until they've selected a character
 AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
-    local src = source
     deferrals.defer()
-
-    debugPrint(("Player connecting: source = %s"):format(src))
-
-    Wait(0) -- just to be safe
-
-    local dID = getDiscordID(src)
-    debugPrint(("Retrieved Discord ID: %s"):format(dID))
-
-    if dID ~= "" then
-        debugPrint("Valid Discord ID found, fetching money data...")
-
-        GetMoney(dID, function(data)
-            if data then
-                debugPrint(("Money data received: cash = %s, bank = %s"):format(data.cash, data.bank))
-                TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
-                debugPrint(("updateCashHUD event triggered for player %s"):format(src))
-            else
-                debugPrint(("No money data found for Discord ID: %s"):format(dID))
-            end
-
-            deferrals.done()
-        end)
-    else
-        debugPrint(("No valid Discord ID found for source %s"):format(src))
-        deferrals.done()
-    end
+    deferrals.done()
 end)
 
+-- Exports
+exports('addMoney',                 addMoney)
+exports('deductMoney',              deductMoney)
+exports('depositMoney',             depositMoney)
+exports('withdrawMoney',            withdrawMoney)
+exports('transferMoney',            transferMoney)
+exports('GetMoney',                 GetMoney)
+exports('UpdateMoney',              UpdateMoney)
+exports('sendMoneyToClient',        sendMoneyToClient)
+exports('claimDailyReward',         claimDailyReward)
+exports('getDiscordID',             getDiscordID)
+exports('isAdmin',                  isAdmin)
+exports('GetPlayerCharacter',       GetPlayerCharacter)
+exports('GetPlayerCharacterName',   GetPlayerCharacterName)
+exports('GetPlayerMoney',           GetPlayerMoney)
+-- Chat/command registrations
 
--- New: respond to client’s “give me my money” request
-RegisterNetEvent('az-fw-money:requestMoney')
-AddEventHandler('az-fw-money:requestMoney', function()
-    local src = source
-    local dID = getDiscordID(src)
-    if dID ~= "" then
-        GetMoney(dID, function(data)
-            if data then
-                TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
-                debugPrint(("[onJoin] updateCashHUD → %s: cash=%s bank=%s")
-                    :format(src, data.cash, data.bank))
-            else
-                debugPrint(("[onJoin] no money row for %s"):format(dID))
-            end
-        end)
-    else
-        debugPrint(("[onJoin] no Discord ID for %s"):format(src))
-    end
-end)
-
-
---------------------------------------
--- Debug/Admin Commands
---------------------------------------
-
--- /addmoney
 RegisterCommand("addmoney", function(source, args)
     if source == 0 then return end
-
     isAdmin(source, function(ok)
         logAdminCommand("addmoney", source, args, ok)
-        if not ok then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","You do not have permission."}
-            })
-        end
-
+        if not ok then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Permission denied."} }) end
         local amt = tonumber(args[1])
-        if not amt then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","Usage: /addmoney [amount]"}
-            })
-        end
-
+        if not amt then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /addmoney [amount]"} }) end
         addMoney(source, amt)
     end)
 end, false)
 
--- /deductmoney
 RegisterCommand("deductmoney", function(source, args)
     if source == 0 then return end
-
     isAdmin(source, function(ok)
         logAdminCommand("deductmoney", source, args, ok)
-        if not ok then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","Permission denied."}
-            })
-        end
-
+        if not ok then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Permission denied."} }) end
         local amt = tonumber(args[1])
-        if not amt then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","Usage: /deductmoney [amount]"}
-            })
-        end
-
+        if not amt then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /deductmoney [amount]"} }) end
         deductMoney(source, amt)
     end)
 end, false)
 
--- /setmoney
-RegisterCommand("setmoney", function(source, args)
-    if source == 0 then return end
-
-    isAdmin(source, function(ok)
-        logAdminCommand("setmoney", source, args, ok)
-        if not ok then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","Permission denied."}
-            })
-        end
-
-        local amt = tonumber(args[1])
-        if not amt then
-            return TriggerClientEvent("chat:addMessage", source, {
-                args = {"^1SYSTEM","Usage: /setmoney [amount]"}
-            })
-        end
-
-        modifyMoney(source, amt)
-    end)
-end, false)
-
-RegisterCommand("transfer", function(source, args, rawCommand)
-    local targetId = tonumber(args[1])
-    local amount = tonumber(args[2])
-    if not targetId or not amount then
-        TriggerClientEvent('chat:addMessage', source, { args = {"^1Usage: /transfer [id] [amount]"}})
-        return
-    end
-
-    transferMoney(source, targetId, amount)
-    debugPrint(("Player ID %d transferred $%s to %d"):format(source, amount, targetId))
-
-    if amount >= 1000000 then
-        logLargeTransaction("Transfer", source, amount, "Bank transfer to ID " .. targetId)
-    end
-end, false)
-
--- Example banking commands: deposit, withdraw, transfer
-RegisterCommand("deposit", function(source, args, rawCommand)
+RegisterCommand("deposit", function(source, args)
     local amount = tonumber(args[1])
-    if not amount then
-        TriggerClientEvent('chat:addMessage', source, { args = {"^1Usage: /deposit [amount]"}})
-        return
-    end
-
+    if not amount then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /deposit [amount]"} }) end
     depositMoney(source, amount)
-    debugPrint(("Player ID %d deposited $%s"):format(source, amount))
-
-    if amount >= 1000000 then
-        logLargeTransaction("Deposit", source, amount, "Bank deposit")
-    end
 end, false)
 
-RegisterCommand("withdraw", function(source, args, rawCommand)
+RegisterCommand("withdraw", function(source, args)
     local amount = tonumber(args[1])
-    if not amount then
-        TriggerClientEvent('chat:addMessage', source, { args = {"^1Usage: /withdraw [amount]"}})
-        return
-    end
-
+    if not amount then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /withdraw [amount]"} }) end
     withdrawMoney(source, amount)
-    debugPrint(("Player ID %d withdrew $%s"):format(source, amount))
+end, false)
 
-    if amount >= 1000000 then
-        logLargeTransaction("Withdraw", source, amount, "Bank withdrawal")
+RegisterCommand("transfer", function(source, args)
+    local targetId = tonumber(args[1])
+    local amount   = tonumber(args[2])
+    if not targetId or not amount then
+        return TriggerClientEvent('chat:addMessage', source, { args = {"^1SYSTEM","Usage: /transfer [id] [amount]"} })
     end
+    transferMoney(source, targetId, amount)
 end, false)
 
 RegisterCommand("dailyreward", function(source, args)
@@ -666,3 +599,150 @@ RegisterCommand("dailyreward", function(source, args)
     local reward = tonumber(args[1]) or 500
     claimDailyReward(source, reward)
 end, false)
+
+
+-- List all your registered characters
+RegisterCommand("listchars", function(source, args)
+    if source == 0 then return end
+    local discordID = getDiscordID(source)
+    if discordID == "" then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "No Discord ID found. Are you Discord‑linked?" }
+        })
+    end
+
+    -- Query your characters
+    MySQL.Async.fetchAll([[
+      SELECT charid, name
+      FROM user_characters
+      WHERE discordid = ?
+    ]], { discordID }, function(rows)
+        if not rows or #rows == 0 then
+            return TriggerClientEvent("chat:addMessage", source, {
+                args = { "^1SYSTEM", "You have no characters. Use /registerchar to create one." }
+            })
+        end
+
+        -- Build a single-line list: "ID:name, ID:name..."
+        local list = {}
+        for _, row in ipairs(rows) do
+            table.insert(list, row.charid .. ":" .. row.name)
+        end
+
+        TriggerClientEvent("chat:addMessage", source, {
+            args = { "^2SYSTEM", "Your characters → " .. table.concat(list, ", ") }
+        })
+    end)
+end, false)
+
+
+-- Switch to one of your characters
+RegisterCommand("selectchar", function(source, args)
+    if source == 0 then return end
+    local chosen = args[1]
+    if not chosen then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "Usage: /selectchar <charid>" }
+        })
+    end
+
+    local discordID = getDiscordID(source)
+    if discordID == "" then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "No Discord ID found. Are you Discord‑linked?" }
+        })
+    end
+
+    -- Verify that this charid belongs to you
+    MySQL.Async.fetchAll([[
+      SELECT 1 FROM user_characters
+      WHERE discordid = ? AND charid = ?
+    ]], { discordID, chosen }, function(rows)
+        if not rows or #rows == 0 then
+            return TriggerClientEvent("chat:addMessage", source, {
+                args = { "^1SYSTEM", "Character ID not found. Use /listchars to see yours." }
+            })
+        end
+
+        -- Success: switch and reload HUD
+        activeCharacters[source] = chosen
+        TriggerClientEvent("chat:addMessage", source, {
+            args = { "^2SYSTEM", "Switched to character " .. chosen }
+        })
+        sendMoneyToClient(source)
+    end)
+end, false)
+
+
+lib.callback.register('az-fw-money:fetchCharacters', function(_, _)
+  local src       = source
+  local discordID = getDiscordID(src)
+  if discordID == '' then return {} end
+
+  local rows = MySQL.Sync.fetchAll([[
+    SELECT charid, name
+    FROM user_characters
+    WHERE discordid = ?
+  ]], { discordID })
+
+  return rows or {}
+end)
+RegisterNetEvent('az-fw-money:registerCharacter')
+AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
+  local src       = source
+  local discordID = getDiscordID(src)
+  if discordID == "" then return end
+
+  local charID   = tostring(os.time()) .. tostring(math.random(1000,9999))
+  local fullName = firstName .. " " .. lastName
+
+  MySQL.Async.execute([[
+    INSERT INTO user_characters (discordid, charid, name)
+    VALUES (@discordid, @charid, @name)
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID,
+    ['@name']      = fullName
+  }, function()
+    activeCharacters[src] = charID
+    -- seed econ_user_money
+    MySQL.Async.execute([[
+      INSERT INTO econ_user_money (discordid, charid, cash, bank, last_daily)
+      VALUES (@discordid, @charid, 0, 0, 0)
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function()
+      TriggerClientEvent('az-fw-money:characterRegistered', src, charID)
+    end)
+  end)
+end)
+
+
+
+
+RegisterNetEvent('az-fw-money:selectCharacter')
+AddEventHandler('az-fw-money:selectCharacter', function(charID)
+  local src = source
+  local discordID = getDiscordID(src)
+  if discordID == '' then return end
+
+  -- verify ownership
+  MySQL.Async.fetchAll([[
+    SELECT 1 FROM user_characters
+    WHERE discordid = @did AND charid = @cid
+  ]], {
+    ['@did'] = discordID,
+    ['@cid'] = charID
+  }, function(rows)
+    if rows and #rows > 0 then
+      activeCharacters[src] = charID
+      -- reload money HUD
+      GetMoney(discordID, charID, function(data)
+        TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
+      end)
+      -- notify client
+      TriggerClientEvent('az-fw-money:characterSelected', src, charID)
+    end
+  end)
+end)
