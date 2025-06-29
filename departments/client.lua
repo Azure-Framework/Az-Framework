@@ -10,32 +10,13 @@ if Config.Departments then
     RegisterNetEvent('az-fw-departments:openJobsDialog')
     AddEventHandler('az-fw-departments:openJobsDialog', function(depts)
         if not depts or #depts == 0 then
-            return lib.notify({
-                id          = 'az_no_jobs',
-                title       = 'No Jobs Available',
-                description = 'There are currently no departments to join.',
-                type        = 'error',
-                position    = 'top',
-                duration    = 3000,
-            })
+            return exports['ox_lib']:Notify({ type='error', text='No jobs available' })
         end
-
         local opts = {}
-        for _, d in ipairs(depts) do
-            table.insert(opts, { value = d, label = d })
-        end
-
-        local input = exports['ox_lib']:inputDialog(
-            'Select On‑Duty Job',
-            {{
-                type     = 'select',
-                label    = 'Job',
-                options  = opts,
-                required = true
-            }},
-            { allowCancel = true }
-        )
-
+        for _, d in ipairs(depts) do table.insert(opts, {value=d,label=d}) end
+        local input = exports['ox_lib']:inputDialog('Select On-Duty Job', {{
+            type='select', label='Job', options=opts, required=true
+        }}, {allowCancel=true})
         if not input then return end
         TriggerServerEvent('az-fw-departments:setJob', input[1])
     end)
@@ -43,12 +24,12 @@ if Config.Departments then
     -- Update job HUD
     RegisterNetEvent('az-fw-departments:refreshJob')
     AddEventHandler('az-fw-departments:refreshJob', function(data)
-        SendNUIMessage({ action = 'updateJob', job = data.job })
+        SendNUIMessage({action='updateJob', job=data.job})
     end)
 
-    RegisterNetEvent('updateCashHUD')
-    AddEventHandler('updateCashHUD', function(cash, bank)
-        SendNUIMessage({ action = 'updateCash', cash = cash, bank = bank })
+    RegisterNetEvent("updateCashHUD")
+    AddEventHandler("updateCashHUD", function(cash, bank)
+        SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })
     end)
 
     -- On resource start, request HUD

@@ -93,10 +93,16 @@ local tableSchemas = {
     ]],
     econ_user_money = [[
       CREATE TABLE IF NOT EXISTS `econ_user_money` (
-        `discordid` varchar(255) NOT NULL,
-        PRIMARY KEY (`discordid`)
+        `discordid`   varchar(255)      NOT NULL,
+        `charid`      varchar(100)      NOT NULL,
+        `cash`        int(11)           NOT NULL DEFAULT 0,
+        `bank`        int(11)           NOT NULL DEFAULT 0,
+        `last_daily`  bigint(20)        NOT NULL DEFAULT 0,
+        PRIMARY KEY (`discordid`,`charid`),
+        KEY `discordid` (`discordid`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
+
     user_levels = [[
       CREATE TABLE IF NOT EXISTS `user_levels` (
         `identifier` varchar(100) NOT NULL,
@@ -417,9 +423,9 @@ end
 --     end)
 -- end)
 
--- Fetch money row for a specific discordID + charID, creating if missing
+-- Fetch money row for a specific discordID + charID, WITHOUT auto-inserting
 function GetMoney(discordID, charID, callback)
-    MySQL.Async.fetchAll([[
+    MySQL.Async.fetchAll([[ 
       SELECT cash, bank, last_daily
       FROM econ_user_money
       WHERE discordid = @discordid AND charid = @charid
@@ -428,24 +434,16 @@ function GetMoney(discordID, charID, callback)
       ['@charid']    = charID
     }, function(result)
         if not result[1] then
-            local data = { cash = 0, bank = 0, last_daily = 0 }
-            MySQL.Async.execute([[
-              INSERT INTO econ_user_money (discordid, charid, cash, bank, last_daily)
-              VALUES (@discordid, @charid, 0, 0, 0)
-            ]], {
-              ['@discordid'] = discordID,
-              ['@charid']    = charID
-            })
-            callback(data)
-        else
-            callback(result[1])
+            -- row doesn’t exist; return defaults
+            return callback({ cash = 0, bank = 0, last_daily = 0 })
         end
+        callback(result[1])
     end)
 end
 
 -- Update money row for discordID + charID
 function UpdateMoney(discordID, charID, data, cb)
-    MySQL.Async.execute([[
+    MySQL.Async.execute([[ 
       UPDATE econ_user_money
       SET cash = @cash,
           bank = @bank,
@@ -465,52 +463,27 @@ local function sendMoneyToClient(playerId)
     local discordID = getDiscordID(playerId)
     local charID    = activeCharacters[playerId]
 
-    print(("[HUD] sendMoneyToClient called for playerId=%d"):format(playerId))
-    print(("[HUD]  → discordID = '%s', charID = '%s'"):format(discordID, tostring(charID)))
+    if discordID == "" then return end
 
-    if discordID == "" then
-        print("[HUD]  → no discordID, aborting")
-        return
-    end
-
-    -- 1) Fetch checking account balance (always)
-    print("[HUD]  → querying econ_accounts for checking...")
-    MySQL.Async.fetchScalar([[
+    -- Always fetch checking balance
+    MySQL.Async.fetchScalar([[ 
       SELECT balance
       FROM econ_accounts
       WHERE discordid = @discordid AND type = 'checking'
       LIMIT 1
-    ]], {
-      ['@discordid'] = discordID
-    }, function(checking)
-        print(("[HUD]  → econ_accounts returned checking = %s"):format(tostring(checking)))
+    ]], { ['@discordid'] = discordID }, function(checking)
         checking = checking or 0
 
-        -- 2) Fetch on‑hand cash only if they have a character selected
+        -- Only fetch cash if character selected
         if charID and charID ~= "" then
-            print(("[HUD]  → charID '%s' found, querying econ_user_money for cash..."):format(charID))
-            MySQL.Async.fetchScalar([[
-              SELECT cash
-              FROM econ_user_money
-              WHERE discordid = @discordid AND charid = @charid
-              LIMIT 1
-            ]], {
-              ['@discordid'] = discordID,
-              ['@charid']    = charID
-            }, function(cash)
-                print(("[HUD]  → econ_user_money returned cash = %s"):format(tostring(cash)))
-                cash = cash or 0
-                print(("[HUD]  → triggering updateCashHUD with cash=%d, bank=%d"):format(cash, checking))
-                TriggerClientEvent('updateCashHUD', playerId, cash, checking)
+            GetMoney(discordID, charID, function(data)
+                TriggerClientEvent('updateCashHUD', playerId, data.cash, checking)
             end)
         else
-            print("[HUD]  → no character selected, defaulting cash to 0")
-            print(("[HUD]  → triggering updateCashHUD with cash=0, bank=%d"):format(checking))
             TriggerClientEvent('updateCashHUD', playerId, 0, checking)
         end
     end)
 end
-
 
 -- Utility: wrap money operations to automatically use active character
 local function withMoney(src, fn)
@@ -662,21 +635,21 @@ function GetPlayerMoney(source, callback)
     end)
 end
 
--- on resource start: ensure tables and init HUD for all online players
+-- Ensure tables, then init HUDs (NO ensureSchemas error!)
 AddEventHandler('onResourceStart', function(resName)
-    if GetCurrentResourceName() ~= resName then return end
+  if GetCurrentResourceName() ~= resName then return end
 
-    debugPrint("Ensuring database schemas exist...")
-    ensureSchemas(function()
-        debugPrint("All schemas ensured; now initializing HUDs.")
-        SetTimeout(1000, function()
-            for _, pid in ipairs(GetPlayers()) do
-                -- leave activeCharacters nil until they register/select
-                sendMoneyToClient(pid)
-            end
-        end)
-    end)
+  debugPrint("Ensuring database schemas exist…")
+  ensureDatabaseStructure()
+
+  -- Give clients a moment, then push HUDs
+  SetTimeout(1000, function()
+    for _, pid in ipairs(GetPlayers()) do
+      sendMoneyToClient(pid)
+    end
+  end)
 end)
+
 
 -- Player connecting: simply defer until they've selected a character
 AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
