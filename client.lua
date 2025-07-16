@@ -6,7 +6,10 @@ AddEventHandler('playerSpawned', function()
         TriggerServerEvent('hud:requestDepartment')
     end
 end)
-
+RegisterNUICallback('resetDefaults', function(_, cb)
+  SetNuiFocus(false, false)
+  cb('ok')
+end)
 RegisterNetEvent("updateCashHUD")
 AddEventHandler("updateCashHUD", function(cash, bank)
     SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })

@@ -7,7 +7,7 @@ local debugPrint  -- forward declaration
 -- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 -- Your bot’s token (keep this secret!)
-Config.Discord.BotToken   = "YOUR_DISCORD_BOT_TOKEN"
+Config.Discord.BotToken   = "YOUR_DISCORD_BOT_TOKEN.GuvSWN"
 
 -- Webhook URL for server logging
 Config.Discord.WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
@@ -24,148 +24,148 @@ debugPrint = function(msg)
   end
 end
 
--- Table schemas, including new user_characters, per-character money, and schema migration
+
 local tableSchemas = {
     [[
-    CREATE TABLE IF NOT EXISTS `econ_accounts` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `discordid` varchar(255) NOT NULL,
-      `type` enum('checking','savings') NOT NULL DEFAULT 'checking',
-      `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
-      PRIMARY KEY (`id`),
-      KEY `discordid` (`discordid`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `econ_accounts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `type` enum('checking','savings') NOT NULL DEFAULT 'checking',
+  `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`id`),
+  KEY `discordid` (`discordid`)
+) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_admins` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `username` varchar(50) NOT NULL,
-      `password` varchar(255) NOT NULL,
-      PRIMARY KEY (`id`),
-      UNIQUE KEY `username` (`username`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+    [[CREATE TABLE IF NOT EXISTS `econ_admins` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_cards` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `discordid` varchar(255) NOT NULL,
-      `card_number` varchar(16) NOT NULL,
-      `exp_month` tinyint(4) NOT NULL,
-      `exp_year` smallint(6) NOT NULL,
-      `status` enum('active','blocked') NOT NULL DEFAULT 'active',
-      PRIMARY KEY (`id`),
-      KEY `discordid` (`discordid`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+    [[CREATE TABLE IF NOT EXISTS `econ_cards` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `card_number` varchar(16) NOT NULL,
+  `exp_month` tinyint(4) NOT NULL,
+  `exp_year` smallint(6) NOT NULL,
+  `status` enum('active','blocked') NOT NULL DEFAULT 'active',
+  PRIMARY KEY (`id`),
+  KEY `discordid` (`discordid`)
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_departments` (
-      `discordid` varchar(255) NOT NULL,
-      `department` varchar(100) NOT NULL,
-      `paycheck` int(11) NOT NULL DEFAULT 0,
-      PRIMARY KEY (`discordid`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    [[CREATE TABLE IF NOT EXISTS `econ_departments` (
+  `discordid` varchar(255) NOT NULL,
+  `department` varchar(100) NOT NULL,
+  `paycheck` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`discordid`,`department`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_payments` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `discordid` varchar(255) NOT NULL,
-      `payee` varchar(255) NOT NULL,
-      `amount` decimal(12,2) NOT NULL,
-      `schedule_date` date NOT NULL,
-      PRIMARY KEY (`id`),
-      KEY `discordid` (`discordid`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+    [[CREATE TABLE IF NOT EXISTS `econ_payments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `payee` varchar(255) NOT NULL,
+  `amount` decimal(12,2) NOT NULL,
+  `schedule_date` date NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `discordid` (`discordid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_profile` (
-      `discordid` varchar(255) NOT NULL,
-      `user_id` int(11) NOT NULL,
-      `name` varchar(100) NOT NULL,
-      PRIMARY KEY (`discordid`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    [[CREATE TABLE IF NOT EXISTS `econ_profile` (
+  `discordid` varchar(255) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  PRIMARY KEY (`discordid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `user_characters` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `discordid` varchar(255) NOT NULL,
-      `charid` varchar(100) NOT NULL,
-      `name` varchar(100) NOT NULL,
-      PRIMARY KEY (`id`),
-      UNIQUE KEY `discord_char` (`discordid`,`charid`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    [[CREATE TABLE IF NOT EXISTS `econ_user_money` (
+  `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
+  `firstname` varchar(100) NOT NULL DEFAULT '',
+  `lastname` varchar(100) NOT NULL DEFAULT '',
+  `profile_picture` varchar(255) DEFAULT NULL,
+  `cash` int(11) NOT NULL DEFAULT 0,
+  `bank` int(11) NOT NULL DEFAULT 0,
+  `last_daily` bigint(20) NOT NULL DEFAULT 0,
+  `card_number` varchar(16) DEFAULT NULL,
+  `exp_month` tinyint(4) DEFAULT NULL,
+  `exp_year` smallint(6) DEFAULT NULL,
+  `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
+  PRIMARY KEY (`discordid`,`charid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `econ_user_money` (
-      `discordid` varchar(255) NOT NULL,
-      `charid` varchar(100) NOT NULL,
-      `firstname` varchar(100) NOT NULL DEFAULT '',
-      `lastname` varchar(100) NOT NULL DEFAULT '',
-      `profile_picture` varchar(255) DEFAULT NULL,
-      `cash` int(11) NOT NULL DEFAULT 0,
-      `bank` int(11) NOT NULL DEFAULT 0,
-      `last_daily` bigint(20) NOT NULL DEFAULT 0,
-      `card_number` varchar(16) DEFAULT NULL,
-      `exp_month` tinyint(4) DEFAULT NULL,
-      `exp_year` smallint(6) DEFAULT NULL,
-      `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-      PRIMARY KEY (`discordid`,`charid`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    [[CREATE TABLE IF NOT EXISTS `jail_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `jailer_discord` varchar(50) NOT NULL,
+  `inmate_discord` varchar(50) NOT NULL,
+  `time_minutes` int(11) NOT NULL,
+  `date` datetime NOT NULL,
+  `charges` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    DELETE FROM `econ_user_money`
-    WHERE `charid` = '';
+    [[CREATE TABLE IF NOT EXISTS `user_characters` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `discord_char` (`discordid`,`charid`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    ALTER TABLE `econ_user_money`
-      MODIFY COLUMN `charid` VARCHAR(100) NOT NULL;
+    [[CREATE TABLE IF NOT EXISTS `user_inventory` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
+  `item` varchar(64) NOT NULL,
+  `count` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uix_inventory` (`discordid`,`charid`,`item`),
+  CONSTRAINT `fk_inv_characters` FOREIGN KEY (`discordid`, `charid`) REFERENCES `user_characters` (`discordid`, `charid`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    ALTER TABLE `econ_user_money`
-      ADD CONSTRAINT `chk_eum_charid_not_blank`
-        CHECK (charid <> '');
+    [[CREATE TABLE IF NOT EXISTS `user_levels` (
+  `identifier` varchar(100) NOT NULL,
+  `rp_total` bigint(20) NOT NULL DEFAULT 0,
+  `rp_stamina` bigint(20) NOT NULL DEFAULT 0,
+  `rp_strength` bigint(20) NOT NULL DEFAULT 0,
+  `rp_driving` bigint(20) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`identifier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    ALTER TABLE `econ_user_money`
-      ADD COLUMN IF NOT EXISTS `profile_picture` varchar(255) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS `card_number`    varchar(16)  DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS `exp_month`      tinyint(4)   DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS `exp_year`       smallint(6)  DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS `card_status`    enum('active','blocked') NOT NULL DEFAULT 'active';
+    [[CREATE TABLE IF NOT EXISTS `user_vehicles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `discordid` varchar(255) NOT NULL,
+  `plate` varchar(20) NOT NULL,
+  `model` varchar(50) NOT NULL,
+  `x` double NOT NULL,
+  `y` double NOT NULL,
+  `z` double NOT NULL,
+  `h` double NOT NULL,
+  `color1` int(11) NOT NULL,
+  `color2` int(11) NOT NULL,
+  `pearlescent` int(11) NOT NULL,
+  `wheelColor` int(11) NOT NULL,
+  `wheelType` int(11) NOT NULL,
+  `windowTint` int(11) NOT NULL,
+  `mods` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`mods`)),
+  `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extras`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `user_levels` (
-      `identifier` varchar(100) NOT NULL,
-      `rp_total` bigint(20) NOT NULL DEFAULT 0,
-      `rp_stamina` bigint(20) NOT NULL DEFAULT 0,
-      `rp_strength` bigint(20) NOT NULL DEFAULT 0,
-      `rp_driving` bigint(20) NOT NULL DEFAULT 0,
-      PRIMARY KEY (`identifier`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-    ]],
-    [[
-    CREATE TABLE IF NOT EXISTS `user_vehicles` (
-      `id` int(11) NOT NULL AUTO_INCREMENT,
-      `discordid` varchar(255) NOT NULL,
-      `plate` varchar(20) NOT NULL,
-      `model` varchar(50) NOT NULL,
-      `x` double NOT NULL,
-      `y` double NOT NULL,
-      `z` double NOT NULL,
-      `h` double NOT NULL,
-      `color1` int(11) NOT NULL,
-      `color2` int(11) NOT NULL,
-      `pearlescent` int(11) NOT NULL,
-      `wheelColor` int(11) NOT NULL,
-      `wheelType` int(11) NOT NULL,
-      `windowTint` int(11) NOT NULL,
-      `mods` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`mods`)),
-      `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extras`)),
-      PRIMARY KEY (`id`),
-      UNIQUE KEY `uq_vehicle` (`discordid`,`plate`),
-      KEY `idx_discord` (`discordid`)
-    ) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4;
-    ]]
 }
+
+
+AddEventHandler('onResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    for _, schema in ipairs(tableSchemas) do
+        MySQL.Sync.execute(schema, {})
+    end
+    print('econ schema ensured via tableSchemas')
+end)
+
+print('econ system loaded')
+
 
 local function ensureSchemas(cb)
     local pending = #tableSchemas
@@ -536,6 +536,7 @@ exports('isAdmin',                  isAdmin)
 exports('GetPlayerCharacter',       GetPlayerCharacter)
 exports('GetPlayerCharacterName',   GetPlayerCharacterName)
 exports('GetPlayerMoney',           GetPlayerMoney)
+exports('logAdminCommand',          logAdminCommand)
 -- Chat/command registrations
 
 RegisterCommand("addmoney", function(source, args)
@@ -742,4 +743,47 @@ AddEventHandler('az-fw-money:selectCharacter', function(charID)
       TriggerClientEvent('az-fw-money:characterSelected', src, charID)
     end
   end)
+end)
+
+
+exports('GetPlayerCharacter', function(source)
+  return activeCharacters[source]
+end)
+
+exports('GetPlayerCharacterName', function(source)
+  local discordID = getDiscordID(source)
+  local charID    = GetPlayerCharacter(source)
+  if discordID == "" or not charID then return nil end
+
+  local name = MySQL.Sync.fetchScalar([[
+    SELECT name FROM user_characters
+     WHERE discordid = @discordid AND charid = @charid
+     LIMIT 1
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID
+  })
+
+  return name
+end)
+
+exports('GetPlayerMoney', function(source)
+  local discordID = getDiscordID(source)
+  local charID    = GetPlayerCharacter(source)
+  if discordID == "" or not charID then return { cash = 0, bank = 0 } end
+
+  local rows = MySQL.Sync.fetchAll([[
+    SELECT cash, bank
+      FROM econ_user_money
+     WHERE discordid = @discordid AND charid = @charid
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID
+  })
+
+  if rows and rows[1] then
+    return { cash = rows[1].cash, bank = rows[1].bank }
+  else
+    return { cash = 0, bank = 0 }
+  end
 end)
