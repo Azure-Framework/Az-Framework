@@ -1,3 +1,4 @@
+-- [[ server.lua ]]  (az-fw-departments)
 if Config.Departments then
     print('[az-fw-departments-server] Departments enabled, initializing...')
 
@@ -10,7 +11,7 @@ if Config.Departments then
     end
 
     ----------------------------------------------------------------
-    -- Discord API credentials. Grabbed from Server.cfg
+    -- Discord API credentials (keep these secret!).
     ----------------------------------------------------------------
     local DISCORD_BOT_TOKEN = GetConvar("DISCORD_BOT_TOKEN", "")
     local DISCORD_GUILD_ID  = GetConvar("DISCORD_GUILD_ID", "")
@@ -118,11 +119,35 @@ if Config.Departments then
     ----------------------------------------------------------------
     RegisterServerEvent('az-fw-departments:setJob')
     AddEventHandler('az-fw-departments:setJob', function(dept)
-        local src, discordId = source, getDiscordUserId(source)
-        if not discordId then return end
-        MySQL.Async.execute('UPDATE user_characters SET active_department=@d WHERE discordid=@id', {['@d']=dept,['@id']=discordId})
-        TriggerClientEvent('az-fw-departments:refreshJob', src, {job=dept})
+        local src       = source
+        local discordId = getDiscordUserId(src)
+        local charId    = exports['Az-Framework']:GetPlayerCharacter(src)
+
+        if not discordId or not charId or charId == '' then
+            print(('[az-fw-debug] setJob: missing discordId or charId for player %s'):format(src))
+            return
+        end
+
+        -- DEBUG: show exactly what we're about to run
+        print(('[az-fw-debug] setJob: UPDATE user_characters SET active_department=%s WHERE discordid=%s AND charid=%s')
+            :format(dept, discordId, charId))
+
+        MySQL.Async.execute([[
+            UPDATE user_characters
+            SET active_department = @dept
+            WHERE discordid        = @discordId
+            AND charid           = @charId
+        ]], {
+            ['@dept']      = dept,
+            ['@discordId'] = discordId,
+            ['@charId']    = charId,
+        }, function(affected)
+            -- report exactly how many rows got updated
+            print(('[az-fw-debug] setJob: updated %d row(s) for %s / %s'):format(affected, discordId, charId))
+            TriggerClientEvent('az-fw-departments:refreshJob', src, { job = dept })
+        end)
     end)
+
 else
     print('[az-fw-departments-server] Departments disabled; skipping department features.')
 end
