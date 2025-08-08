@@ -17,7 +17,10 @@ end)
 
 RegisterNetEvent("az-fw-departments:refreshJob")
 AddEventHandler("az-fw-departments:refreshJob", function(data)
+    -- update the UI as before
     SendNUIMessage({ action = "updateJob", job = data.job })
+    -- now tell the server about this department
+    TriggerServerEvent("az-fw-departments:setActive", data.job)
 end)
 
 RegisterNetEvent("hud:setDepartment")
