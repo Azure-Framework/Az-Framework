@@ -1,18 +1,20 @@
-local debug       = Config.Debug or false
+Config = Config or {}
+Config.Debug = Config.Debug or false
+Config.Discord = Config.Discord or {}
+Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
+local debug       = Config.Debug
 local debugPrint  -- forward declaration
 
--- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
--- ┃        Discord Configuration       ┃
--- ┃    (Edit these values below)       ┃
--- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
--- Your bot’s token (keep this secret!)
-Config.Discord.BotToken   = "YOUR_DISCORD_BOT_TOKEN.GuvSWN"
-
--- Webhook URL for server logging
-Config.Discord.WebhookURL = "YOUR_DISCORD_WEBHOOK_URL"
-
-
+-- GetConvar(varName, defaultValue)
+Config.Discord.BotToken   = GetConvar("DISCORD_BOT_TOKEN", "")
+Config.Discord.WebhookURL = GetConvar("DISCORD_WEBHOOK_URL", "")
+-- sanity check
+if Config.Discord.BotToken == "" then
+  print("^1[Discord]^0 DISCORD_BOT_TOKEN not set! Check server.cfg")
+end
+if Config.Discord.WebhookURL == "" then
+  print("^1[Discord]^0 DISCORD_WEBHOOK_URL not set! Check server.cfg")
+end
 
 
 local activeCharacters = {}
@@ -24,7 +26,8 @@ debugPrint = function(msg)
   end
 end
 
-
+-- Table schemas, including new user_characters, per-character money, and schema migration
+-- Schema definitions from external dump
 local tableSchemas = {
     [[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
@@ -155,7 +158,7 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
     ]],
 }
 
-
+-- On resource start, apply schema if needed
 AddEventHandler('onResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     for _, schema in ipairs(tableSchemas) do
@@ -164,6 +167,7 @@ AddEventHandler('onResourceStart', function(resourceName)
     print('econ schema ensured via tableSchemas')
 end)
 
+-- (Existing handlers remain unchanged)
 print('econ system loaded')
 
 
@@ -195,8 +199,8 @@ local function getDiscordRoleList(playerSrc, cb)
         return cb("no_discord_id", nil)
     end
 
-    local guildId  = Config.Discord.GuildId
-    local botToken = Config.Discord.BotToken
+    local guildId  = GetConvar("DISCORD_GUILD_ID", "")
+    local botToken = GetConvar("DISCORD_BOT_TOKEN", "")
 
     if not guildId or not botToken then
         debugPrint("Missing GuildId or BotToken in config")
@@ -226,18 +230,38 @@ local function getDiscordRoleList(playerSrc, cb)
 end
 
 local function isAdmin(playerSrc, cb)
-    getDiscordRoleList(playerSrc, function(err, roles)
-        if err then
-            debugPrint(("isAdmin error for %d: %s"):format(playerSrc, err))
-            return cb(false)
-        end
-        for _, role in ipairs(roles) do
-            if role == Config.AdminRoleId then
-                return cb(true)
-            end
-        end
-        cb(false)
-    end)
+  -- 1) Log what AdminRoleId we’re expecting
+  debugPrint(("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(
+    playerSrc, tostring(Config.AdminRoleId)
+  ))
+
+  getDiscordRoleList(playerSrc, function(err, roles)
+    -- 2) Error fetching? log and deny
+    if err then
+      debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
+      return cb(false)
+    end
+
+    -- 3) Log the raw roles array we got back
+    debugPrint(("isAdmin: got roles for %d → %s"):format(
+      playerSrc, json.encode(roles)
+    ))
+
+    -- 4) Compare each role (string-casted) against the expected ID
+    for _, roleID in ipairs(roles) do
+      debugPrint(("isAdmin: comparing role %s to %s"):format(
+        tostring(roleID), tostring(Config.AdminRoleId)
+      ))
+      if tostring(roleID) == tostring(Config.AdminRoleId) then
+        debugPrint(("isAdmin: match! %s is admin role"):format(roleID))
+        return cb(true)
+      end
+    end
+
+    -- 5) Nothing matched
+    debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
+    cb(false)
+  end)
 end
 
 local function sendWebhookLog(message)
@@ -676,36 +700,44 @@ AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
   local charID   = tostring(os.time()) .. tostring(math.random(1000,9999))
   local fullName = firstName .. " " .. lastName
 
-  MySQL.Async.execute([[
-    INSERT INTO user_characters (discordid, charid, name)
-    VALUES (@discordid, @charid, @name)
-  ]], {
+MySQL.Async.fetchAll([[
+    SELECT
+      uc.active_department AS dept,
+      ed.paycheck              AS pay
+    FROM user_characters uc
+    LEFT JOIN econ_departments ed
+      ON ed.discordid  = uc.discordid
+     AND ed.department = uc.active_department
+    WHERE uc.discordid = @discordid
+      AND uc.charid     = @charid
+    LIMIT 1
+]], {
     ['@discordid'] = discordID,
-    ['@charid']    = charID,
-    ['@name']      = fullName
-  }, function(rowsChanged)
-    if rowsChanged ~= 1 then return debugPrint("Failed to insert character for "..discordID) end
+    ['@charid']    = charID
+}, function(rows)
+    if not rows or not rows[1] then
+        debugPrint(("  ↳ No user_characters row for %s / %s"):format(discordID, charID))
+        return
+    end
 
-    activeCharacters[src] = charID
+    local dept = rows[1].dept or "<nil>"
+    local pay  = rows[1].pay
 
-    MySQL.Async.execute([[
-      INSERT INTO econ_user_money
-        (discordid, charid, firstname, lastname, cash, bank, last_daily)
-      VALUES
-        (@discordid, @charid, @firstname, @lastname, 0, 0, 0)
-    ]], {
-      ['@discordid'] = discordID,
-      ['@charid']    = charID,
-      ['@firstname'] = firstName,
-      ['@lastname']  = lastName
-    }, function(seedResult)
-      if seedResult == 1 then
-        TriggerClientEvent('az-fw-money:characterRegistered', src, charID)
-      else
-        debugPrint(("Failed to seed money (with names) for %s / %s"):format(discordID, charID))
-      end
-    end)
-  end)
+    debugPrint(("  ↳ Active department = '%s'"):format(dept))
+    debugPrint(("  ↳ econ_departments.paycheck = '%s'"):format(tostring(pay)))
+
+    local amt = tonumber(pay) or 0
+    if amt > 0 then
+        debugPrint(("  ↳ Paying $%d to player %d"):format(amt, src))
+        addMoney(src, amt)
+        TriggerClientEvent('chat:addMessage', src, {
+            args = { "^2PAYCHECK", "You received your hourly paycheck of $" .. amt }
+        })
+    else
+        debugPrint(("  ↳ No paycheck for player %d (dept '%s' → amount %s)"):format(src, dept, tostring(pay)))
+    end
+end)
+
 end)
 
 RegisterNetEvent('az-fw-money:requestMoney')
@@ -786,4 +818,121 @@ exports('GetPlayerMoney', function(source)
   else
     return { cash = 0, bank = 0 }
   end
+end)
+
+
+RegisterNetEvent("az-fw-departments:setActive")
+AddEventHandler("az-fw-departments:setActive", function(dept)
+    local src       = source
+    local discordID = getDiscordID(src)
+    local charID    = activeCharacters[src]
+
+    if not discordID or discordID == "" or not charID then
+        debugPrint(("setActive: missing discordID/charID for player %d"):format(src))
+        return
+    end
+
+    debugPrint(("setActive: %s / %s → '%s'"):format(discordID, charID, dept))
+
+    MySQL.Async.execute([[
+        UPDATE user_characters
+           SET active_department = @dept
+         WHERE discordid         = @discordid
+           AND charid            = @charid
+    ]], {
+        ['@dept']      = dept,
+        ['@discordid'] = discordID,
+        ['@charid']    = charID,
+    }, function(affected)
+        debugPrint(("  ↳ user_characters rows updated: %d"):format(affected))
+    end)
+end)
+
+-- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+-- ┃    HOURLY PAYCHECK THREAD w/ ROLES   ┃
+-- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Citizen.CreateThread(function()
+    print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
+    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000
+
+    while true do
+        Citizen.Wait(interval)
+        print("Paycheck pulse triggered!")
+
+        for src, charID in pairs(activeCharacters) do
+            print(("Processing player %d → charID '%s'"):format(src, tostring(charID)))
+            local discordID = getDiscordID(src)
+            if discordID == "" then
+                print(" → no Discord ID, skipping")
+                goto continue
+            end
+
+            getDiscordRoleList(src, function(err, roles)
+                if err then
+                    print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
+                    return
+                end
+         
+            local dept = ""  -- fetch active_department from user_characters
+                MySQL.Async.fetchScalar([[
+                    SELECT active_department
+                      FROM user_characters
+                     WHERE discordid = @discordid
+                       AND charid    = @charid
+                     LIMIT 1
+                ]], {
+                    ['@discordid'] = discordID,
+                    ['@charid']    = charID
+                }, function(active_department)
+                    if not active_department or active_department == "" then
+                        print((" → char %s has no active_department set, skipping"):format(charID))
+                        return
+                    end
+                    dept = active_department
+
+                    -- combine userID + roles
+                    local lookupIds = { discordID }
+                    for _, rid in ipairs(roles) do table.insert(lookupIds, rid) end
+
+                    -- generate placeholders ?,?,…
+                    local placeholders = table.concat((function()
+                        local t = {}
+                        for i=1,#lookupIds do t[i] = "?" end
+                        return t
+                    end)(), ",")
+
+                    -- run the paycheck lookup
+                    local sql = ([[ 
+                        SELECT paycheck 
+                          FROM econ_departments 
+                         WHERE department = ? 
+                           AND discordid IN (%s) 
+                         LIMIT 1
+                    ]]):format(placeholders)
+
+                    -- build params: first the dept, then all IDs
+                    local params = { dept }
+                    for _, id in ipairs(lookupIds) do table.insert(params, id) end
+
+                    MySQL.Async.fetchScalar(sql, params, function(paycheck)
+                        print(("  ↳ lookup dept='%s' ids=[%s] → %s")
+                            :format(dept, table.concat(lookupIds,","), tostring(paycheck)))
+                        local amt = tonumber(paycheck) or 0
+                        if amt > 0 then
+                            print(("  ↳ Paying $%d to %d"):format(amt, src))
+                            addMoney(src, amt)
+                            TriggerClientEvent('chat:addMessage', src, {
+                                args = { "^2PAYCHECK", "Hourly pay: $" .. amt }
+                            })
+                        else
+                            print(("  ↳ No matching paycheck row, or amount=0"))
+                        end
+                    end)
+                end)
+            end)
+
+            ::continue::
+        end
+    end
 end)
