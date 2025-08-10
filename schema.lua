@@ -1,481 +1,992 @@
--- server.lua
--- Az-Schema: schema enforcement for MySQL based on CREATE TABLE statements
--- Merged version: checks columns by definition and will attempt to MODIFY mismatched columns
--- Added: final summary print that tells you whether schemas were updated, up-to-date, or errored.
+Config = Config or {}
+Config.Debug = Config.Debug or false
+Config.Discord = Config.Discord or {}
+Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
+local debug       = Config.Debug
+local debugPrint  -- forward declaration
 
-local tableSchemas = {
-    [[
-CREATE TABLE IF NOT EXISTS `econ_accounts` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `type` enum('checking','savings') NOT NULL DEFAULT 'checking',
-  `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_admins` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_cards` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `card_number` varchar(16) NOT NULL,
-  `exp_month` tinyint(4) NOT NULL,
-  `exp_year` smallint(6) NOT NULL,
-  `status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_departments` (
-  `discordid` varchar(255) NOT NULL,
-  `department` varchar(100) NOT NULL,
-  `paycheck` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`discordid`,`department`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_payments` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `payee` varchar(255) NOT NULL,
-  `amount` decimal(12,2) NOT NULL,
-  `schedule_date` date NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_profile` (
-  `discordid` varchar(255) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  PRIMARY KEY (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_user_money` (
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `firstname` varchar(100) NOT NULL DEFAULT '',
-  `lastname` varchar(100) NOT NULL DEFAULT '',
-  `profile_picture` varchar(255) DEFAULT NULL,
-  `cash` int(11) NOT NULL DEFAULT 0,
-  `bank` int(11) NOT NULL DEFAULT 0,
-  `last_daily` bigint(20) NOT NULL DEFAULT 0,
-  `card_number` varchar(16) DEFAULT NULL,
-  `exp_month` tinyint(4) DEFAULT NULL,
-  `exp_year` smallint(6) DEFAULT NULL,
-  `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`discordid`,`charid`),
-  CONSTRAINT `chk_eum_charid_not_blank` CHECK (`charid` <> '')
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `jail_records` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `jailer_discord` varchar(50) NOT NULL,
-  `inmate_discord` varchar(50) NOT NULL,
-  `time_minutes` int(11) NOT NULL,
-  `date` datetime NOT NULL,
-  `charges` text NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_characters` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `active_department` varchar(100) NOT NULL DEFAULT '',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `discord_char` (`discordid`,`charid`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_inventory` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `item` varchar(64) NOT NULL,
-  `count` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uix_inventory` (`discordid`,`charid`,`item`),
-  CONSTRAINT `fk_inv_characters` FOREIGN KEY (`discordid`, `charid`) REFERENCES `user_characters` (`discordid`, `charid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_levels` (
-  `identifier` varchar(100) NOT NULL,
-  `rp_total` bigint(20) NOT NULL DEFAULT 0,
-  `rp_stamina` bigint(20) NOT NULL DEFAULT 0,
-  `rp_strength` bigint(20) NOT NULL DEFAULT 0,
-  `rp_driving` bigint(20) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`identifier`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_vehicles` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `plate` varchar(20) NOT NULL,
-  `model` varchar(50) NOT NULL,
-  `x` double NOT NULL,
-  `y` double NOT NULL,
-  `z` double NOT NULL,
-  `h` double NOT NULL,
-  `color1` int(11) NOT NULL,
-  `color2` int(11) NOT NULL,
-  `pearlescent` int(11) NOT NULL,
-  `wheelColor` int(11) NOT NULL,
-  `wheelType` int(11) NOT NULL,
-  `windowTint` int(11) NOT NULL,
-  `mods` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`mods`)),
-  `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extras`)),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_vehicle` (`discordid`,`plate`),
-  KEY `idx_discord` (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
+
+Config.Discord.BotToken   = GetConvar("DISCORD_BOT_TOKEN", "")
+Config.Discord.WebhookURL = GetConvar("DISCORD_WEBHOOK_URL", "")
+-- sanity check
+if Config.Discord.BotToken == "" then
+  print("^1[Discord]^0 DISCORD_BOT_TOKEN not set! Check server.cfg")
+end
+if Config.Discord.WebhookURL == "" then
+  print("^1[Discord]^0 DISCORD_WEBHOOK_URL not set! Check server.cfg")
+end
+
+
+local activeCharacters = {}
+
+
+debugPrint = function(msg)
+  if debug then
+    print(("[az-fw-money] %s"):format(msg))
+  end
+end
+
+local function getDiscordID(source)
+    for _, id in ipairs(GetPlayerIdentifiers(source)) do
+        if id:sub(1,8) == "discord:" then
+            return id:sub(9)
+        end
+    end
+    return ""
+end
+
+local function getDiscordRoleList(playerSrc, cb)
+    assert(type(cb) == "function", "getDiscordRoleList requires a callback")
+
+    local discordID = getDiscordID(playerSrc)
+    if discordID == "" then
+        debugPrint(("Player %d has no Discord ID"):format(playerSrc))
+        return cb("no_discord_id", nil)
+    end
+
+    local guildId  = GetConvar("DISCORD_GUILD_ID", "")
+    local botToken = GetConvar("DISCORD_BOT_TOKEN", "")
+
+    if not guildId or not botToken then
+        debugPrint("Missing GuildId or BotToken in config")
+        return cb("config_error", nil)
+    end
+
+    local url = ("https://discord.com/api/v10/guilds/%s/members/%s"):format(guildId, discordID)
+    debugPrint("Fetching roles via: " .. url)
+
+    PerformHttpRequest(url, function(statusCode, body)
+        debugPrint(("Discord API HTTP %d"):format(statusCode))
+        if statusCode ~= 200 then
+            return cb("http_"..statusCode, nil)
+        end
+
+        local ok, data = pcall(json.decode, body)
+        if not ok or type(data.roles) ~= "table" then
+            debugPrint("Invalid roles payload")
+            return cb("no_roles", nil)
+        end
+
+        cb(nil, data.roles)
+    end, 'GET', '', {
+        ["Authorization"] = "Bot " .. botToken,
+        ["Content-Type"]  = "application/json"
+    })
+end
+
+local function isAdmin(playerSrc, cb)
+  -- 1) Log what AdminRoleId we’re expecting
+  debugPrint(("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(
+    playerSrc, tostring(Config.AdminRoleId)
+  ))
+
+  getDiscordRoleList(playerSrc, function(err, roles)
+    -- 2) Error fetching? log and deny
+    if err then
+      debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
+      return cb(false)
+    end
+
+    -- 3) Log the raw roles array we got back
+    debugPrint(("isAdmin: got roles for %d → %s"):format(
+      playerSrc, json.encode(roles)
+    ))
+
+    -- 4) Compare each role (string-casted) against the expected ID
+    for _, roleID in ipairs(roles) do
+      debugPrint(("isAdmin: comparing role %s to %s"):format(
+        tostring(roleID), tostring(Config.AdminRoleId)
+      ))
+      if tostring(roleID) == tostring(Config.AdminRoleId) then
+        debugPrint(("isAdmin: match! %s is admin role"):format(roleID))
+        return cb(true)
+      end
+    end
+
+    -- 5) Nothing matched
+    debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
+    cb(false)
+  end)
+end
+
+local function sendWebhookLog(message)
+    if not Config.Discord.WebhookURL or Config.Discord.WebhookURL == "" then
+        debugPrint("Webhook URL not configured; skipping Discord log.")
+        return
+    end
+
+    local payload = {
+        username = "Server Logger",
+        content  = message,
+    }
+
+    PerformHttpRequest(Config.Discord.WebhookURL, function(statusCode)
+        if statusCode ~= 204 and statusCode ~= 200 then
+            debugPrint("Discord webhook error: " .. tostring(statusCode))
+        end
+    end, 'POST', json.encode(payload), {
+        ['Content-Type'] = 'application/json'
+    })
+end
+
+local function logAdminCommand(commandName, source, args, success)
+    local playerName = GetPlayerName(source) or "Unknown"
+    local statusIcon = success and "✅ Allowed" or "❌ Denied"
+    local argsStr    = args and table.concat(args, " ") or ""
+    local msg = string.format(
+        "**Admin Command:** `%s`\n**Player:** %s (ID %d)\n**Status:** %s\n**Args:** %s",
+        commandName, playerName, source, statusIcon, argsStr
+    )
+    sendWebhookLog(msg)
+end
+
+local function logLargeTransaction(txType, source, amount, reason)
+    local playerName = GetPlayerName(source) or "Unknown"
+    local msg = string.format(
+        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %d)\n**Amount:** $%s\n**Reason:** %s",
+        txType, playerName, source, amount, reason
+    )
+    sendWebhookLog(msg)
+end
+
+function GetMoney(discordID, charID, callback)
+  MySQL.Async.fetchAll([[
+    SELECT cash, bank, last_daily
+    FROM econ_user_money
+    WHERE discordid = @discordid AND charid = @charid
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID
+  }, function(result)
+    if result[1] then
+      return callback(result[1])
+    end
+    MySQL.Async.fetchScalar([[
+      SELECT name FROM user_characters
+      WHERE discordid = @discordid AND charid = @charid
+      LIMIT 1
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(fullName)
+      local first, last = fullName:match("^(%S+)%s+(%S+)$")
+      first = first or ""
+      last  = last  or ""
+
+      local data = { cash = 0, bank = 0, last_daily = 0 }
+      MySQL.Async.execute([[
+        INSERT INTO econ_user_money
+          (discordid, charid, firstname, lastname, cash, bank, last_daily)
+        VALUES
+          (@discordid, @charid, @firstname, @lastname, 0, 0, 0)
+      ]], {
+        ['@discordid'] = discordID,
+        ['@charid']    = charID,
+        ['@firstname'] = first,
+        ['@lastname']  = last
+      }, function()
+        callback(data)
+      end)
+    end)
+  end)
+end
+
+function UpdateMoney(discordID, charID, data, cb)
+    MySQL.Async.execute([[
+      UPDATE econ_user_money
+      SET cash = @cash,
+          bank = @bank,
+          last_daily = @last_daily
+      WHERE discordid = @discordid AND charid = @charid
+    ]], {
+      ['@cash']       = data.cash,
+      ['@bank']       = data.bank,
+      ['@last_daily'] = data.last_daily,
+      ['@discordid']  = discordID,
+      ['@charid']     = charID
+    }, cb)
+end
+
+local function sendMoneyToClient(playerId)
+    local discordID = getDiscordID(playerId)
+    local charID    = activeCharacters[playerId]
+    if discordID == "" or not charID then return end
+
+    MySQL.Async.fetchAll([[
+      SELECT cash, bank
+      FROM econ_user_money
+      WHERE discordid = @discordid AND charid = @charid
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(rows)
+        if rows[1] then
+            TriggerClientEvent('updateCashHUD', playerId, rows[1].cash, rows[1].bank)
+        end
+    end)
+end
+
+local function withMoney(src, fn)
+    local discordID = getDiscordID(src)
+    local charID    = activeCharacters[src]
+    if discordID == "" or not charID then
+        return TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM","No character selected."} })
+    end
+    GetMoney(discordID, charID, function(data)
+        fn(discordID, charID, data)
+    end)
+end
+
+function addMoney(source, amount)
+    withMoney(source, function(dID, cID, data)
+        data.cash = data.cash + amount
+        UpdateMoney(dID, cID, data, function()
+            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            if amount >= 1e6 then logLargeTransaction("addMoney", source, amount, "addMoney() export") end
+        end)
+    end)
+end
+
+function deductMoney(source, amount)
+    withMoney(source, function(dID, cID, data)
+        data.cash = math.max(0, data.cash - amount)
+        UpdateMoney(dID, cID, data, function()
+            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            if amount >= 1e6 then logLargeTransaction("deductMoney", source, amount, "deductMoney() export") end
+        end)
+    end)
+end
+
+function depositMoney(source, amount)
+    withMoney(source, function(dID, cID, data)
+        if data.cash < amount then
+            return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough cash to deposit."} })
+        end
+        data.cash = data.cash - amount
+        data.bank = data.bank + amount
+        UpdateMoney(dID, cID, data, function()
+            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            if amount >= 1e6 then logLargeTransaction("depositMoney", source, amount, "depositMoney() export") end
+        end)
+    end)
+end
+
+function withdrawMoney(source, amount)
+    withMoney(source, function(dID, cID, data)
+        if data.bank < amount then
+            return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough bank funds to withdraw."} })
+        end
+        data.bank = data.bank - amount
+        data.cash = data.cash + amount
+        UpdateMoney(dID, cID, data, function()
+            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            if amount >= 1e6 then logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export") end
+        end)
+    end)
+end
+
+function transferMoney(source, target, amount)
+    local senderID = getDiscordID(source)
+    local senderChar = activeCharacters[source]
+    local targetID = getDiscordID(target)
+    local targetChar = activeCharacters[target]
+    if senderID == "" or not senderChar or targetID == "" or not targetChar then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Discord ID or character missing for sender/target."} })
+    end
+
+    GetMoney(senderID, senderChar, function(sData)
+        if sData.cash < amount then
+            return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough cash to transfer."} })
+        end
+        GetMoney(targetID, targetChar, function(tData)
+            sData.cash = sData.cash - amount
+            tData.cash = tData.cash + amount
+
+            UpdateMoney(senderID, senderChar, sData, function()
+                TriggerClientEvent("updateCashHUD", source, sData.cash, sData.bank)
+            end)
+            UpdateMoney(targetID, targetChar, tData, function()
+                TriggerClientEvent("updateCashHUD", target, tData.cash, tData.bank)
+                TriggerClientEvent("chat:addMessage", target, { args = {"^2SYSTEM","You received $"..amount} })
+                if amount >= 1e6 then logLargeTransaction("transferMoney", source, amount, "to ID "..target) end
+            end)
+            TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","You sent $"..amount} })
+        end)
+    end)
+end
+
+function claimDailyReward(source, rewardAmount)
+    withMoney(source, function(dID, cID, data)
+        local now = os.time()
+        if now - tonumber(data.last_daily) < 86400 then
+            return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Daily reward already claimed."} })
+        end
+        data.cash = data.cash + rewardAmount
+        data.last_daily = now
+        UpdateMoney(dID, cID, data, function()
+            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","Daily reward: $"..rewardAmount} })
+            if rewardAmount >= 1e6 then logLargeTransaction("claimDailyReward", source, rewardAmount, "Daily reward") end
+        end)
+    end)
+end
+
+function GetPlayerCharacter(source)
+    return activeCharacters[source]
+end
+
+function GetPlayerCharacterName(source, callback)
+    local discordID = getDiscordID(source)
+    local charID    = GetPlayerCharacter(source)
+    if not discordID or discordID == "" or not charID then
+        return callback("no_character", nil)
+    end
+
+    MySQL.Async.fetchScalar([[
+      SELECT name
+      FROM user_characters
+      WHERE discordid = @discordid AND charid = @charid
+      LIMIT 1
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    }, function(name)
+        if not name then
+            return callback("not_found", nil)
+        end
+        callback(nil, name)
+    end)
+end
+
+function GetPlayerMoney(source, callback)
+    local discordID = getDiscordID(source)
+    local charID    = GetPlayerCharacter(source)
+    if not discordID or discordID == "" or not charID then
+        return callback("no_character", nil)
+    end
+
+    GetMoney(discordID, charID, function(data)
+        -- data has .cash and .bank
+        callback(nil, { cash = data.cash, bank = data.bank })
+    end)
+end
+
+AddEventHandler('onResourceStart', function(resName)
+    if GetCurrentResourceName() ~= resName then return end
+
+    debugPrint("Ensuring database schemas exist...")
+    ensureSchemas(function()
+        debugPrint("All schemas ensured; now initializing HUDs.")
+        SetTimeout(1000, function()
+            for _, pid in ipairs(GetPlayers()) do
+                sendMoneyToClient(pid)
+            end
+        end)
+    end)
+end)
+
+AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
+    deferrals.defer()
+    deferrals.done()
+end)
+
+-- Exports
+exports('addMoney',                 addMoney)
+exports('deductMoney',              deductMoney)
+exports('depositMoney',             depositMoney)
+exports('withdrawMoney',            withdrawMoney)
+exports('transferMoney',            transferMoney)
+exports('GetMoney',                 GetMoney)
+exports('UpdateMoney',              UpdateMoney)
+exports('sendMoneyToClient',        sendMoneyToClient)
+exports('claimDailyReward',         claimDailyReward)
+exports('getDiscordID',             getDiscordID)
+exports('isAdmin',                  isAdmin)
+exports('GetPlayerCharacter',       GetPlayerCharacter)
+exports('GetPlayerCharacterName',   GetPlayerCharacterName)
+exports('GetPlayerMoney',           GetPlayerMoney)
+exports('logAdminCommand',          logAdminCommand)
+-- Chat/command registrations
+
+RegisterCommand("addmoney", function(source, args)
+    if source == 0 then return end
+    isAdmin(source, function(ok)
+        logAdminCommand("addmoney", source, args, ok)
+        if not ok then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Permission denied."} }) end
+        local amt = tonumber(args[1])
+        if not amt then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /addmoney [amount]"} }) end
+        addMoney(source, amt)
+    end)
+end, false)
+
+RegisterCommand("deductmoney", function(source, args)
+    if source == 0 then return end
+    isAdmin(source, function(ok)
+        logAdminCommand("deductmoney", source, args, ok)
+        if not ok then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Permission denied."} }) end
+        local amt = tonumber(args[1])
+        if not amt then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /deductmoney [amount]"} }) end
+        deductMoney(source, amt)
+    end)
+end, false)
+
+RegisterCommand("deposit", function(source, args)
+    local amount = tonumber(args[1])
+    if not amount then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /deposit [amount]"} }) end
+    depositMoney(source, amount)
+end, false)
+
+RegisterCommand("withdraw", function(source, args)
+    local amount = tonumber(args[1])
+    if not amount then return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Usage: /withdraw [amount]"} }) end
+    withdrawMoney(source, amount)
+end, false)
+
+RegisterCommand("transfer", function(source, args)
+    local targetId = tonumber(args[1])
+    local amount   = tonumber(args[2])
+    if not targetId or not amount then
+        return TriggerClientEvent('chat:addMessage', source, { args = {"^1SYSTEM","Usage: /transfer [id] [amount]"} })
+    end
+    transferMoney(source, targetId, amount)
+end, false)
+
+RegisterCommand("dailyreward", function(source, args)
+    if source == 0 then return end
+    local reward = tonumber(args[1]) or 500
+    claimDailyReward(source, reward)
+end, false)
+
+
+RegisterCommand("listchars", function(source, args)
+    if source == 0 then return end
+    local discordID = getDiscordID(source)
+    if discordID == "" then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "No Discord ID found. Are you Discord‑linked?" }
+        })
+    end
+    MySQL.Async.fetchAll([[
+      SELECT charid, name
+      FROM user_characters
+      WHERE discordid = ?
+    ]], { discordID }, function(rows)
+        if not rows or #rows == 0 then
+            return TriggerClientEvent("chat:addMessage", source, {
+                args = { "^1SYSTEM", "You have no characters. Use /registerchar to create one." }
+            })
+        end
+        local list = {}
+        for _, row in ipairs(rows) do
+            table.insert(list, row.charid .. ":" .. row.name)
+        end
+
+        TriggerClientEvent("chat:addMessage", source, {
+            args = { "^2SYSTEM", "Your characters → " .. table.concat(list, ", ") }
+        })
+    end)
+end, false)
+
+RegisterCommand("selectchar", function(source, args)
+    if source == 0 then return end
+    local chosen = args[1]
+    if not chosen then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "Usage: /selectchar <charid>" }
+        })
+    end
+
+    local discordID = getDiscordID(source)
+    if discordID == "" then
+        return TriggerClientEvent("chat:addMessage", source, {
+            args = { "^1SYSTEM", "No Discord ID found. Are you Discord‑linked?" }
+        })
+    end
+    MySQL.Async.fetchAll([[
+      SELECT 1 FROM user_characters
+      WHERE discordid = ? AND charid = ?
+    ]], { discordID, chosen }, function(rows)
+        if not rows or #rows == 0 then
+            return TriggerClientEvent("chat:addMessage", source, {
+                args = { "^1SYSTEM", "Character ID not found. Use /listchars to see yours." }
+            })
+        end
+
+        -- Success: switch and reload HUD
+        activeCharacters[source] = chosen
+        TriggerClientEvent("chat:addMessage", source, {
+            args = { "^2SYSTEM", "Switched to character " .. chosen }
+        })
+        sendMoneyToClient(source)
+    end)
+end, false)
+
+
+lib.callback.register('az-fw-money:fetchCharacters', function(_, _)
+  local src       = source
+  local discordID = getDiscordID(src)
+  if discordID == '' then return {} end
+
+  local rows = MySQL.Sync.fetchAll([[
+    SELECT charid, name
+    FROM user_characters
+    WHERE discordid = ?
+  ]], { discordID })
+
+  return rows or {}
+end)
+
+-- Replace your existing registerCharacter handler with this
+
+RegisterNetEvent('az-fw-money:registerCharacter')
+AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
+  local src       = source
+  local discordID = getDiscordID(src)
+  if discordID == "" then
+    TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM", "Could not register character: no Discord ID found."} })
+    return
+  end
+
+  -- create a reasonably unique char id
+  local charID   = tostring(os.time()) .. tostring(math.random(1000,9999))
+  local fullName = tostring(firstName) .. " " .. tostring(lastName)
+
+  debugPrint(("registerCharacter: creating char %s for discord %s (player %d) name='%s'"):format(charID, discordID, src, fullName))
+
+  -- 1) Insert into user_characters
+  MySQL.Async.execute([[
+    INSERT INTO user_characters (discordid, charid, name, active_department)
+    VALUES (@discordid, @charid, @name, '')
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID,
+    ['@name']      = fullName
+  }, function(affected)
+    if not affected or affected < 1 then
+      debugPrint(("registerCharacter: failed to INSERT user_characters for %s / %s"):format(discordID, charID))
+      TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM", "Failed to register character. Check server logs."} })
+      return
+    end
+
+    debugPrint(("registerCharacter: inserted user_characters (%s / %s)"):format(discordID, charID))
+
+    -- 2) Create econ_user_money row for the new character (if it doesn't exist)
+    MySQL.Async.execute([[
+      INSERT INTO econ_user_money
+        (discordid, charid, firstname, lastname, cash, bank, last_daily, card_status)
+      VALUES
+        (@discordid, @charid, @firstname, @lastname, 0, 0, 0, 'active')
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID,
+      ['@firstname'] = firstName or "",
+      ['@lastname']  = lastName or ""
+    }, function(aff2)
+      debugPrint(("registerCharacter: inserted econ_user_money for %s / %s"):format(discordID, charID))
+
+      -- 3) Set active character server-side and notify client
+      activeCharacters[src] = charID
+
+      -- Notify client UI that registration succeeded (client already listens for this)
+      TriggerClientEvent('az-fw-money:characterRegistered', src, charID)
+
+      -- Send initial money HUD update
+      sendMoneyToClient(src)
+
+      -- Optionally announce in chat
+      TriggerClientEvent('chat:addMessage', src, {
+        args = { "^2SYSTEM", ("Character '%s' registered (ID %s)."):format(fullName, charID) }
+      })
+    end)
+  end)
+end)
+
+RegisterNetEvent('az-fw-money:requestMoney')
+AddEventHandler('az-fw-money:requestMoney', function()
+  local src       = source
+  local discordID = getDiscordID(src)
+  local charID    = activeCharacters[src]
+
+  if discordID == "" or not charID or charID == "" then
+    return
+  end
+
+  GetMoney(discordID, charID, function(data)
+    TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
+  end)
+end)
+
+RegisterNetEvent('az-fw-money:selectCharacter')
+AddEventHandler('az-fw-money:selectCharacter', function(charID)
+  local src = source
+  local discordID = getDiscordID(src)
+  if discordID == '' then return end
+  MySQL.Async.fetchAll([[
+    SELECT 1 FROM user_characters
+    WHERE discordid = @did AND charid = @cid
+  ]], {
+    ['@did'] = discordID,
+    ['@cid'] = charID
+  }, function(rows)
+    if rows and #rows > 0 then
+      activeCharacters[src] = charID
+      GetMoney(discordID, charID, function(data)
+        TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
+      end)
+      TriggerClientEvent('az-fw-money:characterSelected', src, charID)
+    end
+  end)
+end)
+
+
+-- returns string or nil
+exports('getPlayerJob', function(source)
+    if not source or source == 0 then return nil end
+
+    -- attempt to get discordID/charID the same way this resource already does
+    local discordID = getDiscordID(source)
+    local charID    = activeCharacters[source]
+
+    if not discordID or discordID == "" or not charID then
+        return nil
+    end
+
+    local job = MySQL.Sync.fetchScalar([[
+      SELECT active_department
+      FROM user_characters
+      WHERE discordid = @discordid AND charid = @charid
+      LIMIT 1
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    })
+
+    return job or nil
+end)
+
+
+exports('GetPlayerCharacter', function(source)
+  return activeCharacters[source]
+end)
+
+exports('GetPlayerCharacterName', function(source)
+  local discordID = getDiscordID(source)
+  local charID    = GetPlayerCharacter(source)
+  if discordID == "" or not charID then return nil end
+
+  local name = MySQL.Sync.fetchScalar([[
+    SELECT name FROM user_characters
+     WHERE discordid = @discordid AND charid = @charid
+     LIMIT 1
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID
+  })
+
+  return name
+end)
+
+exports('GetPlayerMoney', function(source)
+  local discordID = getDiscordID(source)
+  local charID    = GetPlayerCharacter(source)
+  if discordID == "" or not charID then return { cash = 0, bank = 0 } end
+
+  local rows = MySQL.Sync.fetchAll([[
+    SELECT cash, bank
+      FROM econ_user_money
+     WHERE discordid = @discordid AND charid = @charid
+  ]], {
+    ['@discordid'] = discordID,
+    ['@charid']    = charID
+  })
+
+  if rows and rows[1] then
+    return { cash = rows[1].cash, bank = rows[1].bank }
+  else
+    return { cash = 0, bank = 0 }
+  end
+end)
+
+
+RegisterNetEvent("az-fw-departments:setActive")
+AddEventHandler("az-fw-departments:setActive", function(dept)
+    local src       = source
+    local discordID = getDiscordID(src)
+    local charID    = activeCharacters[src]
+
+    if not discordID or discordID == "" or not charID then
+        debugPrint(("setActive: missing discordID/charID for player %d"):format(src))
+        return
+    end
+
+    debugPrint(("setActive: %s / %s → '%s'"):format(discordID, charID, dept))
+
+    MySQL.Async.execute([[
+        UPDATE user_characters
+           SET active_department = @dept
+         WHERE discordid         = @discordid
+           AND charid            = @charid
+    ]], {
+        ['@dept']      = dept,
+        ['@discordid'] = discordID,
+        ['@charid']    = charID,
+    }, function(affected)
+        debugPrint(("  ↳ user_characters rows updated: %d"):format(affected))
+    end)
+end)
+
+-- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+-- ┃    HOURLY PAYCHECK THREAD w/ ROLES   ┃
+-- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Citizen.CreateThread(function()
+    print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
+    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000
+
+    while true do
+        Citizen.Wait(interval)
+        print("Paycheck pulse triggered!")
+
+        for src, charID in pairs(activeCharacters) do
+            print(("Processing player %d → charID '%s'"):format(src, tostring(charID)))
+            local discordID = getDiscordID(src)
+            if discordID == "" then
+                print(" → no Discord ID, skipping")
+                goto continue
+            end
+
+            -- First, grab their Discord role IDs:
+            getDiscordRoleList(src, function(err, roles)
+                if err then
+                    print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
+                    return
+                end
+
+                -- Build a parameterized IN-clause for roles + user ID
+                -- We’ll look for any econ_departments row where
+                --   department = @dept AND discordid IN (@userID, @role1, @role2, …)
+                local dept = ""  -- fetch active_department from user_characters
+                MySQL.Async.fetchScalar([[
+                    SELECT active_department
+                      FROM user_characters
+                     WHERE discordid = @discordid
+                       AND charid    = @charid
+                     LIMIT 1
+                ]], {
+                    ['@discordid'] = discordID,
+                    ['@charid']    = charID
+                }, function(active_department)
+                    if not active_department or active_department == "" then
+                        print((" → char %s has no active_department set, skipping"):format(charID))
+                        return
+                    end
+                    dept = active_department
+
+                    -- combine userID + roles
+                    local lookupIds = { discordID }
+                    for _, rid in ipairs(roles) do table.insert(lookupIds, rid) end
+
+                    -- generate placeholders ?,?,…
+                    local placeholders = table.concat((function()
+                        local t = {}
+                        for i=1,#lookupIds do t[i] = "?" end
+                        return t
+                    end)(), ",")
+
+                    -- run the paycheck lookup
+                    local sql = ([[ 
+                        SELECT paycheck 
+                          FROM econ_departments 
+                         WHERE department = ? 
+                           AND discordid IN (%s) 
+                         LIMIT 1
+                    ]]):format(placeholders)
+
+                    -- build params: first the dept, then all IDs
+                    local params = { dept }
+                    for _, id in ipairs(lookupIds) do table.insert(params, id) end
+
+                    MySQL.Async.fetchScalar(sql, params, function(paycheck)
+                        print(("  ↳ lookup dept='%s' ids=[%s] → %s")
+                            :format(dept, table.concat(lookupIds,","), tostring(paycheck)))
+                        local amt = tonumber(paycheck) or 0
+                        if amt > 0 then
+                            print(("  ↳ Paying $%d to %d"):format(amt, src))
+                            addMoney(src, amt)
+                            TriggerClientEvent('chat:addMessage', src, {
+                                args = { "^2PAYCHECK", "Hourly pay: $" .. amt }
+                            })
+                        else
+                            print(("  ↳ No matching paycheck row, or amount=0"))
+                        end
+                    end)
+                end)
+            end)
+
+            ::continue::
+        end
+    end
+end)
+Config = Config or {}
+Config.Debug = Config.Debug or false
+
+Config.GitHub = {
+    owner       = "Azure-Framework",
+    repo        = "Az-Framework",
+    branch      = "main",
+    pollSeconds = 60 * 60, -- 1 hour
+    token       = GetConvar("GITHUB_TOKEN", ""),
 }
 
-local function trim(s) return (s and s:gsub("^%s*(.-)%s*$", "%1") or s) end
+Config.LocalResourceName = Config.LocalResourceName or "Az-Framework"
+Config.checkPathPrefixes = Config.checkPathPrefixes or {}
+Config.DiscordWebhook = GetConvar("DISCORD_WEBHOOK_URL", "") -- optional
 
-local function splitTopLevel(body)
-    local parts = {}
-    local last = 1
-    local depth = 0
-    local len = #body
-    for i = 1, len do
-        local c = body:sub(i,i)
-        if c == '(' then depth = depth + 1
-        elseif c == ')' then if depth > 0 then depth = depth - 1 end
-        elseif c == ',' and depth == 0 then
-            table.insert(parts, trim(body:sub(last, i - 1)))
-            last = i + 1
-        end
-    end
-    if last <= len then table.insert(parts, trim(body:sub(last, len))) end
-    return parts
+-- Files to ignore when reporting mismatches (exact path matches)
+Config.ignoreFiles = Config.ignoreFiles or {
+    "fxmanifest.lua",
+    "config.lua",
+}
+
+local function httpGet(url, headers, cb)
+    headers = headers or {}
+    PerformHttpRequest(url, function(status, body, responseHeaders)
+        cb(status, body, responseHeaders)
+    end, "GET", "", headers)
 end
 
-local function parseCreate(sql)
-    if not sql or type(sql) ~= "string" then return nil, "invalid sql" end
-    local info = { name = nil, columns = {}, indexes = {}, constraints = {} }
-
-    local tn = sql:match("CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+`([^`]+)`")
-             or sql:match("CREATE%s+TABLE%s+`([^`]+)`")
-    if not tn then return nil, "cannot parse table name" end
-    info.name = tn
-
-    local bodyWithParens = sql:match("%b()")
-    if not bodyWithParens then return nil, "cannot find column body for table "..tn end
-    local body = bodyWithParens:sub(2, -2) -- remove surrounding parentheses
-
-    local parts = splitTopLevel(body)
-    for _, part in ipairs(parts) do
-        local p = trim(part)
-        if p:match("^`") then
-            local colname = p:match("^`([^`]+)`")
-            if colname then
-                local def = p:match("^`[^`]+`%s*(.*)$") or ""
-                def = trim(def:gsub(",$", ""))
-                info.columns[colname] = def
-            end
-        else
-            local clean = p:gsub(",$", "")
-            if clean:match("^PRIMARY%s+KEY") then
-                info.indexes.primary = clean
-            elseif clean:match("^UNIQUE%s+KEY") or clean:match("^UNIQUE") then
-                table.insert(info.indexes, clean)
-            elseif clean:match("^KEY") or clean:match("^INDEX") then
-                table.insert(info.indexes, clean)
-            elseif clean:match("^CONSTRAINT") then
-                table.insert(info.constraints, clean)
-            else
-                table.insert(info.indexes, clean)
-            end
-        end
-    end
-
-    return info
-end
-
--- DB query helpers
-local function tableExists(tbl)
-    local res = MySQL.Sync.fetchAll("SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=@t", {["@t"]=tbl})
-    return (res[1] and tonumber(res[1].cnt) or 0) > 0
-end
-
-local function getExistingColumns(tbl)
-    local res = MySQL.Sync.fetchAll("SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t", {["@t"]=tbl})
-    local set = {}
-    for _, r in ipairs(res) do set[r.COLUMN_NAME] = true end
-    return set
-end
-
-local function hasPrimaryKey(tbl)
-    local res = MySQL.Sync.fetchAll("SELECT CONSTRAINT_NAME FROM information_schema.table_constraints WHERE table_schema=DATABASE() AND table_name=@t AND constraint_type='PRIMARY KEY'", {["@t"]=tbl})
-    return (#res > 0)
-end
-
-local function indexExists(tbl, idxName)
-    local ok, res = pcall(function() return MySQL.Sync.fetchAll("SHOW INDEX FROM `" .. tbl .. "`") end)
-    if not ok or not res then return false end
-    for _, r in ipairs(res) do
-        if r.Key_name == idxName then return true end
+local function startsWithAny(s, prefixes)
+    if not prefixes or #prefixes == 0 then return true end
+    for _, p in ipairs(prefixes) do
+        if s:sub(1, #p) == p then return true end
     end
     return false
 end
 
-local function constraintExists(tbl, constraintName)
-    local res = MySQL.Sync.fetchAll("SELECT CONSTRAINT_NAME FROM information_schema.table_constraints WHERE table_schema=DATABASE() AND table_name=@t AND CONSTRAINT_NAME=@c", {["@t"]=tbl, ["@c"]=constraintName})
-    return (#res > 0)
+local function isIgnoredPath(path)
+    if not path then return false end
+    for _, ig in ipairs(Config.ignoreFiles or {}) do
+        if path == ig then return true end
+    end
+    return false
 end
 
--- safe execute that treats duplicate-key as success
-local function safeExecute(query)
-    local ok, res = pcall(function() return MySQL.Sync.execute(query, {}) end)
-    if ok then return true, res end
-    local msg = tostring(res)
-    if msg:match("[Dd]uplicate%s+key%s+name") then return true, "duplicate-ignored" end
-    return false, msg
-end
+-- Fetch repository tree (recursive)
+local function fetchRepoTree(cb)
+    local owner, repo, branch = Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
+    local treeUrl = ("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1"):format(owner, repo, branch)
 
--- normalization & existing column def helpers (NEW)
-local function normalizeDef(s)
-    if not s then return "" end
-    s = s:gsub("^%s*", ""):gsub("%s*$", "")            -- trim
-    s = s:gsub(",%s*$", "")                           -- remove trailing comma
-    s = s:gsub("`", "")                               -- remove backticks
-    s = s:gsub("%s+", " ")                            -- collapse whitespace
-    s = s:lower()
-    return s
-end
-
-local function quoteDefault(val)
-    if val == nil then return nil end
-    if tostring(val):upper() == "CURRENT_TIMESTAMP" then return "CURRENT_TIMESTAMP" end
-    if tonumber(val) then return tostring(val) end
-    return "'" .. tostring(val):gsub("'", "''") .. "'"
-end
-
-local function getExistingColumnDef(tbl, col)
-    local res = MySQL.Sync.fetchAll([[
-        SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA, CHARACTER_SET_NAME, COLLATION_NAME
-        FROM information_schema.columns
-        WHERE table_schema = DATABASE() AND table_name = @t AND column_name = @c
-    ]], {["@t"] = tbl, ["@c"] = col})
-
-    if not res or not res[1] then return nil end
-    local r = res[1]
-    local parts = {}
-
-    if r.COLUMN_TYPE then table.insert(parts, r.COLUMN_TYPE) end
-
-    if r.CHARACTER_SET_NAME and r.CHARACTER_SET_NAME ~= "" then
-        table.insert(parts, "character set " .. r.CHARACTER_SET_NAME)
-    end
-    if r.COLLATION_NAME and r.COLLATION_NAME ~= "" then
-        table.insert(parts, "collate " .. r.COLLATION_NAME)
+    local headers = { ["Accept"] = "application/vnd.github.v3+json" }
+    if Config.GitHub.token ~= "" then
+        headers["Authorization"] = "token " .. Config.GitHub.token
     end
 
-    if r.IS_NULLABLE == "NO" then table.insert(parts, "not null")
-    else table.insert(parts, "null") end
-
-    if r.COLUMN_DEFAULT ~= nil then
-        table.insert(parts, "default " .. quoteDefault(r.COLUMN_DEFAULT))
-    end
-
-    if r.EXTRA and r.EXTRA ~= "" then table.insert(parts, r.EXTRA) end
-
-    return normalizeDef(table.concat(parts, " "))
-end
-
-local attemptedIndexes = {} -- per-run cache
-
--- these are global-ish flags used to summarize at the end of the run
-local SCHEMA_APPLIED = false
-local SCHEMA_ERRORS = false
-
-local function ensureSchemaFromCreate(sql)
-    local parsed, err = parseCreate(sql)
-    if not parsed then
-        print(("[Az-Schema] parse error for SQL: %s"):format(tostring(err)))
-        SCHEMA_ERRORS = true
-        return
-    end
-    local tbl = parsed.name
-
-    if not tableExists(tbl) then
-        print(("[Az-Schema] Table '%s' not found. Creating table..."):format(tbl))
-        local ok, res = pcall(function() return MySQL.Sync.execute(sql, {}) end)
-        if not ok then
-            print(("[Az-Schema] ERROR: Failed to create table '%s' — %s"):format(tbl, tostring(res)))
-            SCHEMA_ERRORS = true
-        else
-            print(("[Az-Schema] SUCCESS: Created table '%s'"):format(tbl))
-            SCHEMA_APPLIED = true
-        end
-        return
-    end
-
-    print(("[Az-Schema] Table '%s' exists — checking columns/indexes/constraints"):format(tbl))
-
-    -- add missing columns / modify mismatched columns
-    local existingCols = getExistingColumns(tbl) -- set of names
-    for colName, def in pairs(parsed.columns) do
-        local desiredDefRaw = trim(def:gsub(",$", "")) -- remove trailing comma
-        local desiredNorm = normalizeDef(desiredDefRaw)
-
-        if not existingCols[colName] then
-            local alter = string.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tbl, colName, desiredDefRaw)
-            print(("[Az-Schema] Column '%s' missing in '%s' — adding column with definition: %s"):format(colName, tbl, desiredDefRaw))
-            local ok, res = pcall(function() return MySQL.Sync.execute(alter, {}) end)
-            if not ok then
-                print(("[Az-Schema] ERROR: Failed to add column '%s' to '%s' — %s"):format(colName, tbl, tostring(res)))
-                SCHEMA_ERRORS = true
-            else
-                print(("[Az-Schema] SUCCESS: Added column '%s' to '%s'"):format(colName, tbl))
-                SCHEMA_APPLIED = true
+    print("[gh-checker] Checking GitHub for file updates... ("..treeUrl..")")
+    httpGet(treeUrl, headers, function(status, body)
+        if status == 200 and body then
+            local ok, data = pcall(json.decode, body)
+            if ok and data and data.tree then
+                print("[gh-checker] ✅ GitHub repo tree fetched ("..#data.tree.." entries).")
+                return cb(true, data.tree)
             end
+            return cb(false, "invalid-tree-payload")
         else
-            local existingDef = getExistingColumnDef(tbl, colName)
-            if existingDef and existingDef ~= desiredNorm then
-                -- try to ALTER .. MODIFY to match desired definition
-                local q = string.format("ALTER TABLE `%s` MODIFY COLUMN `%s` %s", tbl, colName, desiredDefRaw)
-                print(("[Az-Schema] Column '%s' in '%s' differs from expected definition — attempting MODIFY to: %s"):format(colName, tbl, desiredDefRaw))
-                local ok, res = pcall(function() return MySQL.Sync.execute(q, {}) end)
-                if not ok then
-                    print(("[Az-Schema] ERROR: Failed to MODIFY column '%s' on '%s' — %s"):format(colName, tbl, tostring(res)))
-                    SCHEMA_ERRORS = true
-                else
-                    print(("[Az-Schema] SUCCESS: Modified column '%s' on '%s' to match expected definition"):format(colName, tbl))
-                    SCHEMA_APPLIED = true
+            return cb(false, "tree-fetch-failed:"..tostring(status))
+        end
+    end)
+end
+
+-- Compare remote blobs to local files
+local function checkRepoAgainstLocal(tree)
+    local rawBase = ("https://raw.githubusercontent.com/%s/%s/%s/"):format(
+        Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
+    )
+
+    local mismatches = {}
+    local pending = 0
+    local scheduled = false
+
+    local function scheduleFinalPrint()
+        if scheduled then return end
+        scheduled = true
+        -- delay final print by 5 seconds (5000 ms)
+        Citizen.SetTimeout(5000, function()
+            print("------------------------------------------------------------")
+            if #mismatches > 0 then
+                print("[gh-checker] ❌ FILE MISMATCH DETECTED!")
+                print("[gh-checker] Your local '"..Config.LocalResourceName.."' files differ from the GitHub repository.")
+                print("[gh-checker] Please UPDATE your files from:")
+                print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
+                for _, m in ipairs(mismatches) do
+                    print(" - "..m.path.." ("..m.reason..")")
                 end
+                print("------------------------------------------------------------")
+                print("[gh-checker] COMPLETED: Resource files are NOT up to date — please update the resource.")
             else
-                print(("[Az-Schema] Column '%s' on '%s' matches expected definition — skipping"):format(colName, tbl))
+                print("[gh-checker] ✅ All local files match the GitHub repository.")
+                print("------------------------------------------------------------")
+                print("[gh-checker] COMPLETED: Resource files are up to date.")
             end
+        end)
+    end
+
+    local function finishIfDone()
+        if pending == 0 then
+            -- schedule the delayed final print (buffers mismatches and prints after 5s)
+            scheduleFinalPrint()
         end
     end
 
-    -- primary key
-    if parsed.indexes.primary and not hasPrimaryKey(tbl) then
-        local cols = parsed.indexes.primary:match("%((.*)%)")
-        if cols then
-            local q = string.format("ALTER TABLE `%s` ADD PRIMARY KEY (%s)", tbl, cols)
-            print(("[Az-Schema] Primary key missing on '%s' — adding PRIMARY KEY on columns: %s"):format(tbl, cols))
-            local ok, msg = safeExecute(q)
-            if not ok then
-                print(("[Az-Schema] ERROR: Failed to add PRIMARY KEY on '%s' — %s"):format(tbl, tostring(msg)))
-                SCHEMA_ERRORS = true
+    for _, entry in ipairs(tree) do
+        if entry.type == "blob" and startsWithAny(entry.path, Config.checkPathPrefixes) then
+            if isIgnoredPath(entry.path) then
+                -- skip checking and reporting for ignored files
             else
-                print(("[Az-Schema] SUCCESS: PRIMARY KEY added to '%s'"):format(tbl))
-                SCHEMA_APPLIED = true
-            end
-        end
-    end
-
-    -- other indexes / uniques
-    for _, idx in ipairs(parsed.indexes) do
-        local name, cols = idx:match("KEY%s+`([^`]+)`%s*%((.-)%)")
-                      or idx:match("UNIQUE%s+KEY%s+`([^`]+)`%s*%((.-)%)")
-                      or idx:match("UNIQUE%s+`([^`]+)`%s*%((.-)%)")
-        if name and cols then
-            if indexExists(tbl, name) then
-                print(("[Az-Schema] Index '%s' already present on '%s' — skipping"):format(name, tbl))
-            else
-                local prefix = idx:match("^UNIQUE") and "ADD UNIQUE KEY" or "ADD KEY"
-                local q = string.format("ALTER TABLE `%s` %s `%s` (%s)", tbl, prefix, name, cols)
-                print(("[Az-Schema] Index '%s' missing on '%s' — adding index on columns: %s"):format(name, tbl, cols))
-                local ok, msg = safeExecute(q)
-                if not ok then
-                    print(("[Az-Schema] ERROR: Failed to add index '%s' to '%s' — %s"):format(name, tbl, tostring(msg)))
-                    SCHEMA_ERRORS = true
-                else
-                    print(("[Az-Schema] SUCCESS: Index '%s' added to '%s'"):format(name, tbl))
-                    SCHEMA_APPLIED = true
-                end
-            end
-        else
-            local colsOnly = idx:match("%((.-)%)")
-            if colsOnly then
-                local generated = "idx_"..tbl.."_"..colsOnly:gsub("[^%w]+","_")
-                if not attemptedIndexes[generated] then
-                    attemptedIndexes[generated] = true
-                    if indexExists(tbl, generated) then
-                        print(("[Az-Schema] Generated index '%s' already exists on '%s' — skipping"):format(generated, tbl))
-                    else
-                        local isunique = idx:match("^UNIQUE") and "ADD UNIQUE KEY" or "ADD KEY"
-                        local q = string.format("ALTER TABLE `%s` %s `%s` (%s)", tbl, isunique, generated, colsOnly)
-                        print(("[Az-Schema] Adding unnamed index as '%s' on '%s' for columns: %s"):format(generated, tbl, colsOnly))
-                        local ok, msg = safeExecute(q)
-                        if not ok then
-                            print(("[Az-Schema] ERROR: Failed to add generated index '%s' — %s"):format(generated, tostring(msg)))
-                            SCHEMA_ERRORS = true
-                        else
-                            if msg == "duplicate-ignored" then
-                                print(("[Az-Schema] NOTICE: Generated index '%s' already existed (ignored)"):format(generated))
-                            else
-                                print(("[Az-Schema] SUCCESS: Generated index '%s' added to '%s'"):format(generated, tbl))
-                                SCHEMA_APPLIED = true
-                            end
-                        end
+                pending = pending + 1
+                local rawUrl = rawBase .. entry.path
+                httpGet(rawUrl, {}, function(status, body)
+                    local localContent = LoadResourceFile(Config.LocalResourceName, entry.path)
+                    if status ~= 200 then
+                        table.insert(mismatches, { path = entry.path, reason = "remote_fetch_failed" })
+                    elseif not localContent then
+                        table.insert(mismatches, { path = entry.path, reason = "local_missing" })
+                    elseif localContent ~= body then
+                        table.insert(mismatches, { path = entry.path, reason = "content_mismatch" })
                     end
-                else
-                    print(("[Az-Schema] Skipping repeated attempt to add generated index '%s' in this run"):format(generated))
-                end
+                    pending = pending - 1
+                    finishIfDone()
+                end)
             end
         end
     end
 
-    -- constraints (best-effort)
-    for _, constraint in ipairs(parsed.constraints) do
-        local cname = constraint:match("^CONSTRAINT%s+`([^`]+)`")
-        if cname and not constraintExists(tbl, cname) then
-            local q = "ALTER TABLE `" .. tbl .. "` ADD " .. constraint
-            print(("[Az-Schema] Constraint '%s' missing on '%s' — attempting to add"):format(cname, tbl))
-            local ok, msg = safeExecute(q)
-            if not ok then
-                print(("[Az-Schema] ERROR: Failed to add constraint '%s' on '%s' — %s"):format(cname, tbl, tostring(msg)))
-                SCHEMA_ERRORS = true
+    if pending == 0 then finishIfDone() end
+end
+
+-- Main loop
+Citizen.CreateThread(function()
+    print("------------------------------------------------------------")
+    print("[gh-checker] Starting Az-Framework GitHub file checker.")
+    print("[gh-checker] This will check your local '"..Config.LocalResourceName.."' files against GitHub.")
+    print("[gh-checker] If differences are found, please UPDATE your files from:")
+    print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
+    print("------------------------------------------------------------")
+
+    while true do
+        fetchRepoTree(function(ok, treeOrErr)
+            if ok then
+                checkRepoAgainstLocal(treeOrErr)
             else
-                print(("[Az-Schema] SUCCESS: Constraint '%s' added to '%s'"):format(cname, tbl))
-                SCHEMA_APPLIED = true
+                print("[gh-checker] ⚠️ Failed to fetch GitHub repo tree: "..tostring(treeOrErr))
+                -- delayed final summary for fetch failure as well
+                Citizen.SetTimeout(5000, function()
+                    print("------------------------------------------------------------")
+                    print("[gh-checker] COMPLETED: Could not verify resource files (repo tree fetch failed).")
+                    print("------------------------------------------------------------")
+                end)
             end
-        elseif cname then
-            print(("[Az-Schema] Constraint '%s' already exists on '%s' — skipping"):format(cname, tbl))
-        end
+        end)
+
+        Citizen.Wait((Config.GitHub.pollSeconds or 3600) * 1000)
     end
-end
-
-function ensureSchemas()
-    -- reset per-run flags and caches
-    attemptedIndexes = {}
-    SCHEMA_APPLIED = false
-    SCHEMA_ERRORS = false
-
-    print("[Az-Schema] Beginning schema verification and enforcement for configured tables...")
-    for _, sql in ipairs(tableSchemas) do
-        local ok, err = pcall(function() ensureSchemaFromCreate(sql) end)
-        if not ok then
-            print(("[Az-Schema] ERROR: schema ensure pass failed — %s"):format(tostring(err)))
-            SCHEMA_ERRORS = true
-        end
-    end
-    print("[Az-Schema] Schema verification/enforcement run completed.")
-
-    -- FINAL SUMMARY PRINT — tells whether update was necessary, applied, or errored.
-    if SCHEMA_ERRORS then
-        print("[Az-Schema] COMPLETED: Some schema operations failed or encountered errors. Please check previous logs and update manually if necessary.")
-    elseif SCHEMA_APPLIED then
-        print("[Az-Schema] COMPLETED: Schema changes were applied — your database schema is now up to date.")
-    else
-        print("[Az-Schema] COMPLETED: No changes required — your database schema is already up to date.")
-    end
-end
-
--- ensure on resource start (keeps previous behavior)
-AddEventHandler('onResourceStart', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    ensureSchemas()
 end)
