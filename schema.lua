@@ -1,3 +1,7 @@
+-- server.lua
+-- Az-Schema: schema enforcement for MySQL based on CREATE TABLE statements
+-- Merged version: checks columns by definition and will attempt to MODIFY mismatched columns
+
 local tableSchemas = {
     [[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
@@ -236,6 +240,55 @@ local function safeExecute(query)
     return false, msg
 end
 
+-- normalization & existing column def helpers (NEW)
+local function normalizeDef(s)
+    if not s then return "" end
+    s = s:gsub("^%s*", ""):gsub("%s*$", "")            -- trim
+    s = s:gsub(",%s*$", "")                           -- remove trailing comma
+    s = s:gsub("`", "")                               -- remove backticks
+    s = s:gsub("%s+", " ")                            -- collapse whitespace
+    s = s:lower()
+    return s
+end
+
+local function quoteDefault(val)
+    if val == nil then return nil end
+    if tostring(val):upper() == "CURRENT_TIMESTAMP" then return "CURRENT_TIMESTAMP" end
+    if tonumber(val) then return tostring(val) end
+    return "'" .. tostring(val):gsub("'", "''") .. "'"
+end
+
+local function getExistingColumnDef(tbl, col)
+    local res = MySQL.Sync.fetchAll([[
+        SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA, CHARACTER_SET_NAME, COLLATION_NAME
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = @t AND column_name = @c
+    ]], {["@t"] = tbl, ["@c"] = col})
+
+    if not res or not res[1] then return nil end
+    local r = res[1]
+    local parts = {}
+
+    if r.COLUMN_TYPE then table.insert(parts, r.COLUMN_TYPE) end
+
+    if r.CHARACTER_SET_NAME and r.CHARACTER_SET_NAME ~= "" then
+        table.insert(parts, "character set " .. r.CHARACTER_SET_NAME)
+    end
+    if r.COLLATION_NAME and r.COLLATION_NAME ~= "" then
+        table.insert(parts, "collate " .. r.COLLATION_NAME)
+    end
+
+    if r.IS_NULLABLE == "NO" then table.insert(parts, "not null")
+    else table.insert(parts, "null") end
+
+    if r.COLUMN_DEFAULT ~= nil then
+        table.insert(parts, "default " .. quoteDefault(r.COLUMN_DEFAULT))
+    end
+
+    if r.EXTRA and r.EXTRA ~= "" then table.insert(parts, r.EXTRA) end
+
+    return normalizeDef(table.concat(parts, " "))
+end
 
 local attemptedIndexes = {} -- per-run cache
 
@@ -260,17 +313,35 @@ local function ensureSchemaFromCreate(sql)
 
     print(("[Az-Schema] Table '%s' exists — checking columns/indexes/constraints"):format(tbl))
 
-    -- add missing columns
-    local existingCols = getExistingColumns(tbl)
+    -- add missing columns / modify mismatched columns
+    local existingCols = getExistingColumns(tbl) -- set of names
     for colName, def in pairs(parsed.columns) do
+        local desiredDefRaw = trim(def:gsub(",$", "")) -- remove trailing comma
+        local desiredNorm = normalizeDef(desiredDefRaw)
+
         if not existingCols[colName] then
-            local alter = string.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tbl, colName, def)
-            print(("[Az-Schema] Column '%s' missing in '%s' — adding column with definition: %s"):format(colName, tbl, def))
+            local alter = string.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tbl, colName, desiredDefRaw)
+            print(("[Az-Schema] Column '%s' missing in '%s' — adding column with definition: %s"):format(colName, tbl, desiredDefRaw))
             local ok, res = pcall(function() return MySQL.Sync.execute(alter, {}) end)
             if not ok then
                 print(("[Az-Schema] ERROR: Failed to add column '%s' to '%s' — %s"):format(colName, tbl, tostring(res)))
             else
                 print(("[Az-Schema] SUCCESS: Added column '%s' to '%s'"):format(colName, tbl))
+            end
+        else
+            local existingDef = getExistingColumnDef(tbl, colName)
+            if existingDef and existingDef ~= desiredNorm then
+                -- try to ALTER .. MODIFY to match desired definition
+                local q = string.format("ALTER TABLE `%s` MODIFY COLUMN `%s` %s", tbl, colName, desiredDefRaw)
+                print(("[Az-Schema] Column '%s' in '%s' differs from expected definition — attempting MODIFY to: %s"):format(colName, tbl, desiredDefRaw))
+                local ok, res = pcall(function() return MySQL.Sync.execute(q, {}) end)
+                if not ok then
+                    print(("[Az-Schema] ERROR: Failed to MODIFY column '%s' on '%s' — %s"):format(colName, tbl, tostring(res)))
+                else
+                    print(("[Az-Schema] SUCCESS: Modified column '%s' on '%s' to match expected definition"):format(colName, tbl))
+                end
+            else
+                print(("[Az-Schema] Column '%s' on '%s' matches expected definition — skipping"):format(colName, tbl))
             end
         end
     end
