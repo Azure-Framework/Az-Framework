@@ -639,6 +639,32 @@ AddEventHandler('az-fw-money:selectCharacter', function(charID)
 end)
 
 
+-- returns string or nil
+exports('getPlayerJob', function(source)
+    if not source or source == 0 then return nil end
+
+    -- attempt to get discordID/charID the same way this resource already does
+    local discordID = getDiscordID(source)
+    local charID    = activeCharacters[source]
+
+    if not discordID or discordID == "" or not charID then
+        return nil
+    end
+
+    local job = MySQL.Sync.fetchScalar([[
+      SELECT active_department
+      FROM user_characters
+      WHERE discordid = @discordid AND charid = @charid
+      LIMIT 1
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID
+    })
+
+    return job or nil
+end)
+
+
 exports('GetPlayerCharacter', function(source)
   return activeCharacters[source]
 end)
@@ -799,5 +825,134 @@ Citizen.CreateThread(function()
 
             ::continue::
         end
+    end
+end)
+
+Config = Config or {}
+Config.Debug = Config.Debug or false
+
+Config.GitHub = {
+    owner       = "Azure-Framework",
+    repo        = "Az-Framework",
+    branch      = "main",
+    pollSeconds = 60 * 60, -- 1 hour
+    token       = GetConvar("GITHUB_TOKEN", ""),
+}
+
+Config.LocalResourceName = Config.LocalResourceName or "Az-Framework"
+Config.checkPathPrefixes = Config.checkPathPrefixes or {}
+Config.DiscordWebhook = GetConvar("DISCORD_WEBHOOK_URL", "") -- optional
+
+local function httpGet(url, headers, cb)
+    headers = headers or {}
+    PerformHttpRequest(url, function(status, body, responseHeaders)
+        cb(status, body, responseHeaders)
+    end, "GET", "", headers)
+end
+
+local function startsWithAny(s, prefixes)
+    if not prefixes or #prefixes == 0 then return true end
+    for _, p in ipairs(prefixes) do
+        if s:sub(1, #p) == p then return true end
+    end
+    return false
+end
+
+-- Fetch repository tree (recursive)
+local function fetchRepoTree(cb)
+    local owner, repo, branch = Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
+    local treeUrl = ("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1"):format(owner, repo, branch)
+
+    local headers = { ["Accept"] = "application/vnd.github.v3+json" }
+    if Config.GitHub.token ~= "" then
+        headers["Authorization"] = "token " .. Config.GitHub.token
+    end
+
+    print("[gh-checker] Checking GitHub for file updates... ("..treeUrl..")")
+    httpGet(treeUrl, headers, function(status, body)
+        if status == 200 and body then
+            local ok, data = pcall(json.decode, body)
+            if ok and data and data.tree then
+                print("[gh-checker] ✅ GitHub repo tree fetched ("..#data.tree.." entries).")
+                return cb(true, data.tree)
+            end
+            return cb(false, "invalid-tree-payload")
+        else
+            return cb(false, "tree-fetch-failed:"..tostring(status))
+        end
+    end)
+end
+
+-- Compare remote blobs to local files
+local function checkRepoAgainstLocal(tree)
+    local rawBase = ("https://raw.githubusercontent.com/%s/%s/%s/"):format(
+        Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
+    )
+
+    local mismatches = {}
+    local pending = 0
+    local done = false
+
+    local function finishIfDone()
+        if done then return end
+        if pending == 0 then
+            done = true
+            if #mismatches > 0 then
+                print("------------------------------------------------------------")
+                print("[gh-checker] ❌ FILE MISMATCH DETECTED!")
+                print("[gh-checker] Your local '"..Config.LocalResourceName.."' files differ from the GitHub repository.")
+                print("[gh-checker] Please UPDATE your files from:")
+                print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
+                for _, m in ipairs(mismatches) do
+                    print(" - "..m.path.." ("..m.reason..")")
+                end
+                print("------------------------------------------------------------")
+            else
+                print("[gh-checker] ✅ All local files match the GitHub repository.")
+            end
+        end
+    end
+
+    for _, entry in ipairs(tree) do
+        if entry.type == "blob" and startsWithAny(entry.path, Config.checkPathPrefixes) then
+            pending = pending + 1
+            local rawUrl = rawBase .. entry.path
+            httpGet(rawUrl, {}, function(status, body)
+                local localContent = LoadResourceFile(Config.LocalResourceName, entry.path)
+                if status ~= 200 then
+                    table.insert(mismatches, { path = entry.path, reason = "remote_fetch_failed" })
+                elseif not localContent then
+                    table.insert(mismatches, { path = entry.path, reason = "local_missing" })
+                elseif localContent ~= body then
+                    table.insert(mismatches, { path = entry.path, reason = "content_mismatch" })
+                end
+                pending = pending - 1
+                finishIfDone()
+            end)
+        end
+    end
+
+    if pending == 0 then finishIfDone() end
+end
+
+-- Main loop
+Citizen.CreateThread(function()
+    print("------------------------------------------------------------")
+    print("[gh-checker] Starting Az-Framework GitHub file checker.")
+    print("[gh-checker] This will check your local '"..Config.LocalResourceName.."' files against GitHub.")
+    print("[gh-checker] If differences are found, please UPDATE your files from:")
+    print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
+    print("------------------------------------------------------------")
+
+    while true do
+        fetchRepoTree(function(ok, treeOrErr)
+            if ok then
+                checkRepoAgainstLocal(treeOrErr)
+            else
+                print("[gh-checker] ⚠️ Failed to fetch GitHub repo tree: "..tostring(treeOrErr))
+            end
+        end)
+
+        Citizen.Wait((Config.GitHub.pollSeconds or 3600) * 1000)
     end
 end)
