@@ -26,161 +26,6 @@ debugPrint = function(msg)
   end
 end
 
--- Table schemas, including new user_characters, per-character money, and schema migration
--- Schema definitions from external dump
-local tableSchemas = {
-    [[
-CREATE TABLE IF NOT EXISTS `econ_accounts` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `type` enum('checking','savings') NOT NULL DEFAULT 'checking',
-  `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_admins` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_cards` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `card_number` varchar(16) NOT NULL,
-  `exp_month` tinyint(4) NOT NULL,
-  `exp_year` smallint(6) NOT NULL,
-  `status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_departments` (
-  `discordid` varchar(255) NOT NULL,
-  `department` varchar(100) NOT NULL,
-  `paycheck` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`discordid`,`department`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_payments` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `payee` varchar(255) NOT NULL,
-  `amount` decimal(12,2) NOT NULL,
-  `schedule_date` date NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_profile` (
-  `discordid` varchar(255) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  PRIMARY KEY (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_user_money` (
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `firstname` varchar(100) NOT NULL DEFAULT '',
-  `lastname` varchar(100) NOT NULL DEFAULT '',
-  `profile_picture` varchar(255) DEFAULT NULL,
-  `cash` int(11) NOT NULL DEFAULT 0,
-  `bank` int(11) NOT NULL DEFAULT 0,
-  `last_daily` bigint(20) NOT NULL DEFAULT 0,
-  `card_number` varchar(16) DEFAULT NULL,
-  `exp_month` tinyint(4) DEFAULT NULL,
-  `exp_year` smallint(6) DEFAULT NULL,
-  `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`discordid`,`charid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `jail_records` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `jailer_discord` varchar(50) NOT NULL,
-  `inmate_discord` varchar(50) NOT NULL,
-  `time_minutes` int(11) NOT NULL,
-  `date` datetime NOT NULL,
-  `charges` text NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_characters` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `discord_char` (`discordid`,`charid`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_inventory` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
-  `item` varchar(64) NOT NULL,
-  `count` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uix_inventory` (`discordid`,`charid`,`item`),
-  CONSTRAINT `fk_inv_characters` FOREIGN KEY (`discordid`, `charid`) REFERENCES `user_characters` (`discordid`, `charid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_levels` (
-  `identifier` varchar(100) NOT NULL,
-  `rp_total` bigint(20) NOT NULL DEFAULT 0,
-  `rp_stamina` bigint(20) NOT NULL DEFAULT 0,
-  `rp_strength` bigint(20) NOT NULL DEFAULT 0,
-  `rp_driving` bigint(20) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`identifier`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_vehicles` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `discordid` varchar(255) NOT NULL,
-  `plate` varchar(20) NOT NULL,
-  `model` varchar(50) NOT NULL,
-  `x` double NOT NULL,
-  `y` double NOT NULL,
-  `z` double NOT NULL,
-  `h` double NOT NULL,
-  `color1` int(11) NOT NULL,
-  `color2` int(11) NOT NULL,
-  `pearlescent` int(11) NOT NULL,
-  `wheelColor` int(11) NOT NULL,
-  `wheelType` int(11) NOT NULL,
-  `windowTint` int(11) NOT NULL,
-  `mods` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`mods`)),
-  `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extras`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-}
-
--- On resource start, apply schema if needed
-AddEventHandler('onResourceStart', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    for _, schema in ipairs(tableSchemas) do
-        MySQL.Sync.execute(schema, {})
-    end
-    print('econ schema ensured via tableSchemas')
-end)
-
--- (Existing handlers remain unchanged)
-print('econ system loaded')
-
-
-local function ensureSchemas(cb)
-    local pending = #tableSchemas
-    for _, sql in ipairs(tableSchemas) do
-        MySQL.Async.execute(sql, {}, function()
-            pending = pending - 1
-            if pending == 0 and cb then cb() end
-        end)
-    end
-end
-
 local function getDiscordID(source)
     for _, id in ipairs(GetPlayerIdentifiers(source)) do
         if id:sub(1,8) == "discord:" then
@@ -691,53 +536,69 @@ lib.callback.register('az-fw-money:fetchCharacters', function(_, _)
   return rows or {}
 end)
 
+-- Replace your existing registerCharacter handler with this
+
 RegisterNetEvent('az-fw-money:registerCharacter')
 AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
   local src       = source
   local discordID = getDiscordID(src)
-  if discordID == "" then return end
+  if discordID == "" then
+    TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM", "Could not register character: no Discord ID found."} })
+    return
+  end
 
+  -- create a reasonably unique char id
   local charID   = tostring(os.time()) .. tostring(math.random(1000,9999))
-  local fullName = firstName .. " " .. lastName
+  local fullName = tostring(firstName) .. " " .. tostring(lastName)
 
-MySQL.Async.fetchAll([[
-    SELECT
-      uc.active_department AS dept,
-      ed.paycheck              AS pay
-    FROM user_characters uc
-    LEFT JOIN econ_departments ed
-      ON ed.discordid  = uc.discordid
-     AND ed.department = uc.active_department
-    WHERE uc.discordid = @discordid
-      AND uc.charid     = @charid
-    LIMIT 1
-]], {
+  debugPrint(("registerCharacter: creating char %s for discord %s (player %d) name='%s'"):format(charID, discordID, src, fullName))
+
+  -- 1) Insert into user_characters
+  MySQL.Async.execute([[
+    INSERT INTO user_characters (discordid, charid, name, active_department)
+    VALUES (@discordid, @charid, @name, '')
+  ]], {
     ['@discordid'] = discordID,
-    ['@charid']    = charID
-}, function(rows)
-    if not rows or not rows[1] then
-        debugPrint(("  ↳ No user_characters row for %s / %s"):format(discordID, charID))
-        return
+    ['@charid']    = charID,
+    ['@name']      = fullName
+  }, function(affected)
+    if not affected or affected < 1 then
+      debugPrint(("registerCharacter: failed to INSERT user_characters for %s / %s"):format(discordID, charID))
+      TriggerClientEvent("chat:addMessage", src, { args = {"^1SYSTEM", "Failed to register character. Check server logs."} })
+      return
     end
 
-    local dept = rows[1].dept or "<nil>"
-    local pay  = rows[1].pay
+    debugPrint(("registerCharacter: inserted user_characters (%s / %s)"):format(discordID, charID))
 
-    debugPrint(("  ↳ Active department = '%s'"):format(dept))
-    debugPrint(("  ↳ econ_departments.paycheck = '%s'"):format(tostring(pay)))
+    -- 2) Create econ_user_money row for the new character (if it doesn't exist)
+    MySQL.Async.execute([[
+      INSERT INTO econ_user_money
+        (discordid, charid, firstname, lastname, cash, bank, last_daily, card_status)
+      VALUES
+        (@discordid, @charid, @firstname, @lastname, 0, 0, 0, 'active')
+    ]], {
+      ['@discordid'] = discordID,
+      ['@charid']    = charID,
+      ['@firstname'] = firstName or "",
+      ['@lastname']  = lastName or ""
+    }, function(aff2)
+      debugPrint(("registerCharacter: inserted econ_user_money for %s / %s"):format(discordID, charID))
 
-    local amt = tonumber(pay) or 0
-    if amt > 0 then
-        debugPrint(("  ↳ Paying $%d to player %d"):format(amt, src))
-        addMoney(src, amt)
-        TriggerClientEvent('chat:addMessage', src, {
-            args = { "^2PAYCHECK", "You received your hourly paycheck of $" .. amt }
-        })
-    else
-        debugPrint(("  ↳ No paycheck for player %d (dept '%s' → amount %s)"):format(src, dept, tostring(pay)))
-    end
-end)
+      -- 3) Set active character server-side and notify client
+      activeCharacters[src] = charID
 
+      -- Notify client UI that registration succeeded (client already listens for this)
+      TriggerClientEvent('az-fw-money:characterRegistered', src, charID)
+
+      -- Send initial money HUD update
+      sendMoneyToClient(src)
+
+      -- Optionally announce in chat
+      TriggerClientEvent('chat:addMessage', src, {
+        args = { "^2SYSTEM", ("Character '%s' registered (ID %s)."):format(fullName, charID) }
+      })
+    end)
+  end)
 end)
 
 RegisterNetEvent('az-fw-money:requestMoney')
@@ -868,13 +729,17 @@ Citizen.CreateThread(function()
                 goto continue
             end
 
+            -- First, grab their Discord role IDs:
             getDiscordRoleList(src, function(err, roles)
                 if err then
                     print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
                     return
                 end
-         
-            local dept = ""  -- fetch active_department from user_characters
+
+                -- Build a parameterized IN-clause for roles + user ID
+                -- We’ll look for any econ_departments row where
+                --   department = @dept AND discordid IN (@userID, @role1, @role2, …)
+                local dept = ""  -- fetch active_department from user_characters
                 MySQL.Async.fetchScalar([[
                     SELECT active_department
                       FROM user_characters

@@ -3,7 +3,7 @@ game 'gta5'
 lua54 'yes'
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '2.1.0'
+version '1.7.5'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -12,6 +12,7 @@ shared_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'schema.lua',
     'server.lua',
     'parking/server.lua',
     'departments/server.lua'
@@ -21,7 +22,6 @@ client_scripts {
     'client.lua',
     'parking/client.lua',
     'departments/client.lua'
-
 }
 
 ui_page 'html/index.html'
