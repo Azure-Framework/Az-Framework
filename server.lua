@@ -5,7 +5,7 @@ Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
 local debug       = Config.Debug
 local debugPrint  -- forward declaration
 
--- GetConvar(varName, defaultValue)
+
 Config.Discord.BotToken   = GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = GetConvar("DISCORD_WEBHOOK_URL", "")
 -- sanity check
