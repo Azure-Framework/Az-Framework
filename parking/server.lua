@@ -2,9 +2,9 @@
 -- server.lua
 if Config.Parking then
     local debug = true
-    print('[az-fw-parking] Parking True, Initializing.')
+    print('[Az-Parking] Parking True, Initializing.')
     local function debugPrint(msg)
-        if debug then print(('[az-fw-parking] %s'):format(msg)) end
+        if debug then print(('[Az-Parking] %s'):format(msg)) end
     end
 
     local function getDiscordID(src)
@@ -13,33 +13,6 @@ if Config.Parking then
         end
         return nil
     end
-
-    AddEventHandler('onResourceStart', function(resName)
-        if GetCurrentResourceName() ~= resName then return end
-        debugPrint('Ensuring user_vehicles table exists')
-        MySQL.Async.execute([[
-            CREATE TABLE IF NOT EXISTS user_vehicles (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                discordid VARCHAR(255) NOT NULL,
-                plate VARCHAR(20) NOT NULL,
-                model VARCHAR(50) NOT NULL,
-                x DOUBLE NOT NULL,
-                y DOUBLE NOT NULL,
-                z DOUBLE NOT NULL,
-                h DOUBLE NOT NULL,
-                color1 INT NOT NULL,
-                color2 INT NOT NULL,
-                pearlescent INT NOT NULL,
-                wheelColor INT NOT NULL,
-                wheelType INT NOT NULL,
-                windowTint INT NOT NULL,
-                mods JSON,
-                extras JSON,
-                UNIQUE KEY uq_vehicle (discordid, plate),
-                INDEX idx_discord (discordid)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ]], {}, function() debugPrint('user_vehicles table ready') end)
-    end)
 
     RegisterNetEvent('raptor:toggleParkVehicle')
     AddEventHandler('raptor:toggleParkVehicle', function(props)
@@ -106,5 +79,5 @@ if Config.Parking then
         end)
     end)
 else
-    print('[az-fw-parking] Parking disabled in config')
+    print('[Az-Parking] Parking disabled in config')
 end
