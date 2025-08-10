@@ -1,7 +1,3 @@
--- server.lua
--- Az-Schema: schema enforcement for MySQL based on CREATE TABLE statements
--- Merged version: checks columns by definition and will attempt to MODIFY mismatched columns
-
 local tableSchemas = {
     [[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
@@ -292,10 +288,15 @@ end
 
 local attemptedIndexes = {} -- per-run cache
 
+-- these are global-ish flags used to summarize at the end of the run
+local SCHEMA_APPLIED = false
+local SCHEMA_ERRORS = false
+
 local function ensureSchemaFromCreate(sql)
     local parsed, err = parseCreate(sql)
     if not parsed then
         print(("[Az-Schema] parse error for SQL: %s"):format(tostring(err)))
+        SCHEMA_ERRORS = true
         return
     end
     local tbl = parsed.name
@@ -305,8 +306,10 @@ local function ensureSchemaFromCreate(sql)
         local ok, res = pcall(function() return MySQL.Sync.execute(sql, {}) end)
         if not ok then
             print(("[Az-Schema] ERROR: Failed to create table '%s' — %s"):format(tbl, tostring(res)))
+            SCHEMA_ERRORS = true
         else
             print(("[Az-Schema] SUCCESS: Created table '%s'"):format(tbl))
+            SCHEMA_APPLIED = true
         end
         return
     end
@@ -325,8 +328,10 @@ local function ensureSchemaFromCreate(sql)
             local ok, res = pcall(function() return MySQL.Sync.execute(alter, {}) end)
             if not ok then
                 print(("[Az-Schema] ERROR: Failed to add column '%s' to '%s' — %s"):format(colName, tbl, tostring(res)))
+                SCHEMA_ERRORS = true
             else
                 print(("[Az-Schema] SUCCESS: Added column '%s' to '%s'"):format(colName, tbl))
+                SCHEMA_APPLIED = true
             end
         else
             local existingDef = getExistingColumnDef(tbl, colName)
@@ -337,8 +342,10 @@ local function ensureSchemaFromCreate(sql)
                 local ok, res = pcall(function() return MySQL.Sync.execute(q, {}) end)
                 if not ok then
                     print(("[Az-Schema] ERROR: Failed to MODIFY column '%s' on '%s' — %s"):format(colName, tbl, tostring(res)))
+                    SCHEMA_ERRORS = true
                 else
                     print(("[Az-Schema] SUCCESS: Modified column '%s' on '%s' to match expected definition"):format(colName, tbl))
+                    SCHEMA_APPLIED = true
                 end
             else
                 print(("[Az-Schema] Column '%s' on '%s' matches expected definition — skipping"):format(colName, tbl))
@@ -355,8 +362,10 @@ local function ensureSchemaFromCreate(sql)
             local ok, msg = safeExecute(q)
             if not ok then
                 print(("[Az-Schema] ERROR: Failed to add PRIMARY KEY on '%s' — %s"):format(tbl, tostring(msg)))
+                SCHEMA_ERRORS = true
             else
                 print(("[Az-Schema] SUCCESS: PRIMARY KEY added to '%s'"):format(tbl))
+                SCHEMA_APPLIED = true
             end
         end
     end
@@ -376,8 +385,10 @@ local function ensureSchemaFromCreate(sql)
                 local ok, msg = safeExecute(q)
                 if not ok then
                     print(("[Az-Schema] ERROR: Failed to add index '%s' to '%s' — %s"):format(name, tbl, tostring(msg)))
+                    SCHEMA_ERRORS = true
                 else
                     print(("[Az-Schema] SUCCESS: Index '%s' added to '%s'"):format(name, tbl))
+                    SCHEMA_APPLIED = true
                 end
             end
         else
@@ -395,11 +406,13 @@ local function ensureSchemaFromCreate(sql)
                         local ok, msg = safeExecute(q)
                         if not ok then
                             print(("[Az-Schema] ERROR: Failed to add generated index '%s' — %s"):format(generated, tostring(msg)))
+                            SCHEMA_ERRORS = true
                         else
                             if msg == "duplicate-ignored" then
                                 print(("[Az-Schema] NOTICE: Generated index '%s' already existed (ignored)"):format(generated))
                             else
                                 print(("[Az-Schema] SUCCESS: Generated index '%s' added to '%s'"):format(generated, tbl))
+                                SCHEMA_APPLIED = true
                             end
                         end
                     end
@@ -419,8 +432,10 @@ local function ensureSchemaFromCreate(sql)
             local ok, msg = safeExecute(q)
             if not ok then
                 print(("[Az-Schema] ERROR: Failed to add constraint '%s' on '%s' — %s"):format(cname, tbl, tostring(msg)))
+                SCHEMA_ERRORS = true
             else
                 print(("[Az-Schema] SUCCESS: Constraint '%s' added to '%s'"):format(cname, tbl))
+                SCHEMA_APPLIED = true
             end
         elseif cname then
             print(("[Az-Schema] Constraint '%s' already exists on '%s' — skipping"):format(cname, tbl))
@@ -429,15 +444,29 @@ local function ensureSchemaFromCreate(sql)
 end
 
 function ensureSchemas()
+    -- reset per-run flags and caches
     attemptedIndexes = {}
+    SCHEMA_APPLIED = false
+    SCHEMA_ERRORS = false
+
     print("[Az-Schema] Beginning schema verification and enforcement for configured tables...")
     for _, sql in ipairs(tableSchemas) do
         local ok, err = pcall(function() ensureSchemaFromCreate(sql) end)
         if not ok then
             print(("[Az-Schema] ERROR: schema ensure pass failed — %s"):format(tostring(err)))
+            SCHEMA_ERRORS = true
         end
     end
     print("[Az-Schema] Schema verification/enforcement run completed.")
+
+    -- FINAL SUMMARY PRINT — tells whether update was necessary, applied, or errored.
+    if SCHEMA_ERRORS then
+        print("[Az-Schema] COMPLETED: Some schema operations failed or encountered errors. Please check previous logs and update manually if necessary.")
+    elseif SCHEMA_APPLIED then
+        print("[Az-Schema] COMPLETED: Schema changes were applied — your database schema is now up to date.")
+    else
+        print("[Az-Schema] COMPLETED: No changes required — your database schema is already up to date.")
+    end
 end
 
 -- ensure on resource start (keeps previous behavior)
