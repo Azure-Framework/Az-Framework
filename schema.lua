@@ -1,3 +1,8 @@
+-- server.lua
+-- Az-Schema: schema enforcement for MySQL based on CREATE TABLE statements
+-- Merged version: checks columns by definition and will attempt to MODIFY mismatched columns
+-- Added: final summary print that tells you whether schemas were updated, up-to-date, or errored.
+
 local tableSchemas = {
     [[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
