@@ -827,6 +827,7 @@ Citizen.CreateThread(function()
         end
     end
 end)
+
 Config = Config or {}
 Config.Debug = Config.Debug or false
 
@@ -842,12 +843,6 @@ Config.LocalResourceName = Config.LocalResourceName or "Az-Framework"
 Config.checkPathPrefixes = Config.checkPathPrefixes or {}
 Config.DiscordWebhook = GetConvar("DISCORD_WEBHOOK_URL", "") -- optional
 
--- Files to ignore when reporting mismatches (exact path matches)
-Config.ignoreFiles = Config.ignoreFiles or {
-    "fxmanifest.lua",
-    "config.lua",
-}
-
 local function httpGet(url, headers, cb)
     headers = headers or {}
     PerformHttpRequest(url, function(status, body, responseHeaders)
@@ -859,14 +854,6 @@ local function startsWithAny(s, prefixes)
     if not prefixes or #prefixes == 0 then return true end
     for _, p in ipairs(prefixes) do
         if s:sub(1, #p) == p then return true end
-    end
-    return false
-end
-
-local function isIgnoredPath(path)
-    if not path then return false end
-    for _, ig in ipairs(Config.ignoreFiles or {}) do
-        if path == ig then return true end
     end
     return false
 end
@@ -904,15 +891,14 @@ local function checkRepoAgainstLocal(tree)
 
     local mismatches = {}
     local pending = 0
-    local scheduled = false
+    local done = false
 
-    local function scheduleFinalPrint()
-        if scheduled then return end
-        scheduled = true
-        -- delay final print by 5 seconds (5000 ms)
-        Citizen.SetTimeout(5000, function()
-            print("------------------------------------------------------------")
+    local function finishIfDone()
+        if done then return end
+        if pending == 0 then
+            done = true
             if #mismatches > 0 then
+                print("------------------------------------------------------------")
                 print("[gh-checker] ❌ FILE MISMATCH DETECTED!")
                 print("[gh-checker] Your local '"..Config.LocalResourceName.."' files differ from the GitHub repository.")
                 print("[gh-checker] Please UPDATE your files from:")
@@ -921,42 +907,28 @@ local function checkRepoAgainstLocal(tree)
                     print(" - "..m.path.." ("..m.reason..")")
                 end
                 print("------------------------------------------------------------")
-                print("[gh-checker] COMPLETED: Resource files are NOT up to date — please update the resource.")
             else
                 print("[gh-checker] ✅ All local files match the GitHub repository.")
-                print("------------------------------------------------------------")
-                print("[gh-checker] COMPLETED: Resource files are up to date.")
             end
-        end)
-    end
-
-    local function finishIfDone()
-        if pending == 0 then
-            -- schedule the delayed final print (buffers mismatches and prints after 5s)
-            scheduleFinalPrint()
         end
     end
 
     for _, entry in ipairs(tree) do
         if entry.type == "blob" and startsWithAny(entry.path, Config.checkPathPrefixes) then
-            if isIgnoredPath(entry.path) then
-                -- skip checking and reporting for ignored files
-            else
-                pending = pending + 1
-                local rawUrl = rawBase .. entry.path
-                httpGet(rawUrl, {}, function(status, body)
-                    local localContent = LoadResourceFile(Config.LocalResourceName, entry.path)
-                    if status ~= 200 then
-                        table.insert(mismatches, { path = entry.path, reason = "remote_fetch_failed" })
-                    elseif not localContent then
-                        table.insert(mismatches, { path = entry.path, reason = "local_missing" })
-                    elseif localContent ~= body then
-                        table.insert(mismatches, { path = entry.path, reason = "content_mismatch" })
-                    end
-                    pending = pending - 1
-                    finishIfDone()
-                end)
-            end
+            pending = pending + 1
+            local rawUrl = rawBase .. entry.path
+            httpGet(rawUrl, {}, function(status, body)
+                local localContent = LoadResourceFile(Config.LocalResourceName, entry.path)
+                if status ~= 200 then
+                    table.insert(mismatches, { path = entry.path, reason = "remote_fetch_failed" })
+                elseif not localContent then
+                    table.insert(mismatches, { path = entry.path, reason = "local_missing" })
+                elseif localContent ~= body then
+                    table.insert(mismatches, { path = entry.path, reason = "content_mismatch" })
+                end
+                pending = pending - 1
+                finishIfDone()
+            end)
         end
     end
 
@@ -978,12 +950,6 @@ Citizen.CreateThread(function()
                 checkRepoAgainstLocal(treeOrErr)
             else
                 print("[gh-checker] ⚠️ Failed to fetch GitHub repo tree: "..tostring(treeOrErr))
-                -- delayed final summary for fetch failure as well
-                Citizen.SetTimeout(5000, function()
-                    print("------------------------------------------------------------")
-                    print("[gh-checker] COMPLETED: Could not verify resource files (repo tree fetch failed).")
-                    print("------------------------------------------------------------")
-                end)
             end
         end)
 
