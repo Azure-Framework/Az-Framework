@@ -3,7 +3,7 @@ game 'gta5'
 lua54 'yes'
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.7.6'
+version '1.7.7'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -30,4 +30,5 @@ ui_page 'html/index.html'
 files {
     'html/index.html'
 }
+
 
