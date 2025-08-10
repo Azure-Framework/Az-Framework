@@ -23,11 +23,11 @@ if Config.Departments then
         for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
             local discordId = id:match('^discord:(%d+)$')
             if discordId then
-                print(('[az-fw-debug] Found Discord UserID for player %s: %s'):format(playerId, discordId))
+                print(('[Az-Dept-Debug] Found Discord UserID for player %s: %s'):format(playerId, discordId))
                 return discordId
             end
         end
-        print(('[az-fw-debug] No Discord UserID found for player %s'):format(playerId))
+        print(('[Az-Dept-Debug] No Discord UserID found for player %s'):format(playerId))
         return nil
     end
 
@@ -38,12 +38,12 @@ if Config.Departments then
         local url = ('https://discord.com/api/v10/guilds/%s/members/%s'):format(DISCORD_GUILD_ID, discordId)
         PerformHttpRequest(url, function(status, body)
             if status ~= 200 then
-                print(('[az-fw-debug] Failed to fetch roles for %s: %s'):format(discordId, status))
+                print(('[Az-Dept-Debug] Failed to fetch roles for %s: %s'):format(discordId, status))
                 return cb({})
             end
             local ok, member = pcall(json.decode, body)
             if not ok or type(member.roles) ~= 'table' then
-                print(('[az-fw-debug] Invalid Discord response for %s'):format(discordId))
+                print(('[Az-Dept-Debug] Invalid Discord response for %s'):format(discordId))
                 return cb({})
             end
             cb(member.roles)
@@ -53,34 +53,7 @@ if Config.Departments then
         })
     end
 
-    ----------------------------------------------------------------
-    -- MySQL table setup
-    ----------------------------------------------------------------
-    MySQL.ready(function()
-        MySQL.Async.execute([[CREATE TABLE IF NOT EXISTS `econ_user_money` (
-            `discordid` VARCHAR(255) NOT NULL,
-            `charid` VARCHAR(255) NOT NULL,
-            `cash` INT NOT NULL DEFAULT 0,
-            `bank` INT NOT NULL DEFAULT 0,
-            `last_daily` BIGINT NOT NULL DEFAULT 0,
-            PRIMARY KEY (`discordid`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]], {}, function() print('[az-fw-debug] econ_user_money table ensured') end)
 
-        MySQL.Async.execute([[CREATE TABLE IF NOT EXISTS `econ_departments` (
-            `discordid` VARCHAR(255) NOT NULL,
-            `department` VARCHAR(100) NOT NULL,
-            `paycheck` INT NOT NULL DEFAULT 0,
-            PRIMARY KEY (`discordid`, `department`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]], {}, function() print('[az-fw-debug] econ_departments table ensured') end)
-
-        MySQL.Async.execute([[CREATE TABLE IF NOT EXISTS `econ_user_roles` (
-            `discordid` VARCHAR(255) NOT NULL,
-            `roleid` VARCHAR(255) NOT NULL,
-            PRIMARY KEY (`discordid`,`roleid`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;]], {}, function() print('[az-fw-debug] econ_user_roles table ensured') end)
-
-        MySQL.Async.execute([[ALTER TABLE `user_characters` ADD COLUMN IF NOT EXISTS `active_department` VARCHAR(100) NOT NULL DEFAULT '';]], {}, function() end)
-    end)
 
     ----------------------------------------------------------------
     -- Request /jobs handler for selecting on-duty job
@@ -124,12 +97,12 @@ if Config.Departments then
         local charId    = exports['Az-Framework']:GetPlayerCharacter(src)
 
         if not discordId or not charId or charId == '' then
-            print(('[az-fw-debug] setJob: missing discordId or charId for player %s'):format(src))
+            print(('[Az-Dept-Debug] setJob: missing discordId or charId for player %s'):format(src))
             return
         end
 
         -- DEBUG: show exactly what we're about to run
-        print(('[az-fw-debug] setJob: UPDATE user_characters SET active_department=%s WHERE discordid=%s AND charid=%s')
+        print(('[Az-Dept-Debug] setJob: UPDATE user_characters SET active_department=%s WHERE discordid=%s AND charid=%s')
             :format(dept, discordId, charId))
 
         MySQL.Async.execute([[
@@ -143,7 +116,7 @@ if Config.Departments then
             ['@charId']    = charId,
         }, function(affected)
             -- report exactly how many rows got updated
-            print(('[az-fw-debug] setJob: updated %d row(s) for %s / %s'):format(affected, discordId, charId))
+            print(('[Az-Dept-Debug] setJob: updated %d row(s) for %s / %s'):format(affected, discordId, charId))
             TriggerClientEvent('az-fw-departments:refreshJob', src, { job = dept })
         end)
     end)
