@@ -371,20 +371,6 @@ function GetPlayerMoney(source, callback)
     end)
 end
 
-AddEventHandler('onResourceStart', function(resName)
-    if GetCurrentResourceName() ~= resName then return end
-
-    debugPrint("Ensuring database schemas exist...")
-    ensureSchemas(function()
-        debugPrint("All schemas ensured; now initializing HUDs.")
-        SetTimeout(1000, function()
-            for _, pid in ipairs(GetPlayers()) do
-                sendMoneyToClient(pid)
-            end
-        end)
-    end)
-end)
-
 AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
     deferrals.defer()
     deferrals.done()
