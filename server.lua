@@ -3,12 +3,23 @@ Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
 Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
 local debug       = Config.Debug
-local debugPrint  -- forward declaration
+local debugPrint  
 
+
+local M = {
+  money = 'econ_user_money',
+  accts = 'econ_accounts',
+  pays  = 'econ_payments',
+  cards = 'econ_cards',
+  dept  = 'econ_departments'
+}
+
+
+local SAVINGS_APR = 0.05
 
 Config.Discord.BotToken   = GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = GetConvar("DISCORD_WEBHOOK_URL", "")
--- sanity check
+
 if Config.Discord.BotToken == "" then
   print("^1[Discord]^0 DISCORD_BOT_TOKEN not set! Check server.cfg")
 end
@@ -75,24 +86,24 @@ local function getDiscordRoleList(playerSrc, cb)
 end
 
 local function isAdmin(playerSrc, cb)
-  -- 1) Log what AdminRoleId we’re expecting
+  
   debugPrint(("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(
     playerSrc, tostring(Config.AdminRoleId)
   ))
 
   getDiscordRoleList(playerSrc, function(err, roles)
-    -- 2) Error fetching? log and deny
+    
     if err then
       debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
       return cb(false)
     end
 
-    -- 3) Log the raw roles array we got back
+    
     debugPrint(("isAdmin: got roles for %d → %s"):format(
       playerSrc, json.encode(roles)
     ))
 
-    -- 4) Compare each role (string-casted) against the expected ID
+    
     for _, roleID in ipairs(roles) do
       debugPrint(("isAdmin: comparing role %s to %s"):format(
         tostring(roleID), tostring(Config.AdminRoleId)
@@ -103,7 +114,7 @@ local function isAdmin(playerSrc, cb)
       end
     end
 
-    -- 5) Nothing matched
+    
     debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
     cb(false)
   end)
@@ -208,23 +219,33 @@ function UpdateMoney(discordID, charID, data, cb)
 end
 
 local function sendMoneyToClient(playerId)
-    local discordID = getDiscordID(playerId)
-    local charID    = activeCharacters[playerId]
-    if discordID == "" or not charID then return end
+  local did = getDiscordID(playerId)
+  local charID = activeCharacters[playerId]
+  if not did or did == "" or not charID then return end
 
-    MySQL.Async.fetchAll([[
-      SELECT cash, bank
-      FROM econ_user_money
-      WHERE discordid = @discordid AND charid = @charid
-    ]], {
-      ['@discordid'] = discordID,
-      ['@charid']    = charID
-    }, function(rows)
-        if rows[1] then
-            TriggerClientEvent('updateCashHUD', playerId, rows[1].cash, rows[1].bank)
+  
+  GetMoney(did, charID, function(m) 
+    
+    exports.oxmysql:query(
+      string.format("SELECT balance FROM `%s` WHERE discordid = ? AND type = 'checking' LIMIT 1", M.accts),
+      { did },
+      function(rows)
+        local checking = nil
+        if rows and rows[1] and rows[1].balance ~= nil then
+          checking = tonumber(rows[1].balance) or 0
         end
-    end)
+
+        
+        if not checking or checking == 0 then
+          checking = tonumber(m.bank) or 0
+        end
+
+        TriggerClientEvent('updateCashHUD', playerId, tonumber(m.cash) or 0, checking)
+      end
+    )
+  end)
 end
+
 
 local function withMoney(src, fn)
     local discordID = getDiscordID(src)
@@ -366,7 +387,7 @@ function GetPlayerMoney(source, callback)
     end
 
     GetMoney(discordID, charID, function(data)
-        -- data has .cash and .bank
+        
         callback(nil, { cash = data.cash, bank = data.bank })
     end)
 end
@@ -376,7 +397,7 @@ AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
     deferrals.done()
 end)
 
--- Exports
+
 exports('addMoney',                 addMoney)
 exports('deductMoney',              deductMoney)
 exports('depositMoney',             depositMoney)
@@ -392,7 +413,7 @@ exports('GetPlayerCharacter',       GetPlayerCharacter)
 exports('GetPlayerCharacterName',   GetPlayerCharacterName)
 exports('GetPlayerMoney',           GetPlayerMoney)
 exports('logAdminCommand',          logAdminCommand)
--- Chat/command registrations
+
 
 RegisterCommand("addmoney", function(source, args)
     if source == 0 then return end
@@ -498,7 +519,7 @@ RegisterCommand("selectchar", function(source, args)
             })
         end
 
-        -- Success: switch and reload HUD
+        
         activeCharacters[source] = chosen
         TriggerClientEvent("chat:addMessage", source, {
             args = { "^2SYSTEM", "Switched to character " .. chosen }
@@ -522,8 +543,6 @@ lib.callback.register('az-fw-money:fetchCharacters', function(_, _)
   return rows or {}
 end)
 
--- Replace your existing registerCharacter handler with this
-
 RegisterNetEvent('az-fw-money:registerCharacter')
 AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
   local src       = source
@@ -533,13 +552,13 @@ AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
     return
   end
 
-  -- create a reasonably unique char id
+  
   local charID   = tostring(os.time()) .. tostring(math.random(1000,9999))
   local fullName = tostring(firstName) .. " " .. tostring(lastName)
 
   debugPrint(("registerCharacter: creating char %s for discord %s (player %d) name='%s'"):format(charID, discordID, src, fullName))
 
-  -- 1) Insert into user_characters
+  
   MySQL.Async.execute([[
     INSERT INTO user_characters (discordid, charid, name, active_department)
     VALUES (@discordid, @charid, @name, '')
@@ -556,7 +575,7 @@ AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
 
     debugPrint(("registerCharacter: inserted user_characters (%s / %s)"):format(discordID, charID))
 
-    -- 2) Create econ_user_money row for the new character (if it doesn't exist)
+    
     MySQL.Async.execute([[
       INSERT INTO econ_user_money
         (discordid, charid, firstname, lastname, cash, bank, last_daily, card_status)
@@ -570,16 +589,16 @@ AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
     }, function(aff2)
       debugPrint(("registerCharacter: inserted econ_user_money for %s / %s"):format(discordID, charID))
 
-      -- 3) Set active character server-side and notify client
+      
       activeCharacters[src] = charID
 
-      -- Notify client UI that registration succeeded (client already listens for this)
+      
       TriggerClientEvent('az-fw-money:characterRegistered', src, charID)
 
-      -- Send initial money HUD update
+      
       sendMoneyToClient(src)
 
-      -- Optionally announce in chat
+      
       TriggerClientEvent('chat:addMessage', src, {
         args = { "^2SYSTEM", ("Character '%s' registered (ID %s)."):format(fullName, charID) }
       })
@@ -589,47 +608,120 @@ end)
 
 RegisterNetEvent('az-fw-money:requestMoney')
 AddEventHandler('az-fw-money:requestMoney', function()
-  local src       = source
-  local discordID = getDiscordID(src)
-  local charID    = activeCharacters[src]
-
-  if discordID == "" or not charID or charID == "" then
-    return
-  end
-
-  GetMoney(discordID, charID, function(data)
-    TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
-  end)
+  local src = source
+  sendMoneyToClient(src)
 end)
+
+
+
+
+
+local function getDiscordID(src)
+  for _, id in ipairs(GetPlayerIdentifiers(src)) do
+    if id:sub(1,8) == 'discord:' then
+      return id:sub(9)
+    end
+  end
+end
+
+
+local function getCharID(src)
+  
+  local cid = exports['Az-Framework']:GetPlayerCharacter(src)
+  return cid and tostring(cid) or ''
+end
+
+local function fetchMoney(did, cid, cb)
+  exports.oxmysql:query(
+    string.format("SELECT * FROM `%s` WHERE discordid = ? AND charid = ?", M.money),
+    { did, cid },
+    function(res)
+      if res and res[1] then
+        return cb(res[1])
+      end
+      
+      exports.oxmysql:insert(
+        string.format("INSERT INTO `%s` (discordid,charid,cash,bank,profile_picture) VALUES (?,?,?,?, '')", M.money),
+        { did, cid, 0, 0 },
+        function()
+          
+          exports.oxmysql:query(
+            string.format("SELECT * FROM `%s` WHERE discordid = ? AND charid = ?", M.money),
+            { did, cid },
+            function(res2) cb(res2 and res2[1] or { cash = 0, bank = 0 }) end
+          )
+        end
+      )
+    end
+  )
+end
+
+
+local function fetchAccounts(did, cb)
+  exports.oxmysql:query(
+    string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+    { did },
+    function(accts)
+      if not accts or #accts == 0 then
+        exports.oxmysql:insert(
+          string.format(
+            "INSERT INTO `%s` (discordid,type,balance) VALUES (?,?,?),(?,?,?)",
+            M.accts
+          ),
+          { did,'checking',0, did,'savings',0 },
+          function()
+            
+            exports.oxmysql:query(
+              string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+              { did },
+              function(accts2) cb(accts2 or {}) end
+            )
+          end
+        )
+      else
+        for _, acct in ipairs(accts) do
+          if acct.type == 'savings' then
+            local rate = SAVINGS_APR / 365
+            acct.apr = SAVINGS_APR
+            acct.daily_interest = (tonumber(acct.balance) or 0) * rate
+          end
+        end
+        cb(accts)
+      end
+    end
+  )
+end
 
 RegisterNetEvent('az-fw-money:selectCharacter')
 AddEventHandler('az-fw-money:selectCharacter', function(charID)
   local src = source
-  local discordID = getDiscordID(src)
-  if discordID == '' then return end
-  MySQL.Async.fetchAll([[
-    SELECT 1 FROM user_characters
-    WHERE discordid = @did AND charid = @cid
-  ]], {
-    ['@did'] = discordID,
-    ['@cid'] = charID
-  }, function(rows)
-    if rows and #rows > 0 then
-      activeCharacters[src] = charID
-      GetMoney(discordID, charID, function(data)
-        TriggerClientEvent("updateCashHUD", src, data.cash, data.bank)
-      end)
-      TriggerClientEvent('az-fw-money:characterSelected', src, charID)
+  local did = getDiscordID(src)
+  if not did or did == '' then return end
+
+  exports.oxmysql:query(
+    "SELECT 1 FROM user_characters WHERE discordid = ? AND charid = ?",
+    { did, charID },
+    function(rows)
+      if rows and #rows > 0 then
+        activeCharacters[src] = charID
+
+        
+        sendMoneyToClient(src)
+
+        
+        TriggerClientEvent('az-fw-money:characterSelected', src, charID)
+      end
     end
-  end)
+  )
 end)
 
 
--- returns string or nil
+
+
 exports('getPlayerJob', function(source)
     if not source or source == 0 then return nil end
 
-    -- attempt to get discordID/charID the same way this resource already does
+    
     local discordID = getDiscordID(source)
     local charID    = activeCharacters[source]
 
@@ -721,9 +813,9 @@ AddEventHandler("az-fw-departments:setActive", function(dept)
     end)
 end)
 
--- ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
--- ┃    HOURLY PAYCHECK THREAD w/ ROLES   ┃
--- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+
 
 Citizen.CreateThread(function()
     print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
@@ -741,17 +833,17 @@ Citizen.CreateThread(function()
                 goto continue
             end
 
-            -- First, grab their Discord role IDs:
+            
             getDiscordRoleList(src, function(err, roles)
                 if err then
                     print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
                     return
                 end
 
-                -- Build a parameterized IN-clause for roles + user ID
-                -- We’ll look for any econ_departments row where
-                --   department = @dept AND discordid IN (@userID, @role1, @role2, …)
-                local dept = ""  -- fetch active_department from user_characters
+                
+                
+                
+                local dept = ""  
                 MySQL.Async.fetchScalar([[
                     SELECT active_department
                       FROM user_characters
@@ -768,18 +860,18 @@ Citizen.CreateThread(function()
                     end
                     dept = active_department
 
-                    -- combine userID + roles
+                    
                     local lookupIds = { discordID }
                     for _, rid in ipairs(roles) do table.insert(lookupIds, rid) end
 
-                    -- generate placeholders ?,?,…
+                    
                     local placeholders = table.concat((function()
                         local t = {}
                         for i=1,#lookupIds do t[i] = "?" end
                         return t
                     end)(), ",")
 
-                    -- run the paycheck lookup
+                    
                     local sql = ([[ 
                         SELECT paycheck 
                           FROM econ_departments 
@@ -788,7 +880,7 @@ Citizen.CreateThread(function()
                          LIMIT 1
                     ]]):format(placeholders)
 
-                    -- build params: first the dept, then all IDs
+                    
                     local params = { dept }
                     for _, id in ipairs(lookupIds) do table.insert(params, id) end
 
@@ -820,15 +912,15 @@ Config.GitHub = {
     owner       = "Azure-Framework",
     repo        = "Az-Framework",
     branch      = "main",
-    pollSeconds = 60 * 60, -- 1 hour
+    pollSeconds = 60 * 60, 
     token       = GetConvar("GITHUB_TOKEN", ""),
 }
 
 Config.LocalResourceName = Config.LocalResourceName or "Az-Framework"
 Config.checkPathPrefixes = Config.checkPathPrefixes or {}
-Config.DiscordWebhook = GetConvar("DISCORD_WEBHOOK_URL", "") -- optional
+Config.DiscordWebhook = GetConvar("DISCORD_WEBHOOK_URL", "") 
 
--- Files to ignore when reporting mismatches (exact path matches)
+
 Config.ignoreFiles = Config.ignoreFiles or {
     "fxmanifest.lua",
     "config.lua",
@@ -857,7 +949,7 @@ local function isIgnoredPath(path)
     return false
 end
 
--- Fetch repository tree (recursive)
+
 local function fetchRepoTree(cb)
     local owner, repo, branch = Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
     local treeUrl = ("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1"):format(owner, repo, branch)
@@ -882,7 +974,7 @@ local function fetchRepoTree(cb)
     end)
 end
 
--- Compare remote blobs to local files
+
 local function checkRepoAgainstLocal(tree)
     local rawBase = ("https://raw.githubusercontent.com/%s/%s/%s/"):format(
         Config.GitHub.owner, Config.GitHub.repo, Config.GitHub.branch
@@ -895,9 +987,9 @@ local function checkRepoAgainstLocal(tree)
     local function scheduleFinalPrint()
         if scheduled then return end
         scheduled = true
-        -- delay final print by 5 seconds (5000 ms)
+        
         Citizen.SetTimeout(5000, function()
-            print("------------------------------------------------------------")
+            print("
             if #mismatches > 0 then
                 print("[gh-checker] ❌ FILE MISMATCH DETECTED!")
                 print("[gh-checker] Your local '"..Config.LocalResourceName.."' files differ from the GitHub repository.")
@@ -906,11 +998,11 @@ local function checkRepoAgainstLocal(tree)
                 for _, m in ipairs(mismatches) do
                     print(" - "..m.path.." ("..m.reason..")")
                 end
-                print("------------------------------------------------------------")
+                print("
                 print("[gh-checker] COMPLETED: Resource files are NOT up to date — please update the resource.")
             else
                 print("[gh-checker] ✅ All local files match the GitHub repository.")
-                print("------------------------------------------------------------")
+                print("
                 print("[gh-checker] COMPLETED: Resource files are up to date.")
             end
         end)
@@ -918,7 +1010,7 @@ local function checkRepoAgainstLocal(tree)
 
     local function finishIfDone()
         if pending == 0 then
-            -- schedule the delayed final print (buffers mismatches and prints after 5s)
+            
             scheduleFinalPrint()
         end
     end
@@ -926,7 +1018,7 @@ local function checkRepoAgainstLocal(tree)
     for _, entry in ipairs(tree) do
         if entry.type == "blob" and startsWithAny(entry.path, Config.checkPathPrefixes) then
             if isIgnoredPath(entry.path) then
-                -- skip checking and reporting for ignored files
+                
             else
                 pending = pending + 1
                 local rawUrl = rawBase .. entry.path
@@ -949,30 +1041,30 @@ local function checkRepoAgainstLocal(tree)
     if pending == 0 then finishIfDone() end
 end
 
--- Main loop
-Citizen.CreateThread(function()
-    print("------------------------------------------------------------")
-    print("[gh-checker] Starting Az-Framework GitHub file checker.")
-    print("[gh-checker] This will check your local '"..Config.LocalResourceName.."' files against GitHub.")
-    print("[gh-checker] If differences are found, please UPDATE your files from:")
-    print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
-    print("------------------------------------------------------------")
+-- -- Main loop
+-- Citizen.CreateThread(function()
+--     print("------------------------------------------------------------")
+--     print("[gh-checker] Starting Az-Framework GitHub file checker.")
+--     print("[gh-checker] This will check your local '"..Config.LocalResourceName.."' files against GitHub.")
+--     print("[gh-checker] If differences are found, please UPDATE your files from:")
+--     print("   https://github.com/"..Config.GitHub.owner.."/"..Config.GitHub.repo)
+--     print("------------------------------------------------------------")
 
-    while true do
-        fetchRepoTree(function(ok, treeOrErr)
-            if ok then
-                checkRepoAgainstLocal(treeOrErr)
-            else
-                print("[gh-checker] ⚠️ Failed to fetch GitHub repo tree: "..tostring(treeOrErr))
-                -- delayed final summary for fetch failure as well
-                Citizen.SetTimeout(5000, function()
-                    print("------------------------------------------------------------")
-                    print("[gh-checker] COMPLETED: Could not verify resource files (repo tree fetch failed).")
-                    print("------------------------------------------------------------")
-                end)
-            end
-        end)
+--     while true do
+--         fetchRepoTree(function(ok, treeOrErr)
+--             if ok then
+--                 checkRepoAgainstLocal(treeOrErr)
+--             else
+--                 print("[gh-checker] ⚠️ Failed to fetch GitHub repo tree: "..tostring(treeOrErr))
+--                 -- delayed final summary for fetch failure as well
+--                 Citizen.SetTimeout(5000, function()
+--                     print("------------------------------------------------------------")
+--                     print("[gh-checker] COMPLETED: Could not verify resource files (repo tree fetch failed).")
+--                     print("------------------------------------------------------------")
+--                 end)
+--             end
+--         end)
 
-        Citizen.Wait((Config.GitHub.pollSeconds or 3600) * 1000)
-    end
-end)
+--         Citizen.Wait((Config.GitHub.pollSeconds or 3600) * 1000)
+--     end
+-- end)
