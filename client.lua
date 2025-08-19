@@ -110,9 +110,29 @@ end)
 RegisterNetEvent('az-fw-money:characterRegistered')
 AddEventHandler('az-fw-money:characterRegistered', function(charid)
     lib.notify({
-        title       = 'Character Registered',
-        description = 'Your new char ID is ' .. charid,
-        type        = 'success'
+        id          = 'char-register',
+        title       = '🎉 Character Registered',
+        description = 'Welcome! Your new Character ID is **' .. charid .. '**',
+        type        = 'success',
+        duration    = 5000,
+        showDuration= true,
+        position    = 'top',
+        icon        = 'user-plus',
+        iconColor   = '#4CAF50',
+        iconAnimation = 'bounce',
+        style = {
+            backgroundColor = '#1e293b',
+            color = '#f8fafc',
+            border = '1px solid #4CAF50',
+            borderRadius = '12px',
+            padding = '10px 15px',
+            fontSize = '14px'
+        },
+        sound = {
+            bank = "HUD_FRONTEND_DEFAULT_SOUNDSET",
+            set  = "HUD_FRONTEND_DEFAULT_SOUNDSET",
+            name = "SELECT"
+        }
     })
     TriggerServerEvent('az-fw-money:requestMoney')
 end)
@@ -120,12 +140,32 @@ end)
 RegisterNetEvent('az-fw-money:characterSelected')
 AddEventHandler('az-fw-money:characterSelected', function(charid)
     lib.notify({
-        title       = 'Character Selected',
-        description = 'Now using char ID ' .. charid,
-        type        = 'info'
+        id          = 'char-select',
+        title       = '✅ Character Selected',
+        description = 'Now playing on Character ID **' .. charid .. '**',
+        type        = 'inform',
+        duration    = 5000,
+        showDuration= true,
+        position    = 'top',
+        icon        = 'user-check',
+        iconColor   = '#0ea5e9',
+        style = {
+            backgroundColor = '#1e293b',
+            color = '#f8fafc',
+            border = '1px solid #0ea5e9',
+            borderRadius = '12px',
+            padding = '10px 15px',
+            fontSize = '14px'
+        },
+        sound = {
+            bank = "HUD_FRONTEND_DEFAULT_SOUNDSET",
+            set  = "HUD_FRONTEND_DEFAULT_SOUNDSET",
+            name = "NAV_UP_DOWN"
+        }
     })
     TriggerServerEvent('az-fw-money:requestMoney')
 end)
+
 
 RegisterCommand('char', function()
     lib.showContext(CHAR_MAIN)
