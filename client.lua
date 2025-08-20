@@ -17,9 +17,9 @@ end)
 
 RegisterNetEvent("az-fw-departments:refreshJob")
 AddEventHandler("az-fw-departments:refreshJob", function(data)
-    -- update the UI as before
+    
     SendNUIMessage({ action = "updateJob", job = data.job })
-    -- now tell the server about this department
+    
     TriggerServerEvent("az-fw-departments:setActive", data.job)
 end)
 
@@ -28,7 +28,7 @@ AddEventHandler("hud:setDepartment", function(job)
     SendNUIMessage({ action = "updateJob", job = job })
 end)
 
--- Toggle HUD-move mode
+
 RegisterCommand("movehud", function()
     SetNuiFocus(true, true)
     SendNUIMessage({ action = "toggleMove" })
@@ -66,15 +66,42 @@ lib.registerContext({
 
 RegisterNetEvent('az-fw-money:openRegisterDialog')
 AddEventHandler('az-fw-money:openRegisterDialog', function()
+    
     local inputs = lib.inputDialog('Register Character', {
         { type = 'input', label = 'First Name',  placeholder = 'John',  required = true, min = 1, max = 20, icon = 'id-badge' },
         { type = 'input', label = 'Last Name',   placeholder = 'Doe',   required = true, min = 1, max = 20, icon = 'id-badge' },
-    }, { allowCancel = false })
+    }, { allowCancel = true }) 
 
-    if inputs and inputs[1] ~= '' and inputs[2] ~= '' then
+    
+    if not inputs then
+        
+        SetNuiFocus(false, false)
+
+        
+        lib.notify({
+            title = 'Cancelled',
+            description = 'Character creation cancelled.',
+            type = 'error',
+            duration = 2500,
+            position = 'top'
+        })
+        return
+    end
+
+    
+    if inputs[1] and inputs[1] ~= '' and inputs[2] and inputs[2] ~= '' then
         TriggerServerEvent('az-fw-money:registerCharacter', inputs[1], inputs[2])
+    else
+        lib.notify({
+            title = 'Invalid',
+            description = 'Please enter both first and last name.',
+            type = 'error',
+            duration = 3000,
+            position = 'top'
+        })
     end
 end)
+
 
 RegisterNetEvent(EVENT_SHOW_LIST)
 AddEventHandler(EVENT_SHOW_LIST, function()
