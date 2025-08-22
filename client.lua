@@ -17,9 +17,9 @@ end)
 
 RegisterNetEvent("az-fw-departments:refreshJob")
 AddEventHandler("az-fw-departments:refreshJob", function(data)
-    
+    -- update the UI as before
     SendNUIMessage({ action = "updateJob", job = data.job })
-    
+    -- now tell the server about this department
     TriggerServerEvent("az-fw-departments:setActive", data.job)
 end)
 
@@ -28,7 +28,7 @@ AddEventHandler("hud:setDepartment", function(job)
     SendNUIMessage({ action = "updateJob", job = job })
 end)
 
-
+-- Toggle HUD-move mode
 RegisterCommand("movehud", function()
     SetNuiFocus(true, true)
     SendNUIMessage({ action = "toggleMove" })
@@ -66,42 +66,15 @@ lib.registerContext({
 
 RegisterNetEvent('az-fw-money:openRegisterDialog')
 AddEventHandler('az-fw-money:openRegisterDialog', function()
-    
     local inputs = lib.inputDialog('Register Character', {
         { type = 'input', label = 'First Name',  placeholder = 'John',  required = true, min = 1, max = 20, icon = 'id-badge' },
         { type = 'input', label = 'Last Name',   placeholder = 'Doe',   required = true, min = 1, max = 20, icon = 'id-badge' },
-    }, { allowCancel = true }) 
+    }, { allowCancel = false })
 
-    
-    if not inputs then
-        
-        SetNuiFocus(false, false)
-
-        
-        lib.notify({
-            title = 'Cancelled',
-            description = 'Character creation cancelled.',
-            type = 'error',
-            duration = 2500,
-            position = 'top'
-        })
-        return
-    end
-
-    
-    if inputs[1] and inputs[1] ~= '' and inputs[2] and inputs[2] ~= '' then
+    if inputs and inputs[1] ~= '' and inputs[2] ~= '' then
         TriggerServerEvent('az-fw-money:registerCharacter', inputs[1], inputs[2])
-    else
-        lib.notify({
-            title = 'Invalid',
-            description = 'Please enter both first and last name.',
-            type = 'error',
-            duration = 3000,
-            position = 'top'
-        })
     end
 end)
-
 
 RegisterNetEvent(EVENT_SHOW_LIST)
 AddEventHandler(EVENT_SHOW_LIST, function()
@@ -137,29 +110,9 @@ end)
 RegisterNetEvent('az-fw-money:characterRegistered')
 AddEventHandler('az-fw-money:characterRegistered', function(charid)
     lib.notify({
-        id          = 'char-register',
-        title       = '🎉 Character Registered',
-        description = 'Welcome! Your new Character ID is **' .. charid .. '**',
-        type        = 'success',
-        duration    = 5000,
-        showDuration= true,
-        position    = 'top',
-        icon        = 'user-plus',
-        iconColor   = '#4CAF50',
-        iconAnimation = 'bounce',
-        style = {
-            backgroundColor = '#1e293b',
-            color = '#f8fafc',
-            border = '1px solid #4CAF50',
-            borderRadius = '12px',
-            padding = '10px 15px',
-            fontSize = '14px'
-        },
-        sound = {
-            bank = "HUD_FRONTEND_DEFAULT_SOUNDSET",
-            set  = "HUD_FRONTEND_DEFAULT_SOUNDSET",
-            name = "SELECT"
-        }
+        title       = 'Character Registered',
+        description = 'Your new char ID is ' .. charid,
+        type        = 'success'
     })
     TriggerServerEvent('az-fw-money:requestMoney')
 end)
@@ -167,32 +120,12 @@ end)
 RegisterNetEvent('az-fw-money:characterSelected')
 AddEventHandler('az-fw-money:characterSelected', function(charid)
     lib.notify({
-        id          = 'char-select',
-        title       = '✅ Character Selected',
-        description = 'Now playing on Character ID **' .. charid .. '**',
-        type        = 'inform',
-        duration    = 5000,
-        showDuration= true,
-        position    = 'top',
-        icon        = 'user-check',
-        iconColor   = '#0ea5e9',
-        style = {
-            backgroundColor = '#1e293b',
-            color = '#f8fafc',
-            border = '1px solid #0ea5e9',
-            borderRadius = '12px',
-            padding = '10px 15px',
-            fontSize = '14px'
-        },
-        sound = {
-            bank = "HUD_FRONTEND_DEFAULT_SOUNDSET",
-            set  = "HUD_FRONTEND_DEFAULT_SOUNDSET",
-            name = "NAV_UP_DOWN"
-        }
+        title       = 'Character Selected',
+        description = 'Now using char ID ' .. charid,
+        type        = 'info'
     })
     TriggerServerEvent('az-fw-money:requestMoney')
 end)
-
 
 RegisterCommand('char', function()
     lib.showContext(CHAR_MAIN)
