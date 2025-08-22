@@ -10,8 +10,7 @@ KEY `discordid` (`discordid`),
 KEY `idx_econ_accounts__discordid_` (`discordid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=181 DEFAULT CHARSET=utf8mb4;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_admins` (
 `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -22,8 +21,7 @@ UNIQUE KEY `username` (`username`),
 UNIQUE KEY `idx_econ_admins__username_` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_cards` (
 `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -37,8 +35,7 @@ KEY `discordid` (`discordid`),
 KEY `idx_econ_cards__discordid_` (`discordid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_departments` (
 `discordid` varchar(255) NOT NULL,
@@ -47,8 +44,7 @@ CREATE TABLE IF NOT EXISTS `econ_departments` (
 PRIMARY KEY (`discordid`,`department`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_payments` (
 `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -61,8 +57,7 @@ KEY `discordid` (`discordid`),
 KEY `idx_econ_payments__discordid_` (`discordid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_profile` (
 `discordid` varchar(255) NOT NULL,
@@ -71,8 +66,7 @@ CREATE TABLE IF NOT EXISTS `econ_profile` (
 PRIMARY KEY (`discordid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
-
-
+ 
 [[
 CREATE TABLE IF NOT EXISTS `econ_user_money` (
 `discordid` varchar(255) NOT NULL,
@@ -81,6 +75,9 @@ CREATE TABLE IF NOT EXISTS `econ_user_money` (
 `lastname` varchar(100) NOT NULL DEFAULT '',
 `profile_picture` varchar(255) DEFAULT NULL,
 `cash` int(11) NOT NULL DEFAULT 0,
+PRIMARY KEY (`discordid`,`charid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+]]
 }
 
 local function trim(s) return (s and s:gsub("^%s*(.-)%s*$", "%1") or s) end
