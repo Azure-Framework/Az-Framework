@@ -272,7 +272,7 @@ function deductMoney(source, amount)
     withMoney(source, function(dID, cID, data)
         data.cash = math.max(0, data.cash - amount)
         UpdateMoney(dID, cID, data, function()
-            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            TriggerClientEvent("updateCashHUD", source, data.cash)
             if amount >= 1e6 then logLargeTransaction("deductMoney", source, amount, "deductMoney() export") end
         end)
     end)
