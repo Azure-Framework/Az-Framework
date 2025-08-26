@@ -66,15 +66,48 @@ lib.registerContext({
 
 RegisterNetEvent('az-fw-money:openRegisterDialog')
 AddEventHandler('az-fw-money:openRegisterDialog', function()
-    local inputs = lib.inputDialog('Register Character', {
+    local function trim(s) return (s and s:gsub("^%s*(.-)%s*$", "%1") or "") end
+
+    local title = 'Register Character'
+    local fields = {
         { type = 'input', label = 'First Name',  placeholder = 'John',  required = true, min = 1, max = 20, icon = 'id-badge' },
         { type = 'input', label = 'Last Name',   placeholder = 'Doe',   required = true, min = 1, max = 20, icon = 'id-badge' },
-    }, { allowCancel = false })
+    }
+    local opts = { allowCancel = true } -- <- user can cancel now
 
-    if inputs and inputs[1] ~= '' and inputs[2] ~= '' then
-        TriggerServerEvent('az-fw-money:registerCharacter', inputs[1], inputs[2])
+    while true do
+        local inputs = lib.inputDialog(title, fields, opts)
+
+        -- user cancelled -> stop and do nothing
+        if not inputs thena
+            lib.notify({
+                title       = 'Registration',
+                description = 'Registration cancelled.',
+                type        = 'inform'
+            })
+            break
+        end
+
+        local first = trim(inputs[1] or "")
+        local last  = trim(inputs[2] or "")
+
+        if first ~= "" and last ~= "" then
+            -- valid -> send to server and exit loop
+            TriggerServerEvent('az-fw-money:registerCharacter', first, last)
+            break
+        else
+            -- invalid -> tell the user and re-open (they can still cancel next time)
+            lib.notify({
+                title       = 'Registration',
+                description = 'First and last name are required and cannot be empty.',
+                type        = 'error'
+            })
+            Citizen.Wait(150) -- avoid instant re-open spam
+            -- loop continues and re-opens the dialog (user still can cancel)
+        end
     end
 end)
+
 
 RegisterNetEvent(EVENT_SHOW_LIST)
 AddEventHandler(EVENT_SHOW_LIST, function()
