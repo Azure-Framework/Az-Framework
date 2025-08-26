@@ -262,7 +262,7 @@ function addMoney(source, amount)
     withMoney(source, function(dID, cID, data)
         data.cash = data.cash + amount
         UpdateMoney(dID, cID, data, function()
-            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+            TriggerClientEvent("updateCashHUD", source, data.cash)
             if amount >= 1e6 then logLargeTransaction("addMoney", source, amount, "addMoney() export") end
         end)
     end)
