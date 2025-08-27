@@ -279,32 +279,177 @@ function deductMoney(source, amount)
 end
 
 function depositMoney(source, amount)
+    if not amount then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Invalid amount."} })
+    end
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Amount must be greater than 0."} })
+    end
+
     withMoney(source, function(dID, cID, data)
-        if data.cash < amount then
+        if (tonumber(data.cash) or 0) < amount then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough cash to deposit."} })
         end
-        data.cash = data.cash - amount
-        data.bank = data.bank + amount
-        UpdateMoney(dID, cID, data, function()
-            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then logLargeTransaction("depositMoney", source, amount, "depositMoney() export") end
-        end)
+
+        -- inline fetchAccounts logic:
+        exports.oxmysql:query(
+          string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+          { dID },
+          function(accts)
+            if not accts or #accts == 0 then
+              -- create checking + savings
+              exports.oxmysql:insert(
+                string.format("INSERT INTO `%s` (discordid,type,balance) VALUES (?,?,?),(?,?,?)", M.accts),
+                { dID,'checking',0, dID,'savings',0 },
+                function()
+                  exports.oxmysql:query(
+                    string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+                    { dID },
+                    function(accts2)
+                      -- continue with update using accts2
+                      local checking = nil
+                      for _, a in ipairs(accts2 or {}) do if tostring(a.type) == 'checking' then checking = a; break end end
+                      if not checking then
+                        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No checking account found (internal error)."} })
+                      end
+                      local newBalance = (tonumber(checking.balance) or 0) + amount
+                      exports.oxmysql:execute(
+                        string.format("UPDATE `%s` SET balance = ? WHERE id = ?", M.accts),
+                        { newBalance, checking.id },
+                        function(affected)
+                          data.cash = (tonumber(data.cash) or 0) - amount
+                          data.bank = newBalance
+                          UpdateMoney(dID, cID, data, function()
+                              TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+                              TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."} })
+                              if amount >= 1e6 then logLargeTransaction("depositMoney", source, amount, "depositMoney() export") end
+                          end)
+                        end
+                      )
+                    end
+                  )
+                end
+              )
+            else
+              -- accounts exist
+              local checking = nil
+              for _, a in ipairs(accts) do if tostring(a.type) == 'checking' then checking = a; break end end
+              if not checking then
+                return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No checking account found (internal error)."} })
+              end
+              local newBalance = (tonumber(checking.balance) or 0) + amount
+              exports.oxmysql:execute(
+                string.format("UPDATE `%s` SET balance = ? WHERE id = ?", M.accts),
+                { newBalance, checking.id },
+                function(affected)
+                  data.cash = (tonumber(data.cash) or 0) - amount
+                  data.bank = newBalance
+                  UpdateMoney(dID, cID, data, function()
+                      TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+                      TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."} })
+                      if amount >= 1e6 then logLargeTransaction("depositMoney", source, amount, "depositMoney() export") end
+                  end)
+                end
+              )
+            end
+          end
+        )
     end)
 end
 
 function withdrawMoney(source, amount)
-    withMoney(source, function(dID, cID, data)
-        if data.bank < amount then
+    if not amount then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Invalid amount."} })
+    end
+    amount = math.floor(tonumber(amount) or 0)
+    if amount <= 0 then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Amount must be greater than 0."} })
+    end
+
+    local discordID = getDiscordID(source)
+    local charID    = activeCharacters[source]
+    if not discordID or discordID == "" or not charID then
+        return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No character selected."} })
+    end
+
+    -- inline fetchAccounts logic:
+    exports.oxmysql:query(
+      string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+      { discordID },
+      function(accts)
+        if not accts or #accts == 0 then
+          -- create accounts then re-query to continue
+          exports.oxmysql:insert(
+            string.format("INSERT INTO `%s` (discordid,type,balance) VALUES (?,?,?),(?,?,?)", M.accts),
+            { discordID,'checking',0, discordID,'savings',0 },
+            function()
+              exports.oxmysql:query(
+                string.format("SELECT id,type,balance FROM `%s` WHERE discordid = ?", M.accts),
+                { discordID },
+                function(accts2)
+                  -- proceed
+                  local checking = nil
+                  for _, a in ipairs(accts2 or {}) do if tostring(a.type) == 'checking' then checking = a; break end end
+                  if not checking then
+                    return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No checking account found (internal error)."} })
+                  end
+                  local current = tonumber(checking.balance) or 0
+                  if current < amount then
+                    return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough bank funds to withdraw."} })
+                  end
+                  local newBalance = current - amount
+                  exports.oxmysql:execute(
+                    string.format("UPDATE `%s` SET balance = ? WHERE id = ?", M.accts),
+                    { newBalance, checking.id },
+                    function(affected)
+                      -- update legacy table
+                      withMoney(source, function(dID,cID,data)
+                        data.bank = newBalance
+                        data.cash = (tonumber(data.cash) or 0) + amount
+                        UpdateMoney(dID, cID, data, function()
+                          TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+                          TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."} })
+                          if amount >= 1e6 then logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export") end
+                        end)
+                      end)
+                    end
+                  )
+                end
+              )
+            end
+          )
+        else
+          local checking = nil
+          for _, a in ipairs(accts) do if tostring(a.type) == 'checking' then checking = a; break end end
+          if not checking then
+            return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No checking account found (internal error)."} })
+          end
+          local current = tonumber(checking.balance) or 0
+          if current < amount then
             return TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Not enough bank funds to withdraw."} })
+          end
+          local newBalance = current - amount
+          exports.oxmysql:execute(
+            string.format("UPDATE `%s` SET balance = ? WHERE id = ?", M.accts),
+            { newBalance, checking.id },
+            function(affected)
+              withMoney(source, function(dID,cID,data)
+                data.bank = newBalance
+                data.cash = (tonumber(data.cash) or 0) + amount
+                UpdateMoney(dID, cID, data, function()
+                  TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
+                  TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."} })
+                  if amount >= 1e6 then logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export") end
+                end)
+              end)
+            end
+          )
         end
-        data.bank = data.bank - amount
-        data.cash = data.cash + amount
-        UpdateMoney(dID, cID, data, function()
-            TriggerClientEvent("updateCashHUD", source, data.cash, data.bank)
-            if amount >= 1e6 then logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export") end
-        end)
-    end)
+      end
+    )
 end
+
 
 function transferMoney(source, target, amount)
     local senderID = getDiscordID(source)
