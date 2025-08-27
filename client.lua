@@ -79,7 +79,7 @@ AddEventHandler('az-fw-money:openRegisterDialog', function()
         local inputs = lib.inputDialog(title, fields, opts)
 
         -- user cancelled -> stop and do nothing
-        if not inputs thena
+        if not inputs then
             lib.notify({
                 title       = 'Registration',
                 description = 'Registration cancelled.',
