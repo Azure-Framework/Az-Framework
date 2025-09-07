@@ -963,8 +963,8 @@ end)
 
 
 Citizen.CreateThread(function()
-    print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
-    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000
+    print("Paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
+    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000  -- minutes → ms
 
     while true do
         Citizen.Wait(interval)
@@ -978,16 +978,12 @@ Citizen.CreateThread(function()
                 goto continue
             end
 
-            
             getDiscordRoleList(src, function(err, roles)
                 if err then
                     print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
                     return
                 end
 
-                
-                
-                
                 local dept = ""  
                 MySQL.Async.fetchScalar([[
                     SELECT active_department
@@ -1005,18 +1001,15 @@ Citizen.CreateThread(function()
                     end
                     dept = active_department
 
-                    
                     local lookupIds = { discordID }
                     for _, rid in ipairs(roles) do table.insert(lookupIds, rid) end
 
-                    
                     local placeholders = table.concat((function()
                         local t = {}
                         for i=1,#lookupIds do t[i] = "?" end
                         return t
                     end)(), ",")
 
-                    
                     local sql = ([[ 
                         SELECT paycheck 
                           FROM econ_departments 
@@ -1025,7 +1018,6 @@ Citizen.CreateThread(function()
                          LIMIT 1
                     ]]):format(placeholders)
 
-                    
                     local params = { dept }
                     for _, id in ipairs(lookupIds) do table.insert(params, id) end
 
@@ -1037,7 +1029,7 @@ Citizen.CreateThread(function()
                             print(("  ↳ Paying $%d to %d"):format(amt, src))
                             addMoney(src, amt)
                             TriggerClientEvent('chat:addMessage', src, {
-                                args = { "^2PAYCHECK", "Hourly pay: $" .. amt }
+                                args = { "^2PAYCHECK", "Paycheck (" .. (Config.PaycheckIntervalMinutes or 60) .. " min): $" .. amt }
                             })
                         else
                             print(("  ↳ No matching paycheck row, or amount=0"))
@@ -1050,3 +1042,5 @@ Citizen.CreateThread(function()
         end
     end
 end)
+
+
