@@ -9,10 +9,13 @@ Config.Parking = true
 Config.Departments = true
 
 -- How often to run distributePaychecks (in minutes)
-Config.PaycheckIntervalMinutes  = 1  -- 60 1 hour.
+-- Example: 1 = every minute, 5 = every 5 minutes, 60 = every hour
+Config.PaycheckIntervalMinutes = 60
+
 
 --┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 --┃       Discord Configuration Guide    ┃
 --┃  (Bot token & webhook link & Guild ID┃
 --┃        inside your server.cfg )      ┃
 --┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
