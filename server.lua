@@ -651,9 +651,10 @@ RegisterCommand("selectchar", function(source, args)
     local discordID = getDiscordID(source)
     if discordID == "" then
         return TriggerClientEvent("chat:addMessage", source, {
-            args = { "^1SYSTEM", "No Discord ID found. Are you Discord‑linked?" }
+            args = { "^1SYSTEM", "No Discord ID found. Are you Discord-linked?" }
         })
     end
+
     MySQL.Async.fetchAll([[
       SELECT 1 FROM user_characters
       WHERE discordid = ? AND charid = ?
@@ -664,14 +665,31 @@ RegisterCommand("selectchar", function(source, args)
             })
         end
 
-        
+        -- set active char
         activeCharacters[source] = chosen
         TriggerClientEvent("chat:addMessage", source, {
             args = { "^2SYSTEM", "Switched to character " .. chosen }
         })
+
+        -- send money HUD
         sendMoneyToClient(source)
+
+        -- fetch and send the character's active_department so the HUD updates properly
+        MySQL.Async.fetchScalar([[
+          SELECT active_department
+          FROM user_characters
+          WHERE discordid = @discordid AND charid = @charid
+          LIMIT 1
+        ]], {
+          ['@discordid'] = discordID,
+          ['@charid']    = chosen
+        }, function(active_dept)
+          -- ensure client UI is updated even if empty
+          TriggerClientEvent('hud:setDepartment', source, active_dept or '')
+        end)
     end)
 end, false)
+
 
 
 lib.callback.register('az-fw-money:fetchCharacters', function(_, _)
@@ -742,6 +760,8 @@ AddEventHandler('az-fw-money:registerCharacter', function(firstName, lastName)
 
       
       sendMoneyToClient(src)
+            -- clear/set department for newly created character (should be empty)
+      TriggerClientEvent('hud:setDepartment', src, '')
 
       
       TriggerClientEvent('chat:addMessage', src, {
@@ -850,10 +870,22 @@ AddEventHandler('az-fw-money:selectCharacter', function(charID)
       if rows and #rows > 0 then
         activeCharacters[src] = charID
 
-        
+        -- send money HUD
         sendMoneyToClient(src)
 
-        
+        -- send the client the department for this character (clears previous char's job)
+        MySQL.Async.fetchScalar([[
+          SELECT active_department
+          FROM user_characters
+          WHERE discordid = @discordid AND charid = @charid
+          LIMIT 1
+        ]], {
+          ['@discordid'] = did,
+          ['@charid']    = charID
+        }, function(active_dept)
+          TriggerClientEvent('hud:setDepartment', src, active_dept or '')
+        end)
+
         TriggerClientEvent('az-fw-money:characterSelected', src, charID)
       end
     end
@@ -963,8 +995,8 @@ end)
 
 
 Citizen.CreateThread(function()
-    print("Paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
-    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000  -- minutes → ms
+    print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")
+    local interval = (Config.PaycheckIntervalMinutes or 60) * 60 * 1000
 
     while true do
         Citizen.Wait(interval)
@@ -978,12 +1010,16 @@ Citizen.CreateThread(function()
                 goto continue
             end
 
+            
             getDiscordRoleList(src, function(err, roles)
                 if err then
                     print((" → could not fetch roles for %d (%s), skipping"):format(src, err))
                     return
                 end
 
+                
+                
+                
                 local dept = ""  
                 MySQL.Async.fetchScalar([[
                     SELECT active_department
@@ -1001,15 +1037,18 @@ Citizen.CreateThread(function()
                     end
                     dept = active_department
 
+                    
                     local lookupIds = { discordID }
                     for _, rid in ipairs(roles) do table.insert(lookupIds, rid) end
 
+                    
                     local placeholders = table.concat((function()
                         local t = {}
                         for i=1,#lookupIds do t[i] = "?" end
                         return t
                     end)(), ",")
 
+                    
                     local sql = ([[ 
                         SELECT paycheck 
                           FROM econ_departments 
@@ -1018,6 +1057,7 @@ Citizen.CreateThread(function()
                          LIMIT 1
                     ]]):format(placeholders)
 
+                    
                     local params = { dept }
                     for _, id in ipairs(lookupIds) do table.insert(params, id) end
 
@@ -1029,7 +1069,7 @@ Citizen.CreateThread(function()
                             print(("  ↳ Paying $%d to %d"):format(amt, src))
                             addMoney(src, amt)
                             TriggerClientEvent('chat:addMessage', src, {
-                                args = { "^2PAYCHECK", "Paycheck (" .. (Config.PaycheckIntervalMinutes or 60) .. " min): $" .. amt }
+                                args = { "^2PAYCHECK", "Hourly pay: $" .. amt }
                             })
                         else
                             print(("  ↳ No matching paycheck row, or amount=0"))
@@ -1044,3 +1084,10 @@ Citizen.CreateThread(function()
 end)
 
 
+
+AddEventHandler('playerDropped', function(reason)
+    -- `source` is the player id that dropped
+    if activeCharacters[source] ~= nil then
+        activeCharacters[source] = nil
+    end
+end)
