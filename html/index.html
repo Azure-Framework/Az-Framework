@@ -1,442 +1,660 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>HUD</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HUD — Glass Blue (No Black Veil)</title>
+
+  <!-- Inter font + bootstrap icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
   <style>
-    :root {
-      --bg-color: rgba(20,20,20,0.8);
-      --accent-color: #4A90E2;
-      --text-primary: #FFF;
-      --text-secondary: #A0A0A0;
-      --hud-gap: 10px;
-      --hud-padding: 6px 10px;
-      --hud-radius: 6px;
-      --hud-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      --font-family: 'Inter', sans-serif;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; font-family:var(--font-family); }
-    body { overflow:hidden; background:transparent; }
-
-    /* HUD Container */
-    #hudContainer {
-      position:absolute;
-      top:20px; right:20px;
-      display:flex; gap:var(--hud-gap);
-      user-select:none; cursor:default;
-    }
-    #hudContainer.move-mode {
-      cursor:grab;
-      outline:2px dashed var(--accent-color);
+    :root{
+      --accent-color: #3fb4ff;
+      --accent-2: #4ab8ff;
+      --text-primary: #eaf6ff;
+      --text-secondary: #9fc0dc;
+      --hud-gap: 12px;
+      --hud-padding: 10px 14px;
+      --hud-radius: 12px;
+      --hud-shadow: 0 8px 30px rgba(30,60,110,0.14);
+      --font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
     }
 
-    /* OVERLAY PANELS */
-    .overlay-panel {
-      position:fixed;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-      background:rgba(30,30,30,0.95);
-      color:#fff;
-      padding:20px;
-      border-radius:var(--hud-radius);
-      box-shadow:0 4px 12px rgba(0,0,0,0.5);
-      max-width:300px;
-      font-size:14px;
-      line-height:1.4;
-      display:none;
+    html, body {
+      height:100%;
+      background: transparent !important;
+      -webkit-background-clip: padding-box;
+      color:var(--text-primary);
+      margin:0; padding:0;
+      font-family:var(--font-family);
+      overflow:hidden;
     }
-        /* OVERLAY PANELS */
-    .overlay-paneltoggle {
-      position:fixed;
-      top:20%; left:50%;
-      transform:translate(-50%,-50%);
-      background:rgba(30,30,30,0.95);
-      color:#fff;
-      padding:20px;
-      border-radius:var(--hud-radius);
-      box-shadow:0 4px 12px rgba(0,0,0,0.5);
-      max-width:300px;
-      font-size:14px;
-      line-height:1.4;
-      display:none;
-    }
-    /* SETTINGS sits above GUIDE */
-    #settings { z-index:2100; }
-    #guide    { z-index:2000; }
+    * { box-sizing:border-box; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 
-    .overlay-panel h3 {
-      margin-bottom:10px;
-      font-size:16px;
-      color:var(--accent-color);
-    }
-
-    /* SETTINGS specifics */
-    #settings ul {
-      list-style:none;
-      margin-top:8px;
-    }
-    #settings li {
-      margin:6px 0;
-    }
-    #settings label {
-      cursor:pointer;
+    /* HUD container */
+    #hudContainer{
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display:flex;
+      gap:var(--hud-gap);
+      align-items:center;
       user-select:none;
+      cursor:default;
+      z-index:2200;
+      transition: right .18s ease, top .18s ease;
+      pointer-events:auto;
+    }
+    #hudContainer.move-mode{
+      cursor:grab;
+      outline: 1px dashed rgba(63,180,255,0.20);
+      outline-offset: 6px;
     }
 
-    /* HUD Cards */
-    .hud-card {
-      position:relative;
+    /* Card — translucent bluish cards */
+    .hud-card{
       display:flex;
       align-items:center;
-      gap:8px;
-      background:var(--bg-color);
-      border-left:4px solid var(--accent-color);
-      border-radius:var(--hud-radius);
+      gap:12px;
       padding:var(--hud-padding);
-      min-height:36px;
-      box-shadow:var(--hud-shadow);
-      font-size:13px;
-      user-select:none;
-    }
-    .hud-card.dragging {
-      cursor:grabbing;
-      z-index:1000;
-      box-shadow:0 4px 12px rgba(0,0,0,0.5);
-    }
-    .hud-card:hover { transform:translateY(-2px); }
-
-    .hud-icon {
-      width:20px; height:20px;
-      background-size:contain;
-      background-position:center;
-      opacity:.9;
-    }
-    .hud-content { display:flex; flex-direction:column; }
-    .hud-label { font-size:9px; color:var(--text-secondary); }
-    .hud-value {
-      font-size:14px; color:var(--text-primary);
-      font-weight:600; white-space:nowrap;
-    }
-    .value-update { animation:pulse .8s ease-in-out; }
-    @keyframes pulse { 50% { opacity:.5; } }
-
-    /* Admin Overlay */
-    #adminLogin {
-      position:absolute; inset:0;
-      display:none;
-      background:rgba(0,0,0,.75);
-      align-items:center;
-      justify-content:center;
-      z-index:1500;
-    }
-    #adminLogin .panel {
-      background:rgba(30,30,30,0.95);
+      min-height:46px;
       border-radius:var(--hud-radius);
-      padding:24px; width:260px; text-align:center;
+      background: linear-gradient(180deg, rgba(14,30,48,0.56), rgba(8,18,30,0.48));
+      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow: var(--hud-shadow);
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+      position: relative;
+      overflow: visible;
+      min-width:120px;
+      isolation:isolate;
     }
-    #adminLogin h2 { color:var(--accent-color); margin-bottom:16px; }
-    #adminLogin input {
-      width:100%; padding:8px; margin-bottom:12px;
-      border:1px solid #444; border-radius:4px;
-      background:#111; color:var(--text-primary);
+    .hud-card.dragging{ cursor:grabbing; z-index:3000; transform:scale(1.02); box-shadow:0 20px 40px rgba(20,50,120,0.22); }
+    .hud-card:hover{ transform: translateY(-4px); box-shadow: 0 18px 40px rgba(25,60,130,0.16); }
+
+    .hud-card::before{
+      content:'';
+      position:absolute; left:0; top:0; bottom:0;
+      width:4px;
+      border-top-left-radius:var(--hud-radius); border-bottom-left-radius:var(--hud-radius);
+      background: linear-gradient(180deg, var(--accent-color), var(--accent-2));
+      box-shadow: 0 0 12px rgba(63,180,255,0.06);
     }
-    #adminLogin button {
-      width:100%; padding:8px;
-      background:var(--accent-color); border:none;
-      border-radius:4px; color:#fff; font-weight:bold;
-      cursor:pointer; transition:background .2s;
+
+    /* Icon */
+    .hud-icon{
+      width:36px; height:36px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(255,255,255,0.015);
+      border: 1px solid rgba(255,255,255,0.02);
+      box-shadow: inset 0 -6px 12px rgba(0,0,0,0.12);
+      flex-shrink:0;
     }
-    #adminLogin button:hover { background:#3a7dc4; }
+    .hud-icon i { font-size:18px; color:var(--accent-color); }
+
+    /* server logo */
+    #serverLogo img{
+      height:36px; width:auto; display:block;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 6px 18px rgba(20,40,80,0.12);
+      background: transparent;
+    }
+    #serverLogo{ padding:8px; min-width:44px; justify-content:center; background:transparent; }
+
+    .hud-content{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .hud-label{ font-size:10px; color:var(--text-secondary); letter-spacing:0.06em; text-transform:uppercase; }
+    .hud-value{ font-size:15px; color:var(--text-primary); font-weight:700; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:240px; }
+
+    .value-update{ animation: pulse .9s ease-in-out; }
+    @keyframes pulse{ 0%{ transform:translateY(0); } 50%{ transform:translateY(-2px); } 100%{ transform:translateY(0); } }
+
+    /* Overlay panels — these will be positioned near the HUD while in move-mode */
+    .overlay-panel, .overlay-paneltoggle{
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 320px;
+      max-width: 92vw;
+      padding:12px;
+      border-radius:12px;
+      background: linear-gradient(180deg, rgba(12,26,40,0.62), rgba(8,16,28,0.52));
+      border: 1px solid rgba(255,255,255,0.02);
+      box-shadow: 0 12px 36px rgba(6,20,50,0.14);
+      color:var(--text-primary);
+      display:none;
+      z-index:2400;
+      transform-origin:center;
+      transition: transform .16s cubic-bezier(.2,.9,.2,1), opacity .16s ease;
+      pointer-events:auto;
+      backdrop-filter: none;
+    }
+    .overlay-panel h3, .overlay-paneltoggle h3{
+      color:var(--accent-color);
+      margin-bottom:8px;
+      font-size:15px;
+      letter-spacing:0.01em;
+    }
+    .overlay-panel ul{ list-style:none; padding-left:0; margin-top:6px; color:var(--text-secondary); }
+    .overlay-panel li{ margin:8px 0; font-size:14px; }
+
+    /* settings items */
+    #settings ul{ display:flex; flex-direction:column; gap:8px; padding:0; margin:0; }
+    #settings label{
+      display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;
+      font-size:14px; color:var(--text-primary);
+    }
+    #settings input[type="checkbox"]{ width:18px; height:18px; accent-color:var(--accent-color); }
+
+    /* Save/Cancel row */
+    #settingsButtons{ display:flex; gap:8px; margin-top:10px; justify-content:flex-end; }
+    #saveHUD, #cancelHUD{
+      padding:8px 12px; border-radius:10px; border:none; font-weight:700; cursor:pointer;
+      box-shadow: 0 8px 18px rgba(10,30,60,0.12);
+    }
+    #saveHUD{ background: linear-gradient(90deg,var(--accent-color),var(--accent-2)); color:#042033; }
+    #cancelHUD{ background: transparent; color:var(--text-primary); border:1px solid rgba(255,255,255,0.03); }
+
+    #resetHUD{
+      margin-top:8px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:none;
+      font-weight:700;
+      background: rgba(255,255,255,0.02);
+      color:var(--text-primary);
+      cursor:pointer;
+    }
+
+    @media (max-width:560px){
+      #hudContainer{ gap:8px; top:12px; right:12px; }
+      .hud-card{ padding:8px; min-width:100px; }
+      .hud-icon{ width:30px; height:30px; }
+      .hud-value{ font-size:13px; }
+      .overlay-panel, .overlay-paneltoggle{ width:92vw; left:4vw; }
+    }
   </style>
 </head>
 <body>
 
   <!-- HUD -->
-  <div id="hudContainer">
+  <div id="hudContainer" role="application" aria-label="HUD Container">
     <div class="hud-card" id="serverLogo">
-      <img src="https://imgimp.xyz/images/Stoic-2025-03-29_01-08-14-67e747fe5997c.png"
-           alt="Server Logo" style="height:28px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:#000;">
+      <img src="https://imgimp.xyz/images/Stoic-2025-06-28_06-06-19-685f865b90047.png" alt="Server Logo">
     </div>
-    <div class="hud-card" id="card-discord">
-      <div class="hud-icon" style="background-image:url('icons/discord.svg')"></div>
+
+    <!-- PLAYER NAME (new) -->
+    <div class="hud-card" id="card-player">
+      <div class="hud-icon"><i class="bi bi-person-circle"></i></div>
       <div class="hud-content">
-        <div class="hud-label">DISCORD</div>
+        <div class="hud-label">Player</div>
+        <div class="hud-value" id="playerNameDisplay">No Name</div>
+      </div>
+    </div>
+
+    <div class="hud-card" id="card-discord">
+      <div class="hud-icon"><i class="bi bi-chat-dots"></i></div>
+      <div class="hud-content">
+        <div class="hud-label">Discord</div>
         <div class="hud-value">discord.gg/QWWWV6Zyaa</div>
       </div>
     </div>
+
     <div class="hud-card" id="card-job">
-      <div class="hud-icon" style="background-image:url('icons/job.svg')"></div>
+      <div class="hud-icon"><i class="bi bi-briefcase"></i></div>
       <div class="hud-content">
-        <div class="hud-label">JOB</div>
+        <div class="hud-label">Job</div>
         <div class="hud-value" id="jobDisplay">Unemployed</div>
       </div>
     </div>
+
     <div class="hud-card" id="card-cash">
-      <div class="hud-icon" style="background-image:url('icons/cash.svg')"></div>
+      <div class="hud-icon"><i class="bi bi-wallet2"></i></div>
       <div class="hud-content">
-        <div class="hud-label">CASH</div>
+        <div class="hud-label">Cash</div>
         <div class="hud-value value-update" id="cashDisplay">$0</div>
       </div>
     </div>
+
     <div class="hud-card" id="card-bank">
-      <div class="hud-icon" style="background-image:url('icons/bank.svg')"></div>
+      <div class="hud-icon"><i class="bi bi-bank"></i></div>
       <div class="hud-content">
-        <div class="hud-label">BANK</div>
+        <div class="hud-label">Bank</div>
         <div class="hud-value value-update" id="bankDisplay">$0</div>
       </div>
     </div>
   </div>
 
-   <!-- SETTINGS (above GUIDE) -->
-   <div id="settings" class="overlay-paneltoggle">
-     <h3>HUD Settings</h3>
-     <ul>
-       <li><label><input type="checkbox" data-target="serverLogo"> Server Logo</label></li>
-       <li><label><input type="checkbox" data-target="card-discord"> Discord</label></li>
-       <li><label><input type="checkbox" data-target="card-job"> Job</label></li>
-       <li><label><input type="checkbox" data-target="card-cash"> Cash</label></li>
-       <li><label><input type="checkbox" data-target="card-bank"> Bank</label></li>
-     </ul>
-    <button id="resetHUD" style="margin-top:10px; padding:6px 12px; border:none; border-radius:4px; background:var(--accent-color); color:#fff; cursor:pointer;">
-      🔄 Reset to Default
-    </button>
-   </div>
+  <!-- SETTINGS (anchored programmatically near HUD while in move-mode) -->
+  <div id="settings" class="overlay-paneltoggle" aria-hidden="true">
+    <h3>HUD Settings</h3>
+    <ul>
+      <li><label><input type="checkbox" data-target="serverLogo"> Server Logo</label></li>
+      <li><label><input type="checkbox" data-target="card-player"> Player Name</label></li>
+      <li><label><input type="checkbox" data-target="card-discord"> Discord</label></li>
+      <li><label><input type="checkbox" data-target="card-job"> Job</label></li>
+      <li><label><input type="checkbox" data-target="card-cash"> Cash</label></li>
+      <li><label><input type="checkbox" data-target="card-bank"> Bank</label></li>
+    </ul>
+
+    <div id="settingsButtons">
+      <button id="cancelHUD">Cancel</button>
+      <button id="saveHUD">Save</button>
+    </div>
+
+    <button id="resetHUD">🔄 Reset to Default</button>
+  </div>
 
   <!-- GUIDE -->
-  <div id="guide" class="overlay-panel">
+  <div id="guide" class="overlay-panel" aria-hidden="true">
     <h3>HUD Move Guide</h3>
     <ul>
-      <li>Drag anywhere to move all.</li>
-      <li>Ctrl + drag a card to move it.</li>
-      <li>Esc to exit move-mode.</li>
+      <li>Drag anywhere to move the whole HUD.</li>
+      <li>Hold <strong>Ctrl</strong> + drag a card to move a single card.</li>
+      <li>Click <strong>Save</strong> to keep your layout, or <strong>Cancel</strong> to revert.</li>
+      <li>Press <strong>Esc</strong> to exit move-mode (acts like Cancel).</li>
     </ul>
   </div>
 
   <!-- Admin Login -->
-  <div id="adminLogin">
-    <div class="panel">
-      <h2>Admin Login</h2>
-      <input type="password" placeholder="Enter Password" id="adminPassword">
-      <button id="adminSubmit">Login</button>
+  <div id="adminLogin" style="display:none; position:absolute; inset:0; pointer-events:none; background:transparent; z-index:2600;">
+    <div class="panel" style="width:320px; margin:auto; pointer-events:auto; top:20vh; position:relative;">
+      <h2 style="color:var(--accent-color); margin-bottom:12px; font-size:18px">Admin Login</h2>
+      <input type="password" placeholder="Enter Password" id="adminPassword" autocomplete="off" style="width:100%; padding:10px; margin-bottom:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.02); background: rgba(255,255,255,0.01); color:var(--text-primary);">
+      <button id="adminSubmit" style="width:100%; padding:10px; border-radius:10px; border:none; background: linear-gradient(90deg,var(--accent-color),var(--accent-2)); color:#042033; font-weight:700;">Login</button>
     </div>
   </div>
 
   <script>
-// fallback for GetParentResourceName()
-if (typeof GetParentResourceName === 'undefined') {
-  // replace 'az-fw-hud' with your actual resource name
-  window.GetParentResourceName = () => 'az-fw-hud';
+    if (typeof GetParentResourceName === 'undefined') {
+      window.GetParentResourceName = () => 'az-fw-hud';
+    }
+
+    function setCookie(name, value, days = 365) {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString();
+      document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
+    }
+    function getCookie(name) {
+      return document.cookie.split('; ').reduce((r, c) => {
+        const [k, v] = c.split('=');
+        return k === name ? decodeURIComponent(v) : r;
+      }, '');
+    }
+
+    const hud      = document.getElementById('hudContainer');
+    const guide    = document.getElementById('guide');
+    const settings = document.getElementById('settings');
+    const cards    = Array.from(document.querySelectorAll('.hud-card'));
+    const toggles  = settings.querySelectorAll('input[type=checkbox]');
+
+    // Restore visible/hidden by cookie
+    cards.forEach(card => {
+      const v = getCookie('hud_' + card.id);
+      if (v === '0') card.style.display = 'none';
+    });
+
+    // restore per-card saved positions (absolute within hud)
+    cards.forEach(card => {
+      const raw = localStorage.getItem('hud_pos_' + card.id);
+      if (raw) {
+        try {
+          const pos = JSON.parse(raw);
+          card.style.position = 'absolute';
+          card.style.left = (pos.left ?? 0) + 'px';
+          card.style.top  = (pos.top  ?? 0) + 'px';
+          if (pos.width) card.style.width = pos.width;
+          if (pos.height) card.style.height = pos.height;
+        } catch(e){}
+      }
+    });
+
+    // toggles state
+    toggles.forEach(box => {
+      const id = box.dataset.target;
+      box.checked = (getCookie('hud_' + id) !== '0');
+      box.addEventListener('change', () => {
+        const tgt = document.getElementById(id);
+        tgt.style.display = box.checked ? '' : 'none';
+        setCookie('hud_' + id, box.checked ? '1' : '0');
+      });
+    });
+
+    // HUD container position restore
+    (function () {
+      const r = parseInt(localStorage.hudRight) || 20;
+      const t = parseInt(localStorage.hudTop)   || 20;
+      hud.style.right = r + 'px';
+      hud.style.top   = t + 'px';
+    })();
+
+    function saveHUDPos() {
+      const rect = hud.getBoundingClientRect();
+      localStorage.hudRight = Math.max(8, Math.round(window.innerWidth - rect.right));
+      localStorage.hudTop   = Math.max(8, Math.round(rect.top));
+    }
+
+    // --- overlay positioning & visibility (anchored near HUD) ---
+    function updateOverlays() {
+      const on = hud.classList.contains('move-mode');
+      settings.style.display = on ? 'block' : 'none';
+      guide.style.display = on ? 'block' : 'none';
+      positionOverlaysNearHUD();
+      settings.setAttribute('aria-hidden', !on);
+      guide.setAttribute('aria-hidden', !on);
+    }
+
+    function positionOverlaysNearHUD() {
+      const rect = hud.getBoundingClientRect();
+      if (!rect.width) return;
+      const preferLeft = rect.left > 380;
+      const below = (rect.bottom + 12 + 200) < window.innerHeight;
+      settings.style.left = (preferLeft ? rect.left - 340 : rect.right + 12) + 'px';
+      settings.style.top  = (below ? rect.top : Math.max(8, rect.top - 220)) + 'px';
+      guide.style.left = (rect.left + (rect.width / 2) - 160) + 'px';
+      guide.style.top  = (rect.bottom + 12) + 'px';
+      [settings, guide].forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8) {
+          el.style.left = (parseFloat(el.style.left) - (r.right - window.innerWidth) - 8) + 'px';
+        }
+        if (r.left < 8) el.style.left = '8px';
+      });
+    }
+
+    // Reset button
+    document.getElementById('resetHUD').addEventListener('click', () => {
+      cards.forEach(card => {
+        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        localStorage.removeItem('hud_pos_' + card.id);
+      });
+      localStorage.removeItem('hudRight');
+      localStorage.removeItem('hudTop');
+      cards.forEach(card => {
+        card.style.display = '';
+        card.style.position = '';
+        card.style.top = '';
+        card.style.left = '';
+        card.style.width = '';
+        card.style.height = '';
+        card.classList.remove('dragging');
+      });
+      toggles.forEach(box => box.checked = true);
+      try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+      window.location.reload();
+    });
+
+    // message receiver
+    window.addEventListener('message', ev => {
+      const d = ev.data;
+      if (!d) return;
+      if (d.action === 'resetDefaults') {
+        document.getElementById('resetHUD').click();
+        return;
+      }
+      switch (d.action) {
+        case 'toggleMove':
+          toggleMoveMode();
+          break;
+function parseCurrency(val) {
+  if (!val && val !== 0) return 0;
+  return Number(String(val).replace(/[^0-9.\-]+/g, '')) || 0;
 }
 
-// Cookie helpers
-function setCookie(name, value, days = 365) {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
-}
-function getCookie(name) {
-  return document.cookie.split('; ').reduce((r, c) => {
-    const [k, v] = c.split('=');
-    return k === name ? decodeURIComponent(v) : r;
-  }, '');
-}
-
-const hud      = document.getElementById('hudContainer');
-const guide    = document.getElementById('guide');
-const settings = document.getElementById('settings');
-const cards    = document.querySelectorAll('.hud-card');
-const toggles  = settings.querySelectorAll('input[type=checkbox]');
-
-// Restore card visibility
-cards.forEach(card => {
-  const v = getCookie('hud_' + card.id);
-  if (v === '0') card.style.display = 'none';
-});
-
-// Init toggles
-toggles.forEach(box => {
-  const id = box.dataset.target;
-  box.checked = (getCookie('hud_' + id) !== '0');
-  box.addEventListener('change', () => {
-    const tgt = document.getElementById(id);
-    tgt.style.display = box.checked ? '' : 'none';
-    setCookie('hud_' + id, box.checked ? '1' : '0');
-  });
-});
-
-// Persist & restore HUD position
-(function () {
-  const r = parseInt(localStorage.hudRight) || 20;
-  const t = parseInt(localStorage.hudTop)   || 20;
-  hud.style.right = r + 'px';
-  hud.style.top   = t + 'px';
-})();
-function saveHUDPos() {
-  const rect = hud.getBoundingClientRect();
-  localStorage.hudRight = window.innerWidth - rect.right;
-  localStorage.hudTop   = rect.top;
-}
-
-// Show/hide overlays
-function updateOverlays() {
-  const on = hud.classList.contains('move-mode');
-  settings.style.display = on ? 'block' : 'none';
-  guide   .style.display = on ? 'block' : 'none';
-}
-
-// Reset everything back to defaults
-document.getElementById('resetHUD').addEventListener('click', () => {
-  // 1) Clear all hud_<id> cookies
-  cards.forEach(card => {
-    document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-  });
-  // 2) Clear saved position
-  localStorage.removeItem('hudRight');
-  localStorage.removeItem('hudTop');
-  // 3) Reset inline card positions & visibility
-  cards.forEach(card => {
-    card.style.display = '';
-    card.style.position = '';
-    card.style.top = '';
-    card.style.left = '';
-    card.classList.remove('dragging');
-  });
-  // 4) Reset toggles in the UI
-  toggles.forEach(box => box.checked = true);
-  // 5a) Tell FiveM client to unfocus NUI
-  fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' });
-  // 5b) Reload the HUD page
-  window.location.reload();
-});
-
-// Message handling
-window.addEventListener('message', ev => {
-  const d = ev.data;
-  if (d.action === 'resetDefaults') {
-    document.getElementById('resetHUD').click();
-    return;
+// replace the existing 'updateCash' case with this:
+case 'updateCash': {
+  // cash update (only if provided)
+  if (d.cash !== undefined) {
+    document.getElementById('cashDisplay').textContent = `$${d.cash}`;
   }
-  switch (d.action) {
-    case 'toggleMove':
-      hud.classList.toggle('move-mode');
+
+  // bank update - DEFENSIVE: ignore a 0 that would overwrite a non-zero HUD value
+  if (d.bank !== undefined) {
+    const incomingBank = Number(d.bank);
+    const currentBank = parseCurrency(document.getElementById('bankDisplay').textContent);
+
+    // If server explicitly marked this as a forced update, always apply it.
+    // Otherwise: only apply if incomingBank !== 0 OR currentBank === 0 (avoid clobber).
+    if (d.forceUpdate === true || incomingBank !== 0 || currentBank === 0) {
+      document.getElementById('bankDisplay').textContent = `$${incomingBank}`;
+    } else {
+      // suspicious zero update — ignore so we don't clobber a valid HUD value
+      // console.debug('Ignored zero bank update to avoid clobbering HUD value');
+    }
+  }
+
+  if (d.playerName) updateHudPlayerName(d.playerName);
+  break;
+}
+        case 'updateCashOnly':
+          document.getElementById('cashDisplay').textContent = `$${d.cash}`;
+          if (d.playerName) updateHudPlayerName(d.playerName);
+          break;
+        case 'updateJob':
+          document.getElementById('jobDisplay').textContent = d.job;
+          if (d.playerName) updateHudPlayerName(d.playerName);
+          break;
+        case 'updatePlayerName':
+          updateHudPlayerName(d.playerName || '');
+          break;
+        case 'openAdmin':
+          document.getElementById('adminLogin').style.display = 'flex';
+          document.getElementById('adminLogin').style.pointerEvents = 'auto';
+          break;
+      }
+    });
+
+    // exit on Escape (acts like Cancel)
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
+        cancelMoveMode();
+      }
+    });
+
+    // admin submit
+    document.getElementById('adminSubmit').addEventListener('click', () => {
+      const pass = document.getElementById('adminPassword').value;
+      fetch(`https://${GetParentResourceName()}/adminAuth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      }).then(() => {
+        document.getElementById('adminLogin').style.display = 'none';
+        document.getElementById('adminLogin').style.pointerEvents = 'none';
+      });
+    });
+
+    // --- Move mode handling with snapshot/revert/save ---
+    let initialSnapshot = null;
+
+    function snapshotCurrentState() {
+      const rect = hud.getBoundingClientRect();
+      const hudRight = parseInt(hud.style.right) || Math.round(window.innerWidth - rect.right);
+      const hudTop = parseInt(hud.style.top) || Math.round(rect.top);
+      const cardsState = {};
+      cards.forEach(card => {
+        cardsState[card.id] = {
+          display: card.style.display || '',
+          position: card.style.position || '',
+          left: card.style.left || '',
+          top: card.style.top || '',
+          width: card.style.width || '',
+          height: card.style.height || ''
+        };
+      });
+      return { hudRight, hudTop, cardsState };
+    }
+
+    function toggleMoveMode() {
+      const enabling = !hud.classList.contains('move-mode');
+      if (enabling) {
+        initialSnapshot = snapshotCurrentState();
+        hud.classList.add('move-mode');
+        updateOverlays();
+        positionOverlaysNearHUD();
+      } else {
+        cancelMoveMode();
+      }
+    }
+
+    // Save button: persist hud position + per-card positions and close move-mode
+    document.getElementById('saveHUD').addEventListener('click', () => {
+      saveHUDPos();
+      cards.forEach(card => {
+        if (card.style.position === 'absolute') {
+          const left = parseInt(card.style.left || 0);
+          const top  = parseInt(card.style.top  || 0);
+          const width = card.style.width || '';
+          const height = card.style.height || '';
+          localStorage.setItem('hud_pos_' + card.id, JSON.stringify({ left, top, width, height }));
+        } else {
+          localStorage.removeItem('hud_pos_' + card.id);
+        }
+      });
+      hud.classList.remove('move-mode');
       updateOverlays();
-      break;
-    case 'updateCash':
-      document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-      if (d.bank !== undefined)
-        document.getElementById('bankDisplay').textContent = `$${d.bank}`;
-      break;
-    case 'updateCashOnly':
-      document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-      break;
-    case 'updateJob':
-      document.getElementById('jobDisplay').textContent = d.job;
-      break;
-    case 'openAdmin':
-      document.getElementById('adminLogin').style.display = 'flex';
-      break;
-  }
-});
+      cards.forEach(c => c.classList.remove('dragging'));
+      try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+      initialSnapshot = null;
+    });
 
-// Exit move-mode on Esc
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
-    hud.classList.remove('move-mode');
-    updateOverlays();
-    fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' });
-    // 5b) Reload the HUD page
-    window.location.reload();
-  }
-});
+    // Cancel button: revert to snapshot
+    document.getElementById('cancelHUD').addEventListener('click', cancelMoveMode);
 
-// Admin login
-document.getElementById('adminSubmit').addEventListener('click', () => {
-  const pass = document.getElementById('adminPassword').value;
-  fetch(`https://${GetParentResourceName()}/adminAuth`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: pass })
-  }).then(() => {
-    document.getElementById('adminLogin').style.display = 'none';
-  });
-});
+    function cancelMoveMode() {
+      if (!initialSnapshot) {
+        hud.classList.remove('move-mode');
+        updateOverlays();
+        return;
+      }
+      hud.style.right = (initialSnapshot.hudRight ?? 20) + 'px';
+      hud.style.top   = (initialSnapshot.hudTop  ?? 20) + 'px';
+      for (const id in initialSnapshot.cardsState) {
+        const s = initialSnapshot.cardsState[id];
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.style.display = s.display;
+        el.style.position = s.position;
+        el.style.left = s.left;
+        el.style.top  = s.top;
+        el.style.width = s.width;
+        el.style.height = s.height;
+        el.classList.remove('dragging');
+      }
+      hud.classList.remove('move-mode');
+      updateOverlays();
+      initialSnapshot = null;
+      try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+    }
 
-// Dragging logic
-let containerDrag = false, containerStart = {};
-let cardDrag = null, cardStart = {}, hudRect = {};
+    // --- dragging logic (whole hud and per-card) ---
+    let containerDrag = false, containerStart = {};
+    let cardDrag = null, cardStart = {}, hudRect = {};
 
-// Container drag
-hud.addEventListener('mousedown', e => {
-  if (!hud.classList.contains('move-mode') || e.ctrlKey) return;
-  containerDrag = true;
-  containerStart = {
-    x: e.clientX,
-    y: e.clientY,
-    right: parseInt(hud.style.right),
-    top:   parseInt(hud.style.top)
-  };
-  document.addEventListener('mousemove', onHudMove);
-  document.addEventListener('mouseup',   onHudUp);
-});
-function onHudMove(e) {
-  if (!containerDrag) return;
-  const dx = e.clientX - containerStart.x;
-  const dy = e.clientY - containerStart.y;
-  hud.style.right = (containerStart.right - dx) + 'px';
-  hud.style.top   = (containerStart.top   + dy) + 'px';
-}
-function onHudUp() {
-  if (!containerDrag) return;
-  containerDrag = false;
-  hud.classList.remove('move-mode');
-  updateOverlays();
-  saveHUDPos();
-  document.removeEventListener('mousemove', onHudMove);
-  document.removeEventListener('mouseup',   onHudUp);
-  fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' });
-}
+    hud.addEventListener('mousedown', e => {
+      if (!hud.classList.contains('move-mode') || e.ctrlKey) return;
+      containerDrag = true;
+      containerStart = {
+        x: e.clientX,
+        y: e.clientY,
+        right: parseInt(hud.style.right) || 20,
+        top:   parseInt(hud.style.top)   || 20
+      };
+      document.addEventListener('mousemove', onHudMove);
+      document.addEventListener('mouseup',   onHudUp);
+    });
 
-// Card drag
-cards.forEach(card => {
-  card.addEventListener('mousedown', e => {
-    if (!hud.classList.contains('move-mode') || !e.ctrlKey) return;
-    e.preventDefault(); e.stopPropagation();
+    function onHudMove(e) {
+      if (!containerDrag) return;
+      const dx = e.clientX - containerStart.x;
+      const dy = e.clientY - containerStart.y;
+      hud.style.right = (containerStart.right - dx) + 'px';
+      hud.style.top   = (containerStart.top   + dy) + 'px';
+      positionOverlaysNearHUD();
+    }
 
-    cardDrag = card;
-    hudRect = hud.getBoundingClientRect();
-    const rect = card.getBoundingClientRect();
-    cardStart = {
-      offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
-      left:    rect.left  - hudRect.left,
-      top:     rect.top   - hudRect.top
+    // keep move-mode open on mouseup
+    function onHudUp() {
+      if (!containerDrag) return;
+      containerDrag = false;
+      document.removeEventListener('mousemove', onHudMove);
+      document.removeEventListener('mouseup',   onHudUp);
+      positionOverlaysNearHUD();
+    }
+
+    // per-card dragging (hold Ctrl + drag)
+    cards.forEach(card => {
+      card.addEventListener('mousedown', e => {
+        if (!hud.classList.contains('move-mode') || !e.ctrlKey) return;
+        e.preventDefault(); e.stopPropagation();
+
+        cardDrag = card;
+        hudRect = hud.getBoundingClientRect();
+        const rect = card.getBoundingClientRect();
+        cardStart = {
+          offsetX: e.clientX - rect.left,
+          offsetY: e.clientY - rect.top,
+          left:    rect.left  - hudRect.left,
+          top:     rect.top   - hudRect.top
+        };
+
+        card.style.position = 'absolute';
+        card.style.width    = rect.width + 'px';
+        card.style.height   = rect.height + 'px';
+        card.classList.add('dragging');
+        card.style.left = cardStart.left + 'px';
+        card.style.top  = cardStart.top  + 'px';
+
+        document.addEventListener('mousemove', onCardMove);
+        document.addEventListener('mouseup',   onCardUp);
+      });
+    });
+
+    function onCardMove(e) {
+      if (!cardDrag) return;
+      const x = e.clientX - hudRect.left - cardStart.offsetX;
+      const y = e.clientY - hudRect.top  - cardStart.offsetY;
+      cardDrag.style.left = Math.max(0, Math.round(x)) + 'px';
+      cardDrag.style.top  = Math.max(0, Math.round(y)) + 'px';
+      positionOverlaysNearHUD();
+    }
+
+    function onCardUp() {
+      if (!cardDrag) return;
+      cardDrag.classList.remove('dragging');
+      cardDrag = null;
+      document.removeEventListener('mousemove', onCardMove);
+      document.removeEventListener('mouseup',   onCardUp);
+      positionOverlaysNearHUD();
+    }
+
+    // ensure overlays reposition on resize
+    window.addEventListener('resize', positionOverlaysNearHUD);
+
+    // Expose toggleMove to global so you can call from console (or other code)
+    window.toggleHudMoveMode = toggleMoveMode;
+
+    // Public helper to update player name programmatically
+    function updateHudPlayerName(name) {
+      const el = document.getElementById('playerNameDisplay');
+      if (!el) return;
+      el.textContent = name && name.length ? name : 'No Name';
+    }
+    window.updateHudPlayerName = updateHudPlayerName;
+
+    // Also expose convenience update functions
+    window.updateHudCash = (cash, bank, playerName) => {
+      if (cash !== undefined) document.getElementById('cashDisplay').textContent = `$${cash}`;
+      if (bank !== undefined) document.getElementById('bankDisplay').textContent = `$${bank}`;
+      if (playerName) updateHudPlayerName(playerName);
+    };
+    window.updateHudJob = (job, playerName) => {
+      document.getElementById('jobDisplay').textContent = job || 'Unemployed';
+      if (playerName) updateHudPlayerName(playerName);
     };
 
-    card.style.position = 'absolute';
-    card.style.width    = rect.width + 'px';
-    card.style.height   = rect.height + 'px';
-    card.classList.add('dragging');
-    card.style.left = cardStart.left + 'px';
-    card.style.top  = cardStart.top  + 'px';
-
-    document.addEventListener('mousemove', onCardMove);
-    document.addEventListener('mouseup',   onCardUp);
-  });
-});
-function onCardMove(e) {
-  if (!cardDrag) return;
-  const x = e.clientX - hudRect.left - cardStart.offsetX;
-  const y = e.clientY - hudRect.top  - cardStart.offsetY;
-  cardDrag.style.left = x + 'px';
-  cardDrag.style.top  = y + 'px';
-}
-function onCardUp() {
-  if (!cardDrag) return;
-  cardDrag.classList.remove('dragging');
-  cardDrag = null;
-  document.removeEventListener('mousemove', onCardMove);
-  document.removeEventListener('mouseup',   onCardUp);
-}
-
+    // If the script is toggled from outside via message 'toggleMove' we already handle it
+    updateOverlays();
   </script>
 </body>
 </html>

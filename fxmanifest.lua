@@ -3,11 +3,12 @@ game 'gta5'
 lua54 'yes'
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.7.8'
+version '1.7.9'
 
 shared_scripts {
     '@ox_lib/init.lua',
-    'config.lua'
+    'config.lua',
+    'client.lua',
 } 
 
 server_scripts {
@@ -23,7 +24,8 @@ client_scripts {
     'client.lua',
     'parking/client.lua',
     'departments/client.lua',
-        'presence.lua'
+        'presence.lua',
+    'note.lua'
 
 }
 
@@ -31,10 +33,4 @@ ui_page 'html/index.html'
 
 files {
     'html/index.html'
-}
-
--- ensure these resources are present before starting this resource
-dependencies {
-    'ox_lib',
-    'oxmysql',
 }
