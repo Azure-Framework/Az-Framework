@@ -1,3 +1,72 @@
+local RESOURCE = GetCurrentResourceName()
+
+print(("[az-fw-hud] client.lua (cookies-only) loaded. Resource=%s IsDuplicity=%s"):format(RESOURCE, tostring(IsDuplicityVersion())))
+
+
+if IsDuplicityVersion() then
+  print(("[az-fw-hud] ERROR: client.lua executed server-side. Move this file to client_scripts in fxmanifest.lua."):format(RESOURCE))
+  return
+end
+
+
+local function pushNoSettingsToNui()
+  SendNUIMessage({ action = "loadSettings", settings = nil })
+  print("[az-fw-hud] Sent empty HUD settings to NUI (cookies/localStorage mode).")
+end
+
+
+if type(RegisterNUICallback) ~= "function" then
+  print("[az-fw-hud] WARNING: RegisterNUICallback not available; NUI callbacks won't be registered.")
+else
+  RegisterNUICallback("saveHUD", function(data, cb)
+    
+    
+    print("[az-fw-hud] Received saveHUD from NUI (cookies/localStorage mode).")
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = "saved", ok = true })
+    if cb then cb({ ok = true }) end
+  end)
+
+  
+  RegisterNUICallback("resetDefaults", function(_, cb)
+    print("[az-fw-hud] Received resetDefaults from NUI (cookies/localStorage mode).")
+    
+    
+    SetNuiFocus(false, false)
+    if cb then cb({ ok = true }) end
+  end)
+
+  RegisterNUICallback("closeUI", function(_, cb)
+    SetNuiFocus(false, false)
+    if cb then cb({ ok = true }) end
+  end)
+
+  RegisterNUICallback("requestSettings", function(_, cb)
+    
+    pushNoSettingsToNui()
+    if cb then cb({ ok = true }) end
+  end)
+end
+
+
+RegisterNetEvent("updateCashHUD")
+AddEventHandler("updateCashHUD", function(cash, bank, playerName)
+  SendNUIMessage({ action = "updateCash", cash = cash, bank = bank, playerName = playerName })
+end)
+
+RegisterNetEvent("az-fw-departments:refreshJob")
+AddEventHandler("az-fw-departments:refreshJob", function(data)
+  SendNUIMessage({ action = "updateJob", job = data.job })
+  TriggerServerEvent("az-fw-departments:setActive", data.job)
+end)
+
+RegisterNetEvent("hud:setDepartment")
+AddEventHandler("hud:setDepartment", function(job)
+  SendNUIMessage({ action = "updateJob", job = job })
+end)
+
+
+
 local firstSpawn = true
 
 AddEventHandler(
@@ -9,38 +78,12 @@ AddEventHandler(
         end
     end
 )
-RegisterNUICallback(
-    "resetDefaults",
-    function(_, cb)
-        SetNuiFocus(false, false)
-        cb("ok")
-    end
-)
-RegisterNetEvent("updateCashHUD")
-AddEventHandler(
-    "updateCashHUD",
-    function(cash, bank, playerName)
-        SendNUIMessage({action = "updateCash", cash = cash, bank = bank, playerName = playerName})
-    end
-)
 
-RegisterNetEvent("az-fw-departments:refreshJob")
-AddEventHandler(
-    "az-fw-departments:refreshJob",
-    function(data)
-        SendNUIMessage({action = "updateJob", job = data.job})
 
-        TriggerServerEvent("az-fw-departments:setActive", data.job)
-    end
-)
+RegisterNetEvent("az-fw-money:openRegisterDialog")
 
-RegisterNetEvent("hud:setDepartment")
-AddEventHandler(
-    "hud:setDepartment",
-    function(job)
-        SendNUIMessage({action = "updateJob", job = job})
-    end
-)
+
+
 
 RegisterCommand(
     "movehud",
@@ -51,13 +94,7 @@ RegisterCommand(
     false
 )
 
-RegisterNUICallback(
-    "closeUI",
-    function(_, cb)
-        SetNuiFocus(false, false)
-        cb("ok")
-    end
-)
+
 
 local CHAR_MAIN = "char_main_menu"
 local CHAR_LIST = "char_list_menu"
@@ -71,7 +108,7 @@ lib.registerContext(
         options = {
             {
                 title = "➕ Register New Character",
-                description = "Create a brand‑new character",
+                description = "Create a brand-new character",
                 icon = "user-plus",
                 event = "az-fw-money:openRegisterDialog"
             },
@@ -84,6 +121,7 @@ lib.registerContext(
         }
     }
 )
+
 
 RegisterNetEvent("az-fw-money:openRegisterDialog")
 AddEventHandler(
@@ -149,6 +187,7 @@ AddEventHandler(
         end
     end
 )
+
 
 RegisterNetEvent(EVENT_SHOW_LIST)
 AddEventHandler(
@@ -230,3 +269,5 @@ RegisterCommand(
     end,
     false
 )
+
+print("[az-fw-hud] client.lua (cookies-only) initialized.")
