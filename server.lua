@@ -93,9 +93,7 @@ local function getDiscordID(source)
 end
 
 local function getDiscordRoleList(playerSrc, cb)
-    if type(cb) ~= "function" then
-        error("getDiscordRoleList requires a callback", 2)
-    end
+    assert(type(cb) == "function", "getDiscordRoleList requires a callback")
 
     local discordID = getDiscordID(playerSrc)
     if discordID == "" then
@@ -103,10 +101,10 @@ local function getDiscordRoleList(playerSrc, cb)
         return cb("no_discord_id", nil)
     end
 
-    local guildId = Config.Discord.GuildId or GetConvar("DISCORD_GUILD_ID", "")
-    local botToken = Config.Discord.BotToken or GetConvar("DISCORD_BOT_TOKEN", "")
+    local guildId = GetConvar("DISCORD_GUILD_ID", "")
+    local botToken = GetConvar("DISCORD_BOT_TOKEN", "")
 
-    if guildId == "" or botToken == "" then
+    if not guildId or not botToken then
         debugPrint("Missing GuildId or BotToken in config")
         return cb("config_error", nil)
     end
@@ -119,11 +117,11 @@ local function getDiscordRoleList(playerSrc, cb)
         function(statusCode, body)
             debugPrint(("Discord API HTTP %d"):format(statusCode))
             if statusCode ~= 200 then
-                return cb("http_" .. tostring(statusCode), nil)
+                return cb("http_" .. statusCode, nil)
             end
 
             local ok, data = pcall(json.decode, body)
-            if not ok or not data or type(data.roles) ~= "table" then
+            if not ok or type(data.roles) ~= "table" then
                 debugPrint("Invalid roles payload")
                 return cb("no_roles", nil)
             end
@@ -140,32 +138,32 @@ local function getDiscordRoleList(playerSrc, cb)
 end
 
 local function isAdmin(playerSrc, cb)
-    debugPrint(("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(playerSrc, tostring(Config.AdminRoleId)))
+    debugPrint(
+        ("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(playerSrc, tostring(Config.AdminRoleId))
+    )
 
-    if not Config.AdminRoleId or tostring(Config.AdminRoleId) == "" then
-        debugPrint("No Config.AdminRoleId set; defaulting to false")
-        return safeCb(cb, false)
-    end
-
-    getDiscordRoleList(playerSrc, function(err, roles)
-        if err then
-            debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
-            return safeCb(cb, false)
-        end
-
-        debugPrint(("isAdmin: got roles for %d → %s"):format(playerSrc, json.encode(roles)))
-
-        for _, roleID in ipairs(roles) do
-            debugPrint(("isAdmin: comparing role %s to %s"):format(tostring(roleID), tostring(Config.AdminRoleId)))
-            if tostring(roleID) == tostring(Config.AdminRoleId) then
-                debugPrint(("isAdmin: match! %s is admin role"):format(roleID))
-                return safeCb(cb, true)
+    getDiscordRoleList(
+        playerSrc,
+        function(err, roles)
+            if err then
+                debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
+                return cb(false)
             end
-        end
 
-        debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
-        safeCb(cb, false)
-    end)
+            debugPrint(("isAdmin: got roles for %d → %s"):format(playerSrc, json.encode(roles)))
+
+            for _, roleID in ipairs(roles) do
+                debugPrint(("isAdmin: comparing role %s to %s"):format(tostring(roleID), tostring(Config.AdminRoleId)))
+                if tostring(roleID) == tostring(Config.AdminRoleId) then
+                    debugPrint(("isAdmin: match! %s is admin role"):format(roleID))
+                    return cb(true)
+                end
+            end
+
+            debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
+            cb(false)
+        end
+    )
 end
 
 local function sendWebhookLog(message)
@@ -1153,3 +1151,4 @@ AddEventHandler("playerDropped", function(reason)
         activeCharacters[source] = nil
     end
 end)
+
