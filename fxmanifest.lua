@@ -8,7 +8,6 @@ version '1.7.9'
 shared_scripts {
     '@ox_lib/init.lua',
     'config.lua',
-    'client.lua',
 } 
 
 server_scripts {
@@ -24,8 +23,7 @@ client_scripts {
     'client.lua',
     'parking/client.lua',
     'departments/client.lua',
-        'presence.lua',
-    'note.lua'
+    'presence.lua',
 
 }
 
