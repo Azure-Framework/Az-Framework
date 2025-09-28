@@ -25,7 +25,6 @@
     html, body {
       height:100%;
       background: transparent !important;
-      -webkit-background-clip: padding-box;
       color:var(--text-primary);
       margin:0; padding:0;
       font-family:var(--font-family);
@@ -271,6 +270,7 @@
       window.GetParentResourceName = () => 'az-fw-hud';
     }
 
+    /* small cookie helpers */
     function setCookie(name, value, days = 365) {
       const expires = new Date(Date.now() + days * 864e5).toUTCString();
       document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
@@ -288,60 +288,24 @@
     const cards    = Array.from(document.querySelectorAll('.hud-card'));
     const toggles  = settings.querySelectorAll('input[type=checkbox]');
 
-    // Restore visible/hidden by cookie
-    cards.forEach(card => {
-      const v = getCookie('hud_' + card.id);
-      if (v === '0') card.style.display = 'none';
-    });
-
-    // restore per-card saved positions (absolute within hud)
-    cards.forEach(card => {
-      const raw = localStorage.getItem('hud_pos_' + card.id);
-      if (raw) {
-        try {
-          const pos = JSON.parse(raw);
-          card.style.position = 'absolute';
-          card.style.left = (pos.left ?? 0) + 'px';
-          card.style.top  = (pos.top  ?? 0) + 'px';
-          if (pos.width) card.style.width = pos.width;
-          if (pos.height) card.style.height = pos.height;
-        } catch(e){}
-      }
-    });
-
-    // toggles state
-    toggles.forEach(box => {
-      const id = box.dataset.target;
-      box.checked = (getCookie('hud_' + id) !== '0');
-      box.addEventListener('change', () => {
-        const tgt = document.getElementById(id);
-        tgt.style.display = box.checked ? '' : 'none';
-        setCookie('hud_' + id, box.checked ? '1' : '0');
-      });
-    });
-
-    // HUD container position restore
-    (function () {
-      const r = parseInt(localStorage.hudRight) || 20;
-      const t = parseInt(localStorage.hudTop)   || 20;
-      hud.style.right = r + 'px';
-      hud.style.top   = t + 'px';
-    })();
-
-    function saveHUDPos() {
+    // snapshot helpers
+    let initialSnapshot = null;
+    function snapshotCurrentState() {
       const rect = hud.getBoundingClientRect();
-      localStorage.hudRight = Math.max(8, Math.round(window.innerWidth - rect.right));
-      localStorage.hudTop   = Math.max(8, Math.round(rect.top));
-    }
-
-    // --- overlay positioning & visibility (anchored near HUD) ---
-    function updateOverlays() {
-      const on = hud.classList.contains('move-mode');
-      settings.style.display = on ? 'block' : 'none';
-      guide.style.display = on ? 'block' : 'none';
-      positionOverlaysNearHUD();
-      settings.setAttribute('aria-hidden', !on);
-      guide.setAttribute('aria-hidden', !on);
+      const hudRight = parseInt(hud.style.right) || Math.round(window.innerWidth - rect.right);
+      const hudTop = parseInt(hud.style.top) || Math.round(rect.top);
+      const cardsState = {};
+      cards.forEach(card => {
+        cardsState[card.id] = {
+          display: card.style.display || '',
+          position: card.style.position || '',
+          left: card.style.left || '',
+          top: card.style.top || '',
+          width: card.style.width || '',
+          height: card.style.height || ''
+        };
+      });
+      return { hudRight, hudTop, cardsState };
     }
 
     function positionOverlaysNearHUD() {
@@ -362,127 +326,13 @@
       });
     }
 
-    // Reset button
-    document.getElementById('resetHUD').addEventListener('click', () => {
-      cards.forEach(card => {
-        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-        localStorage.removeItem('hud_pos_' + card.id);
-      });
-      localStorage.removeItem('hudRight');
-      localStorage.removeItem('hudTop');
-      cards.forEach(card => {
-        card.style.display = '';
-        card.style.position = '';
-        card.style.top = '';
-        card.style.left = '';
-        card.style.width = '';
-        card.style.height = '';
-        card.classList.remove('dragging');
-      });
-      toggles.forEach(box => box.checked = true);
-      try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
-      window.location.reload();
-    });
-
-    // message receiver
-    window.addEventListener('message', ev => {
-      const d = ev.data;
-      if (!d) return;
-      if (d.action === 'resetDefaults') {
-        document.getElementById('resetHUD').click();
-        return;
-      }
-      switch (d.action) {
-        case 'toggleMove':
-          toggleMoveMode();
-          break;
-function parseCurrency(val) {
-  if (!val && val !== 0) return 0;
-  return Number(String(val).replace(/[^0-9.\-]+/g, '')) || 0;
-}
-
-// replace the existing 'updateCash' case with this:
-case 'updateCash': {
-  // cash update (only if provided)
-  if (d.cash !== undefined) {
-    document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-  }
-
-  // bank update - DEFENSIVE: ignore a 0 that would overwrite a non-zero HUD value
-  if (d.bank !== undefined) {
-    const incomingBank = Number(d.bank);
-    const currentBank = parseCurrency(document.getElementById('bankDisplay').textContent);
-
-    // If server explicitly marked this as a forced update, always apply it.
-    // Otherwise: only apply if incomingBank !== 0 OR currentBank === 0 (avoid clobber).
-    if (d.forceUpdate === true || incomingBank !== 0 || currentBank === 0) {
-      document.getElementById('bankDisplay').textContent = `$${incomingBank}`;
-    } else {
-      // suspicious zero update — ignore so we don't clobber a valid HUD value
-      // console.debug('Ignored zero bank update to avoid clobbering HUD value');
-    }
-  }
-
-  if (d.playerName) updateHudPlayerName(d.playerName);
-  break;
-}
-        case 'updateCashOnly':
-          document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-          if (d.playerName) updateHudPlayerName(d.playerName);
-          break;
-        case 'updateJob':
-          document.getElementById('jobDisplay').textContent = d.job;
-          if (d.playerName) updateHudPlayerName(d.playerName);
-          break;
-        case 'updatePlayerName':
-          updateHudPlayerName(d.playerName || '');
-          break;
-        case 'openAdmin':
-          document.getElementById('adminLogin').style.display = 'flex';
-          document.getElementById('adminLogin').style.pointerEvents = 'auto';
-          break;
-      }
-    });
-
-    // exit on Escape (acts like Cancel)
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
-        cancelMoveMode();
-      }
-    });
-
-    // admin submit
-    document.getElementById('adminSubmit').addEventListener('click', () => {
-      const pass = document.getElementById('adminPassword').value;
-      fetch(`https://${GetParentResourceName()}/adminAuth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pass })
-      }).then(() => {
-        document.getElementById('adminLogin').style.display = 'none';
-        document.getElementById('adminLogin').style.pointerEvents = 'none';
-      });
-    });
-
-    // --- Move mode handling with snapshot/revert/save ---
-    let initialSnapshot = null;
-
-    function snapshotCurrentState() {
-      const rect = hud.getBoundingClientRect();
-      const hudRight = parseInt(hud.style.right) || Math.round(window.innerWidth - rect.right);
-      const hudTop = parseInt(hud.style.top) || Math.round(rect.top);
-      const cardsState = {};
-      cards.forEach(card => {
-        cardsState[card.id] = {
-          display: card.style.display || '',
-          position: card.style.position || '',
-          left: card.style.left || '',
-          top: card.style.top || '',
-          width: card.style.width || '',
-          height: card.style.height || ''
-        };
-      });
-      return { hudRight, hudTop, cardsState };
+    function updateOverlays() {
+      const on = hud.classList.contains('move-mode');
+      settings.style.display = on ? 'block' : 'none';
+      guide.style.display = on ? 'block' : 'none';
+      positionOverlaysNearHUD();
+      settings.setAttribute('aria-hidden', !on);
+      guide.setAttribute('aria-hidden', !on);
     }
 
     function toggleMoveMode() {
@@ -491,35 +341,36 @@ case 'updateCash': {
         initialSnapshot = snapshotCurrentState();
         hud.classList.add('move-mode');
         updateOverlays();
+
+      // initialize toggle checkboxes and attach change handlers so they remove/show elements
+      toggles.forEach(box => {
+        const id = box.dataset.target;
+        const el = document.getElementById(id);
+        // default checked from cookie (treat absent cookie as checked)
+        box.checked = (getCookie('hud_' + id) !== '0') ? true : (getCookie('hud_' + id) === '1');
+        // Ensure element visibility matches checkbox state
+        if (el) el.style.display = box.checked ? '' : 'none';
+
+        box.addEventListener('change', () => {
+          if (!el) return;
+          if (box.checked) {
+            el.style.display = '';
+            setCookie('hud_' + id, '1');
+          } else {
+            // remove/hide the element when toggled off
+            el.style.display = 'none';
+            setCookie('hud_' + id, '0');
+          }
+          // reposition overlays in case HUD size changed
+          positionOverlaysNearHUD();
+        });
+      });
+
         positionOverlaysNearHUD();
       } else {
         cancelMoveMode();
       }
     }
-
-    // Save button: persist hud position + per-card positions and close move-mode
-    document.getElementById('saveHUD').addEventListener('click', () => {
-      saveHUDPos();
-      cards.forEach(card => {
-        if (card.style.position === 'absolute') {
-          const left = parseInt(card.style.left || 0);
-          const top  = parseInt(card.style.top  || 0);
-          const width = card.style.width || '';
-          const height = card.style.height || '';
-          localStorage.setItem('hud_pos_' + card.id, JSON.stringify({ left, top, width, height }));
-        } else {
-          localStorage.removeItem('hud_pos_' + card.id);
-        }
-      });
-      hud.classList.remove('move-mode');
-      updateOverlays();
-      cards.forEach(c => c.classList.remove('dragging'));
-      try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
-      initialSnapshot = null;
-    });
-
-    // Cancel button: revert to snapshot
-    document.getElementById('cancelHUD').addEventListener('click', cancelMoveMode);
 
     function cancelMoveMode() {
       if (!initialSnapshot) {
@@ -573,7 +424,6 @@ case 'updateCash': {
       positionOverlaysNearHUD();
     }
 
-    // keep move-mode open on mouseup
     function onHudUp() {
       if (!containerDrag) return;
       containerDrag = false;
@@ -582,7 +432,6 @@ case 'updateCash': {
       positionOverlaysNearHUD();
     }
 
-    // per-card dragging (hold Ctrl + drag)
     cards.forEach(card => {
       card.addEventListener('mousedown', e => {
         if (!hud.classList.contains('move-mode') || !e.ctrlKey) return;
@@ -621,6 +470,19 @@ case 'updateCash': {
 
     function onCardUp() {
       if (!cardDrag) return;
+      try {
+        const rect = cardDrag.getBoundingClientRect();
+        const left = Math.round(rect.left - hud.getBoundingClientRect().left);
+        const top  = Math.round(rect.top  - hud.getBoundingClientRect().top);
+        // include current position so we can reapply it later
+        localStorage.setItem('hud_pos_' + cardDrag.id, JSON.stringify({
+          left: left,
+          top: top,
+          width: cardDrag.style.width || '',
+          height: cardDrag.style.height || '',
+          position: cardDrag.style.position || 'absolute'
+        }));
+      } catch(e){}
       cardDrag.classList.remove('dragging');
       cardDrag = null;
       document.removeEventListener('mousemove', onCardMove);
@@ -628,21 +490,18 @@ case 'updateCash': {
       positionOverlaysNearHUD();
     }
 
-    // ensure overlays reposition on resize
     window.addEventListener('resize', positionOverlaysNearHUD);
 
-    // Expose toggleMove to global so you can call from console (or other code)
+    // Expose toggleHudMoveMode globally
     window.toggleHudMoveMode = toggleMoveMode;
 
-    // Public helper to update player name programmatically
+    // Update helpers used by messages
     function updateHudPlayerName(name) {
       const el = document.getElementById('playerNameDisplay');
       if (!el) return;
       el.textContent = name && name.length ? name : 'No Name';
     }
     window.updateHudPlayerName = updateHudPlayerName;
-
-    // Also expose convenience update functions
     window.updateHudCash = (cash, bank, playerName) => {
       if (cash !== undefined) document.getElementById('cashDisplay').textContent = `$${cash}`;
       if (bank !== undefined) document.getElementById('bankDisplay').textContent = `$${bank}`;
@@ -653,7 +512,272 @@ case 'updateCash': {
       if (playerName) updateHudPlayerName(playerName);
     };
 
-    // If the script is toggled from outside via message 'toggleMove' we already handle it
+    // Reset button — clears local UI and asks client.lua to delete KVP
+    document.getElementById('resetHUD').addEventListener('click', () => {
+      cards.forEach(card => {
+        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        localStorage.removeItem('hud_pos_' + card.id);
+        card.style.display = '';
+        card.style.position = '';
+        card.style.top = '';
+        card.style.left = '';
+        card.style.width = '';
+        card.style.height = '';
+        card.classList.remove('dragging');
+      });
+      localStorage.removeItem('hudRight');
+      localStorage.removeItem('hudTop');
+      toggles.forEach(box => box.checked = true);
+
+      fetch(`https://${GetParentResourceName()}/resetDefaults`, { method: 'POST' })
+        .finally(() => {
+          try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+        });
+    });
+
+    // Save button behaviour: gather payload and send to client to persist
+    
+    function saveHUDPos() {
+      const rect = hud.getBoundingClientRect();
+      localStorage.hudRight = Math.max(8, Math.round(window.innerWidth - rect.right));
+      localStorage.hudTop   = Math.max(8, Math.round(rect.top));
+    }
+
+    document.getElementById('saveHUD').addEventListener('click', () => {
+      saveHUDPos();
+
+      const payload = {
+        hudRight: localStorage.hudRight || 20,
+        hudTop: localStorage.hudTop || 20,
+        toggles: {},
+        cards: {}
+      };
+
+      toggles.forEach(box => {
+        const id = box.dataset.target;
+        payload.toggles[id] = !!box.checked;
+      });
+
+      cards.forEach(card => {
+        const id = card.id;
+        const raw = localStorage.getItem('hud_pos_' + id);
+        let posObj = null;
+        if (raw) {
+          try { posObj = JSON.parse(raw); } catch(e){ posObj = null; }
+        }
+        const position = card.style.position || (posObj && posObj.position) || '';
+
+        payload.cards[id] = {
+          display: (card.style.display === 'none') ? 'none' : '',
+          position: position,
+          left: (posObj && posObj.left !== undefined) ? posObj.left : (parseInt(card.style.left) || 0),
+          top:  (posObj && posObj.top  !== undefined) ? posObj.top  : (parseInt(card.style.top)  || 0),
+          width: card.style.width || (posObj && posObj.width) || '',
+          height: card.style.height || (posObj && posObj.height) || ''
+        };
+      });
+
+      fetch(`https://${GetParentResourceName()}/saveHUD`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        hud.classList.remove('move-mode');
+        updateOverlays();
+        cards.forEach(c => c.classList.remove('dragging'));
+        try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+        initialSnapshot = null;
+      })
+      .catch(() => {
+        hud.classList.remove('move-mode');
+        updateOverlays();
+        cards.forEach(c => c.classList.remove('dragging'));
+        try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
+        initialSnapshot = null;
+      });
+    });
+
+    // Cancel handler
+    document.getElementById('cancelHUD').addEventListener('click', cancelMoveMode);
+
+    // Admin submit
+    document.getElementById('adminSubmit').addEventListener('click', () => {
+      const pass = document.getElementById('adminPassword').value;
+      fetch(`https://${GetParentResourceName()}/adminAuth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      }).then(() => {
+        document.getElementById('adminLogin').style.display = 'none';
+        document.getElementById('adminLogin').style.pointerEvents = 'none';
+      });
+    });
+
+    // Request settings from client on load & apply local fallback after DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      try { fetch(`https://${GetParentResourceName()}/requestSettings`, { method: 'POST' }).catch(()=>{}); } catch(e){}
+
+      // apply cookie visibility and localStorage fallback *only after DOM is ready*
+      cards.forEach(card => {
+        const v = getCookie('hud_' + card.id);
+        if (v === '0') card.style.display = 'none';
+      });
+
+      cards.forEach(card => {
+        const raw = localStorage.getItem('hud_pos_' + card.id);
+        if (raw) {
+          try {
+            const pos = JSON.parse(raw);
+            if (pos.position && pos.position !== '') {
+              card.style.position = pos.position;
+            } else {
+              if (pos.left !== undefined || pos.top !== undefined) card.style.position = 'absolute';
+            }
+            if (pos.left !== undefined) card.style.left = (pos.left + 'px');
+            if (pos.top !== undefined)  card.style.top  = (pos.top  + 'px');
+            if (pos.width) card.style.width = pos.width;
+            if (pos.height) card.style.height = pos.height;
+          } catch(e){}
+        }
+      });
+
+      (function () {
+        const r = parseInt(localStorage.hudRight) || 20;
+        const t = parseInt(localStorage.hudTop)   || 20;
+        hud.style.right = r + 'px';
+        hud.style.top   = t + 'px';
+      })();
+
+      updateOverlays();
+    });
+
+    // NUI messages from client.lua
+    window.addEventListener('message', ev => {
+      const d = ev.data;
+      if (!d) return;
+
+      if (d.action === 'loadSettings') {
+        const s = d.settings;
+        if (!s) return;
+
+        // Defer to next frame so layout measurements are stable
+        requestAnimationFrame(() => {
+          try {
+            // apply HUD container first
+            if (s.hudRight !== undefined) hud.style.right = (parseInt(s.hudRight) || 20) + 'px';
+            if (s.hudTop !== undefined)  hud.style.top   = (parseInt(s.hudTop)  || 20) + 'px';
+
+            // toggles: apply visibility & cookie only if explicitly provided
+            if (s.toggles && typeof s.toggles === 'object') {
+              for (const k in s.toggles) {
+                const cb = settings.querySelector(`input[data-target="${k}"]`);
+                const el = document.getElementById(k);
+                if (cb && el) {
+                  cb.checked = !!s.toggles[k];
+                  el.style.display = cb.checked ? '' : 'none';
+                  setCookie('hud_' + k, cb.checked ? '1' : '0');
+                }
+              }
+            }
+
+            // cards: only set left/top when numbers are present
+            if (s.cards && typeof s.cards === 'object') {
+              for (const id in s.cards) {
+                const pos = s.cards[id];
+                const el = document.getElementById(id);
+                if (!el || !pos) continue;
+
+                // visibility: explicit
+                if (pos.display === 'none') {
+                  el.style.display = 'none';
+                  document.cookie = `hud_${id}=0; path=/; max-age=${365*24*60*60}`;
+                } else {
+                  el.style.display = '';
+                  document.cookie = `hud_${id}=1; path=/; max-age=${365*24*60*60}`;
+                }
+
+                // position: apply only if provided; enforce absolute when left/top exist
+                if (pos.left !== undefined || pos.top !== undefined) {
+                  el.style.position = (pos.position && pos.position !== '') ? pos.position : 'absolute';
+                } else if (pos.position && pos.position !== '') {
+                  el.style.position = pos.position;
+                }
+
+                // only apply numeric coordinates if present and valid
+                if (pos.left !== undefined && pos.left !== null && pos.left !== '') {
+                  const left = Number(pos.left);
+                  if (!Number.isNaN(left)) el.style.left = Math.round(left) + 'px';
+                }
+                if (pos.top !== undefined && pos.top !== null && pos.top !== '') {
+                  const top = Number(pos.top);
+                  if (!Number.isNaN(top)) el.style.top = Math.round(top) + 'px';
+                }
+                if (pos.width)  el.style.width  = pos.width;
+                if (pos.height) el.style.height = pos.height;
+
+                // persist only valid numeric values to localStorage (avoid overwriting good values with invalid ones)
+                try {
+                  const existing = JSON.parse(localStorage.getItem('hud_pos_' + id) || 'null');
+                  const storeObj = {
+                    left: (pos.left !== undefined && pos.left !== null && pos.left !== '') ? parseInt(pos.left) : (existing ? existing.left : undefined),
+                    top:  (pos.top  !== undefined && pos.top  !== null && pos.top  !== '') ? parseInt(pos.top)  : (existing ? existing.top  : undefined),
+                    width: pos.width || (existing ? existing.width : ''),
+                    height: pos.height || (existing ? existing.height : ''),
+                    position: el.style.position || (existing ? existing.position : '')
+                  };
+                  localStorage.setItem('hud_pos_' + id, JSON.stringify(storeObj));
+                } catch (e) { /* ignore storage errors */ }
+              }
+            }
+
+            if (s.hudRight !== undefined) localStorage.hudRight = s.hudRight;
+            if (s.hudTop !== undefined)  localStorage.hudTop  = s.hudTop;
+
+            positionOverlaysNearHUD();
+          } catch (e) {
+            console.warn('Error applying saved HUD settings', e);
+          }
+        });
+
+        return;
+      }
+
+      switch (d.action) {
+        case 'toggleMove': toggleMoveMode(); break;
+        case 'updateCash':
+          if (d.cash !== undefined) document.getElementById('cashDisplay').textContent = `$${d.cash}`;
+          if (d.bank !== undefined) document.getElementById('bankDisplay').textContent = `$${d.bank}`;
+          if (d.playerName) updateHudPlayerName(d.playerName);
+          break;
+        case 'updateCashOnly':
+          document.getElementById('cashDisplay').textContent = `$${d.cash}`;
+          if (d.playerName) updateHudPlayerName(d.playerName);
+          break;
+        case 'updateJob':
+          document.getElementById('jobDisplay').textContent = d.job;
+          break;
+        case 'updatePlayerName':
+          updateHudPlayerName(d.playerName || '');
+          break;
+        case 'openAdmin':
+          document.getElementById('adminLogin').style.display = 'flex';
+          document.getElementById('adminLogin').style.pointerEvents = 'auto';
+          break;
+        case 'saved':
+          try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }).catch(()=>{}); } catch(e){}
+          break;
+      }
+    });
+
+    // Exit on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
+        cancelMoveMode();
+      }
+    });
+
+    // init overlays
     updateOverlays();
   </script>
 </body>
