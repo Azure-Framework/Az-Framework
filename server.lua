@@ -743,21 +743,6 @@ AddEventHandler("playerConnecting", function(name, setKickReason, deferrals)
 end)
 
 
-exports("addMoney", addMoney)
-exports("deductMoney", deductMoney)
-exports("depositMoney", depositMoney)
-exports("withdrawMoney", withdrawMoney)
-exports("transferMoney", transferMoney)
-exports("GetMoney", GetMoney)
-exports("UpdateMoney", UpdateMoney)
-exports("sendMoneyToClient", sendMoneyToClient)
-exports("claimDailyReward", claimDailyReward)
-exports("getDiscordID", getDiscordID)
-exports("isAdmin", isAdmin)
-exports("GetPlayerCharacter", GetPlayerCharacter)
-exports("GetPlayerCharacterName", GetPlayerCharacterName)
-exports("GetPlayerMoney", GetPlayerMoney)
-exports("logAdminCommand", logAdminCommand)
 
 
 RegisterCommand("addmoney", function(source, args)
@@ -1152,3 +1137,21 @@ AddEventHandler("playerDropped", function(reason)
     end
 end)
 
+
+
+
+exports("addMoney", addMoney)
+exports("deductMoney", deductMoney)
+exports("depositMoney", depositMoney)
+exports("withdrawMoney", withdrawMoney)
+exports("transferMoney", transferMoney)
+exports("GetMoney", GetMoney)
+exports("UpdateMoney", UpdateMoney)
+exports("sendMoneyToClient", sendMoneyToClient)
+exports("claimDailyReward", claimDailyReward)
+exports("getDiscordID", getDiscordID)
+exports("isAdmin", isAdmin)
+exports("GetPlayerCharacter", GetPlayerCharacter)
+exports("GetPlayerCharacterName", GetPlayerCharacterName)
+exports("GetPlayerMoney", GetPlayerMoney)
+exports("logAdminCommand", logAdminCommand)

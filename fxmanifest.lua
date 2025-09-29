@@ -1,9 +1,10 @@
 fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
+
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.7.9'
+version '1.8.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -16,7 +17,6 @@ server_scripts {
     'server.lua',
     'parking/server.lua',
     'departments/server.lua',
-
 }
 
 client_scripts {
@@ -24,11 +24,29 @@ client_scripts {
     'parking/client.lua',
     'departments/client.lua',
     'presence.lua',
-
 }
 
 ui_page 'html/index.html'
 
 files {
     'html/index.html'
+}
+
+exports {
+    "addMoney",
+    "deductMoney",
+    "depositMoney",
+    "withdrawMoney",
+    "transferMoney",
+    "GetMoney",
+    "UpdateMoney",
+    "sendMoneyToClient",
+    "claimDailyReward",
+    "getDiscordID",
+    "isAdmin",
+    "GetPlayerCharacter",
+    "GetDiscordID",
+    "GetPlayerCharacterName",
+    "GetPlayerMoney",
+    "logAdminCommand"
 }
