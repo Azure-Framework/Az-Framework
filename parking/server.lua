@@ -1,5 +1,3 @@
-
--- server.lua
 if Config.Parking then
     local debug = true
     print('[Az-Parking] Parking True, Initializing.')

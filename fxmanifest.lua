@@ -4,7 +4,7 @@ lua54 'yes'
 
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.8.0'
+version '1.8.5'
 
 shared_scripts {
     '@ox_lib/init.lua',

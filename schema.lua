@@ -1,8 +1,6 @@
--- Schema enforcement with clear, line-by-line reporting
 local AZ_VERBOSE = false -- true = print detailed step-by-step (also prints per-table messages as they happen)
 
 local tableSchemas = {
-    -- (your CREATE TABLE SQL strings — unchanged)
     [[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

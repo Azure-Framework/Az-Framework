@@ -1,4 +1,3 @@
--- [[ server.lua ]]  (az-fw-departments)
 if Config.Departments then
     print('[az-fw-departments-server] Departments enabled, initializing...')
 
@@ -52,9 +51,6 @@ if Config.Departments then
             ['Content-Type']  = 'application/json'
         })
     end
-
-
-
     ----------------------------------------------------------------
     -- Request /jobs handler for selecting on-duty job
     ----------------------------------------------------------------
@@ -86,7 +82,6 @@ if Config.Departments then
             end)
         end)
     end)
-
     ----------------------------------------------------------------
     -- Set on-duty job
     ----------------------------------------------------------------

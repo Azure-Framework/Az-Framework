@@ -1137,9 +1137,6 @@ AddEventHandler("playerDropped", function(reason)
     end
 end)
 
-
-
-
 exports("addMoney", addMoney)
 exports("deductMoney", deductMoney)
 exports("depositMoney", depositMoney)

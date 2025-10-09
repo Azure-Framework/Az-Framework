@@ -1,6 +1,6 @@
 Config = {}
 
-Config.AdminRoleId = "YOUR_DISCORD_ADMIN_ROLE"
+Config.AdminRoleId = "1383518537628389406"
 
 -- Set to true to enable park-anywhere functionality (Shift + F to park/unpark vehicles)
 Config.Parking = true
@@ -12,7 +12,7 @@ Config.Departments = true
 Config.PaycheckIntervalMinutes  = 1  -- 60 = 1 hour.
 
 -- Your Discord App ID (string). Put your app id here.
-Config.DISCORD_APP_ID = "YOUR_DISCORD_BOT_APPID"
+Config.DISCORD_APP_ID = "1259656710306660402"
 
 -- Update interval in seconds
 Config.UPDATE_INTERVAL = 5
@@ -44,9 +44,19 @@ Config.FRAMEWORK = nil
 -- ┃        inside your server.cfg )      ┃
 -- ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-
+----------------------------------------------------------------
+-- ImperialCAD integration toggle & settings
+-- Set Config.UseImperial = true to enable automatic ImperialCAD
+-- character creation when az-fw-money registers a character.
+-- If false (or nil) the ImperialCAD export will NOT be called.
+----------------------------------------------------------------
 Config.UseImperial = false -- set to true to enable ImperialCAD integration
 
+-- Additional Imperial settings (optional)
+-- By default the integration uses server convars:
+--   imperialAPI            -> API secret (POST endpoints)
+--   imperial_community_id  -> community id
+-- You can leave these as convars (recommended) and set them in server.cfg.
 Config.Imperial = {
   resource = "ImperialCAD",        -- resource name that exposes the ImperialCAD exports
   use_convars = true,              -- read API key / community id from convars if true
@@ -55,3 +65,8 @@ Config.Imperial = {
   debug_convar = "imperial_debug", -- optional convar to enable debug prints for Imperial calls
   auto_save_response = false       -- if true, will attempt to save returned SSN/DLN into DB (you must add DB columns)
 }
+
+-- Example server.cfg lines (add these if you enable integration):
+-- setr imperial_community_id "YOUR_COMMUNITY_ID"
+-- set imperialAPI "YOUR_API_SECRET"
+-- set imperial_debug "true" -- optional, enables extra debug prints

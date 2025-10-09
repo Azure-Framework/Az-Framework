@@ -2,25 +2,21 @@ local RESOURCE = GetCurrentResourceName()
 
 print(("[az-fw-hud] client.lua (cookies-only) loaded. Resource=%s IsDuplicity=%s"):format(RESOURCE, tostring(IsDuplicityVersion())))
 
-
 if IsDuplicityVersion() then
   print(("[az-fw-hud] ERROR: client.lua executed server-side. Move this file to client_scripts in fxmanifest.lua."):format(RESOURCE))
   return
 end
-
 
 local function pushNoSettingsToNui()
   SendNUIMessage({ action = "loadSettings", settings = nil })
   print("[az-fw-hud] Sent empty HUD settings to NUI (cookies/localStorage mode).")
 end
 
-
 if type(RegisterNUICallback) ~= "function" then
   print("[az-fw-hud] WARNING: RegisterNUICallback not available; NUI callbacks won't be registered.")
 else
   RegisterNUICallback("saveHUD", function(data, cb)
-    
-    
+        
     print("[az-fw-hud] Received saveHUD from NUI (cookies/localStorage mode).")
     SetNuiFocus(false, false)
     SendNUIMessage({ action = "saved", ok = true })
@@ -30,7 +26,6 @@ else
   
   RegisterNUICallback("resetDefaults", function(_, cb)
     print("[az-fw-hud] Received resetDefaults from NUI (cookies/localStorage mode).")
-    
     
     SetNuiFocus(false, false)
     if cb then cb({ ok = true }) end
