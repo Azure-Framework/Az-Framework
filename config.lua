@@ -1,6 +1,6 @@
 Config = {}
 
-Config.AdminRoleId = "1383518537628389406"
+Config.AdminRoleId = "YOUR_DISCORD_ADMIN_ROLEID"
 
 -- Set to true to enable park-anywhere functionality (Shift + F to park/unpark vehicles)
 Config.Parking = true
@@ -9,10 +9,10 @@ Config.Parking = true
 Config.Departments = true
 
 -- How often to run distributePaychecks (in minutes)
-Config.PaycheckIntervalMinutes  = 1  -- 60 = 1 hour.
+Config.PaycheckIntervalMinutes  = 5  -- 60 = 1 hour.
 
 -- Your Discord App ID (string). Put your app id here.
-Config.DISCORD_APP_ID = "1259656710306660402"
+Config.DISCORD_APP_ID = "YOUR_DISCORD_APP_ID"
 
 -- Update interval in seconds
 Config.UPDATE_INTERVAL = 5

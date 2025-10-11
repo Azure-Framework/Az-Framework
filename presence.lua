@@ -1,3 +1,18 @@
+-- client.lua
+-- FiveM Discord Rich Presence (native-first, fallback-to-native-hash)
+-- Framework-free. Put Config in config.lua or above this file:
+-- Config = {
+--   DISCORD_APP_ID = "123456789012345678",
+--   SERVER_NAME = "MyServer",
+--   UPDATE_INTERVAL = 5,  -- seconds (min 3)
+--   SHOW_JOB = true,
+--   EMOJIS = { ... },
+--   DEBUG = true|false,   -- optional (defaults true)
+--   ASSET_LARGE = "large_asset_name", -- optional, registered in Discord dev panel
+--   ASSET_SMALL = "small_asset_name", -- optional
+--   ASSET_SMALL_TEXT = "small text",  -- optional
+-- }
+
 -- ==========================
 -- Debug helper
 -- ==========================
@@ -39,9 +54,23 @@ local function nativeAvailable(name)
   return type(_G[name]) == "function"
 end
 
+-- ==========================
+-- App ID + Presence + Asset setters
+-- Try named natives first, then fallback to native hash (InvokeNative)
+-- All return true on success
+-- ==========================
+
+-- Native hashes (common ones)
+-- SET_DISCORD_APP_ID          0x6A02254D  (example used in many resources)
+-- SET_RICH_PRESENCE          0x7BDCBD45
+-- SET_DISCORD_RICH_PRESENCE_ASSET 0x53DFD530
+-- SET_DISCORD_RICH_PRESENCE_ASSET_SMALL  (unknown shown in docs, try named)
+-- Note: calling by hash is a last-resort; wrapped in pcall.
+
 local HASH_SET_DISCORD_APP_ID = 0x6A02254D
 local HASH_SET_RICH_PRESENCE = 0x7BDCBD45
 local HASH_SET_DISCORD_RICH_PRESENCE_ASSET = 0x53DFD530
+-- (other hashes could be added if needed)
 
 local function trySetAppId(id)
   if not id or id == "" then
@@ -49,6 +78,7 @@ local function trySetAppId(id)
     return false
   end
 
+  -- 1) Named native (preferred)
   if nativeAvailable("SetDiscordAppId") then
     local ok, err = pcall(SetDiscordAppId, tostring(id))
     if ok then
@@ -59,6 +89,7 @@ local function trySetAppId(id)
     end
   end
 
+  -- 2) Fallback: invoke native hash
   local succ, info = invokeNativeSafe(HASH_SET_DISCORD_APP_ID, tostring(id))
   if succ then
     dbg("SetDiscordAppId via InvokeNative called (%s)", tostring(id))
@@ -74,20 +105,22 @@ local function trySetPresence(str)
     dbg("trySetPresence called with empty string; skipping.")
     return false
   end
+
+  -- 1) SetDiscordRichPresence (some builds)
   if nativeAvailable("SetDiscordRichPresence") then
     local ok, err = pcall(SetDiscordRichPresence, tostring(str))
     if ok then dbg("SetDiscordRichPresence called."); return true
     else dbg("SetDiscordRichPresence error:", tostring(err)) end
   end
 
-
+  -- 2) SetRichPresence (common)
   if nativeAvailable("SetRichPresence") then
     local ok, err = pcall(SetRichPresence, tostring(str))
     if ok then dbg("SetRichPresence called."); return true
     else dbg("SetRichPresence error:", tostring(err)) end
   end
 
-
+  -- 3) Fallback: native hash SET_RICH_PRESENCE
   local succ, info = invokeNativeSafe(HASH_SET_RICH_PRESENCE, tostring(str))
   if succ then dbg("SetRichPresence via InvokeNative called."); return true end
 
