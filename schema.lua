@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
     ]],
     [[CREATE TABLE IF NOT EXISTS `econ_user_money` (
   `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
   `firstname` varchar(100) NOT NULL DEFAULT '',
   `lastname` varchar(100) NOT NULL DEFAULT '',
   `profile_picture` varchar(255) DEFAULT NULL,
@@ -69,8 +68,7 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `exp_month` tinyint(4) DEFAULT NULL,
   `exp_year` smallint(6) DEFAULT NULL,
   `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`discordid`,`charid`),
-  CONSTRAINT `chk_eum_charid_not_blank` CHECK (`charid` <> '')
+  PRIMARY KEY (`discordid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
     [[CREATE TABLE IF NOT EXISTS `econ_user_roles` (
@@ -82,23 +80,21 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
     [[CREATE TABLE IF NOT EXISTS `user_characters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
   `name` varchar(100) NOT NULL,
   `active_department` varchar(100) NOT NULL DEFAULT '',
   `license_status` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `discord_char` (`discordid`,`charid`)
+  KEY `idx_discord` (`discordid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
     ]],
     [[CREATE TABLE IF NOT EXISTS `user_inventory` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
-  `charid` varchar(100) NOT NULL,
   `item` varchar(64) NOT NULL,
   `count` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uix_inventory` (`discordid`,`charid`,`item`),
-  CONSTRAINT `fk_inv_characters` FOREIGN KEY (`discordid`, `charid`) REFERENCES `user_characters` (`discordid`, `charid`) ON DELETE CASCADE
+  UNIQUE KEY `uix_inventory` (`discordid`,`item`)
+  -- foreign key referencing per-character was removed because `charid` no longer exists
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
     ]],
     [[CREATE TABLE IF NOT EXISTS `user_levels` (
