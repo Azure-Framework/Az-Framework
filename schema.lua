@@ -2,62 +2,145 @@
 local AZ_VERBOSE = false -- true = print detailed step-by-step (also prints per-table messages as they happen)
 
 local tableSchemas = {
-    -- (your CREATE TABLE SQL strings — unchanged)
-    [[
+[[
+CREATE TABLE IF NOT EXISTS `arrests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `netId` varchar(50) DEFAULT NULL,
+  `identifier` varchar(64) DEFAULT NULL,
+  `first_name` varchar(32) DEFAULT NULL,
+  `last_name` varchar(32) DEFAULT NULL,
+  `dob` varchar(16) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `citations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `netId` varchar(50) DEFAULT NULL,
+  `identifier` varchar(64) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `fine` int(11) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `daily_checkin_rewards` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `month` int(11) NOT NULL,
+  `day` int(11) NOT NULL,
+  `money` int(11) DEFAULT NULL,
+  `weapon` varchar(100) DEFAULT NULL,
+  `ammo` int(11) DEFAULT NULL,
+  `keys` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `month_day_unique` (`month`,`day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `daily_checkin_users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `identifier` varchar(255) NOT NULL,
+  `year` int(11) NOT NULL,
+  `month` int(11) NOT NULL,
+  `claimed_days` text NOT NULL,
+  `claimed_count` int(11) NOT NULL DEFAULT 0,
+  `keys` int(11) NOT NULL DEFAULT 0,
+  `last_spin` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_month` (`identifier`,`year`,`month`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `dispatch_calls` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `caller_identifier` varchar(64) DEFAULT NULL,
+  `caller_name` varchar(128) DEFAULT NULL,
+  `location` varchar(128) DEFAULT NULL,
+  `message` text DEFAULT NULL,
+  `status` enum('ACTIVE','ACK','CLOSED') DEFAULT 'ACTIVE',
+  `assigned_to` varchar(64) DEFAULT NULL,
+  `assigned_discord` varchar(255) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=86 DEFAULT CHARSET=utf8mb4;
+]],
+[[
 CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL DEFAULT '',
   `type` enum('checking','savings') NOT NULL DEFAULT 'checking',
   `balance` decimal(12,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=131 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_admins` (
+  KEY `discordid` (`discordid`),
+  KEY `idx_econ_accounts__discordid_` (`discordid`),
+  KEY `idx_econ_accounts_charid` (`charid`)
+) ENGINE=InnoDB AUTO_INCREMENT=237 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_admins` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `idx_econ_admins__username_` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_cards` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_cards` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL DEFAULT '',
   `card_number` varchar(16) NOT NULL,
   `exp_month` tinyint(4) NOT NULL,
   `exp_year` smallint(6) NOT NULL,
   `status` enum('active','blocked') NOT NULL DEFAULT 'active',
   PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_departments` (
+  KEY `discordid` (`discordid`),
+  KEY `idx_econ_cards__discordid_` (`discordid`),
+  KEY `idx_econ_cards_charid` (`charid`)
+) ENGINE=InnoDB AUTO_INCREMENT=94 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_departments` (
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL DEFAULT '',
   `department` varchar(100) NOT NULL,
   `paycheck` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`discordid`,`department`)
+  PRIMARY KEY (`discordid`,`department`),
+  KEY `idx_econ_departments_charid` (`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_payments` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_payments` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL DEFAULT '',
   `payee` varchar(255) NOT NULL,
   `amount` decimal(12,2) NOT NULL,
   `schedule_date` date NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `discordid` (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_profile` (
+  KEY `discordid` (`discordid`),
+  KEY `idx_econ_payments__discordid_` (`discordid`),
+  KEY `idx_econ_payments_charid` (`charid`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_profile` (
   `discordid` varchar(255) NOT NULL,
   `user_id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
   PRIMARY KEY (`discordid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_user_money` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_user_money` (
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
   `firstname` varchar(100) NOT NULL DEFAULT '',
   `lastname` varchar(100) NOT NULL DEFAULT '',
   `profile_picture` varchar(255) DEFAULT NULL,
@@ -68,36 +151,114 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `exp_month` tinyint(4) DEFAULT NULL,
   `exp_year` smallint(6) DEFAULT NULL,
   `card_status` enum('active','blocked') NOT NULL DEFAULT 'active',
-  PRIMARY KEY (`discordid`)
+  PRIMARY KEY (`discordid`,`charid`),
+  KEY `idx_econ_user_money_charid` (`charid`),
+  CONSTRAINT `chk_eum_charid_not_blank` CHECK (`charid` <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `econ_user_roles` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `econ_user_roles` (
   `discordid` varchar(255) NOT NULL,
   `roleid` varchar(255) NOT NULL,
   PRIMARY KEY (`discordid`,`roleid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_characters` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `id_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `netId` varchar(50) DEFAULT NULL,
+  `identifier` varchar(64) DEFAULT NULL,
+  `first_name` varchar(32) DEFAULT NULL,
+  `last_name` varchar(32) DEFAULT NULL,
+  `type` varchar(32) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=299 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `jail_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `jailer_discord` varchar(50) NOT NULL,
+  `inmate_discord` varchar(50) NOT NULL,
+  `time_minutes` int(11) NOT NULL,
+  `date` datetime NOT NULL,
+  `charges` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `mdt_id_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `target_type` varchar(16) NOT NULL,
+  `target_value` varchar(128) NOT NULL,
+  `rtype` varchar(64) NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `creator_identifier` varchar(255) DEFAULT NULL,
+  `creator_discord` varchar(255) DEFAULT NULL,
+  `creator_source` int(11) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `plates` (
+  `plate` varchar(16) NOT NULL,
+  `status` enum('VALID','SUSPENDED','REVOKED') NOT NULL,
+  PRIMARY KEY (`plate`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `plate_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `plate` varchar(16) DEFAULT NULL,
+  `identifier` varchar(64) DEFAULT NULL,
+  `first_name` varchar(32) DEFAULT NULL,
+  `last_name` varchar(32) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=89 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `reports` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `creator_identifier` varchar(64) DEFAULT NULL,
+  `creator_discord` varchar(128) DEFAULT NULL,
+  `title` varchar(128) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `rtype` varchar(32) DEFAULT NULL,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `user_characters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
   `name` varchar(100) NOT NULL,
   `active_department` varchar(100) NOT NULL DEFAULT '',
   `license_status` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
   PRIMARY KEY (`id`),
-  KEY `idx_discord` (`discordid`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_inventory` (
+  UNIQUE KEY `discord_char` (`discordid`,`charid`),
+  UNIQUE KEY `idx_user_characters__discordid_charid_` (`discordid`,`charid`)
+) ENGINE=InnoDB AUTO_INCREMENT=40 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `user_inventory` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(100) NOT NULL,
   `item` varchar(64) NOT NULL,
   `count` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uix_inventory` (`discordid`,`item`)
-  -- foreign key referencing per-character was removed because `charid` no longer exists
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_levels` (
+  UNIQUE KEY `uix_inventory` (`discordid`,`charid`,`item`),
+  UNIQUE KEY `idx_user_inventory__discordid_charid_item_` (`discordid`,`charid`,`item`),
+  CONSTRAINT `fk_inv_characters` FOREIGN KEY (`discordid`, `charid`) REFERENCES `user_characters` (`discordid`, `charid`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=120 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `user_levels` (
   `identifier` varchar(100) NOT NULL,
   `rp_total` bigint(20) NOT NULL DEFAULT 0,
   `rp_stamina` bigint(20) NOT NULL DEFAULT 0,
@@ -105,8 +266,9 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `rp_driving` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
-    [[CREATE TABLE IF NOT EXISTS `user_vehicles` (
+]],
+[[
+CREATE TABLE IF NOT EXISTS `user_vehicles` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
   `plate` varchar(20) NOT NULL,
@@ -125,10 +287,25 @@ CREATE TABLE IF NOT EXISTS `econ_accounts` (
   `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extras`)),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_vehicle` (`discordid`,`plate`),
-  KEY `idx_discord` (`discordid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]],
+  UNIQUE KEY `idx_user_vehicles__discordid_plate_` (`discordid`,`plate`),
+  KEY `idx_discord` (`discordid`),
+  KEY `idx_user_vehicles__discordid_` (`discordid`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4;
+]],
+[[
+CREATE TABLE IF NOT EXISTS `warrants` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `subject_name` varchar(128) DEFAULT NULL,
+  `subject_netId` varchar(50) DEFAULT NULL,
+  `charges` text DEFAULT NULL,
+  `issued_by` varchar(64) DEFAULT NULL,
+  `active` tinyint(1) DEFAULT 1,
+  `timestamp` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
+]],
 }
+
 
 -- helpers
 local function trim(s) return (s and s:gsub("^%s*(.-)%s*$", "%1") or s) end
