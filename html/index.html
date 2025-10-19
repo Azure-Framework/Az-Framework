@@ -3,16 +3,132 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>HUD — Glass Blue (No Black Veil)</title>
+  <title>HUD — Configurable (Fixed)</title>
 
-  <!-- Inter font + bootstrap icons -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="./config.js?cb=__TIMESTAMP__"></script>
+  <script>
+  (function (){
+    function log() { try { console.log.apply(console, ['[HUD]'].concat(Array.prototype.slice.call(arguments))); } catch(e){} }
+
+    if (window.hudConfig) { log('config.js already present (preloaded)'); return; }
+
+    try {
+      var s = document.createElement('script');
+      s.src = './config.js';
+      s.type = 'text/javascript';
+      s.onload = function () { log('loaded ./config.js via script tag'); };
+      s.onerror = function () {
+        log('failed to load ./config.js via script tag, trying fetch fallback');
+        fetch('./config.js?cb=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('fetch failed ' + r.status);
+          return r.text();
+        }).then(function (txt) {
+          try {
+            var m = txt.match(/window\.hudConfig\s*=\s*(\{[\s\S]*?\});?/m);
+            if (m && m[1]) {
+              window.hudConfig = (new Function('return ' + m[1]))();
+              log('hudConfig applied from fetched config.js');
+            } else {
+              log('no hudConfig object found inside fetched config.js');
+            }
+          } catch (e) {
+            log('eval of fetched config.js failed', e);
+          }
+        }).catch(function (err) {
+          log('fetch fallback for config.js failed', err);
+        });
+      };
+      document.head.appendChild(s);
+    } catch (e) {
+      log('error inserting config.js script tag', e);
+    }
+
+    setTimeout(function () {
+      if (!window.hudConfig) log('hudConfig still undefined after loader');
+    }, 300);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    const defaults = {
+      accentColor: '#3fb4ff',
+      accent2: '#4ab8ff',
+      textPrimary: '#eaf6ff',
+      textSecondary: '#9fc0dc',
+      hudGap: '12px',
+      hudPadding: '10px 14px',
+      hudRadius: '12px',
+      hudShadow: '0 8px 30px rgba(30,60,110,0.14)',
+      discordInvite: 'discord.gg/QWWWV6Zyaa',
+      serverLogoURL: ''
+    };
+
+    function normalizeRaw(val) {
+      if (typeof val === 'number') return val + 'px';
+      return val;
+    }
+    function hexToRgb(hex) {
+      if (!hex) return null;
+      const s = String(hex).trim();
+      const m = s.match(/rgba?\(([^)]+)\)/);
+      if (m) {
+        const parts = m[1].split(',').map(p => p.trim());
+        return parts.slice(0,3).map(n => parseInt(n,10)).join(',');
+      }
+      const h = s.replace('#','');
+      if (![6,8].includes(h.length)) return null;
+      const r = parseInt(h.substring(0,2),16);
+      const g = parseInt(h.substring(2,4),16);
+      const b = parseInt(h.substring(4,6),16);
+      return [r,g,b].join(',');
+    }
+
+    function applyHudConfig() {
+      try {
+        const cfg = Object.assign({}, defaults, window.hudConfig || {});
+        const root = document.documentElement.style;
+        root.setProperty('--accent-color', cfg.accentColor || defaults.accentColor);
+        root.setProperty('--accent-2', cfg.accent2 || defaults.accent2);
+        root.setProperty('--text-primary', cfg.textPrimary || defaults.textPrimary);
+        root.setProperty('--text-secondary', cfg.textSecondary || defaults.textSecondary);
+        root.setProperty('--hud-gap', normalizeRaw(cfg.hudGap || defaults.hudGap));
+        root.setProperty('--hud-padding', cfg.hudPadding || defaults.hudPadding);
+        root.setProperty('--hud-radius', normalizeRaw(cfg.hudRadius || defaults.hudRadius));
+        root.setProperty('--hud-shadow', cfg.hudShadow || defaults.hudShadow);
+        root.setProperty('--accent-rgb', hexToRgb(cfg.accentColor || defaults.accentColor) || '63,180,255');
+        window.__hud_config_applied = Object.assign({}, cfg);
+        console.log('[HUD] applyHudConfig complete', window.__hud_config_applied);
+        return cfg;
+      } catch (err) {
+        console.error('[HUD] applyHudConfig failed', err);
+        return defaults;
+      }
+    }
+
+    window.applyHudConfig = applyHudConfig;
+    try { applyHudConfig(); } catch(e) { console.error(e); }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      try { applyHudConfig(); } catch(e){}
+      try {
+        const cfg = window.__hud_config_applied || {};
+        const logo = document.getElementById('serverLogoImg');
+        if (logo && cfg.serverLogoURL) logo.src = cfg.serverLogoURL;
+        const discordEl = document.getElementById('discordDisplay');
+        if (discordEl && cfg.discordInvite) discordEl.textContent = cfg.discordInvite;
+      } catch (e) {}
+    });
+  })();
+  </script>
 
   <style>
     :root{
       --accent-color: #3fb4ff;
       --accent-2: #4ab8ff;
+      --accent-rgb: 63,180,255;
       --text-primary: #eaf6ff;
       --text-secondary: #9fc0dc;
       --hud-gap: 12px;
@@ -32,7 +148,6 @@
     }
     * { box-sizing:border-box; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 
-    /* HUD container */
     #hudContainer{
       position: absolute;
       top: 20px;
@@ -48,11 +163,10 @@
     }
     #hudContainer.move-mode{
       cursor:grab;
-      outline: 1px dashed rgba(63,180,255,0.20);
+      outline: 1px dashed var(--accent-color);
       outline-offset: 6px;
     }
 
-    /* Card — translucent bluish cards */
     .hud-card{
       display:flex;
       align-items:center;
@@ -78,10 +192,9 @@
       width:4px;
       border-top-left-radius:var(--hud-radius); border-bottom-left-radius:var(--hud-radius);
       background: linear-gradient(180deg, var(--accent-color), var(--accent-2));
-      box-shadow: 0 0 12px rgba(63,180,255,0.06);
+      box-shadow: 0 0 12px rgba(var(--accent-rgb),0.08);
     }
 
-    /* Icon */
     .hud-icon{
       width:36px; height:36px; border-radius:10px;
       display:flex; align-items:center; justify-content:center;
@@ -92,7 +205,6 @@
     }
     .hud-icon i { font-size:18px; color:var(--accent-color); }
 
-    /* server logo */
     #serverLogo img{
       height:36px; width:auto; display:block;
       border-radius:8px;
@@ -109,7 +221,6 @@
     .value-update{ animation: pulse .9s ease-in-out; }
     @keyframes pulse{ 0%{ transform:translateY(0); } 50%{ transform:translateY(-2px); } 100%{ transform:translateY(0); } }
 
-    /* Overlay panels — these will be positioned near the HUD while in move-mode */
     .overlay-panel, .overlay-paneltoggle{
       position: absolute;
       left: 0;
@@ -138,7 +249,6 @@
     .overlay-panel ul{ list-style:none; padding-left:0; margin-top:6px; color:var(--text-secondary); }
     .overlay-panel li{ margin:8px 0; font-size:14px; }
 
-    /* settings items */
     #settings ul{ display:flex; flex-direction:column; gap:8px; padding:0; margin:0; }
     #settings label{
       display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;
@@ -146,7 +256,6 @@
     }
     #settings input[type="checkbox"]{ width:18px; height:18px; accent-color:var(--accent-color); }
 
-    /* Save/Cancel row */
     #settingsButtons{ display:flex; gap:8px; margin-top:10px; justify-content:flex-end; }
     #saveHUD, #cancelHUD{
       padding:8px 12px; border-radius:10px; border:none; font-weight:700; cursor:pointer;
@@ -177,13 +286,11 @@
 </head>
 <body>
 
-  <!-- HUD -->
   <div id="hudContainer" role="application" aria-label="HUD Container">
     <div class="hud-card" id="serverLogo">
-      <img src="https://imgimp.xyz/images/Stoic-2025-06-28_06-06-19-685f865b90047.png" alt="Server Logo">
+      <img id="serverLogoImg" src="" alt="Server Logo">
     </div>
 
-    <!-- PLAYER NAME (new) -->
     <div class="hud-card" id="card-player">
       <div class="hud-icon"><i class="bi bi-person-circle"></i></div>
       <div class="hud-content">
@@ -196,7 +303,7 @@
       <div class="hud-icon"><i class="bi bi-chat-dots"></i></div>
       <div class="hud-content">
         <div class="hud-label">Discord</div>
-        <div class="hud-value">discord.gg/QWWWV6Zyaa</div>
+        <div class="hud-value" id="discordDisplay">discord.gg/QWWWV6Zyaa</div>
       </div>
     </div>
 
@@ -225,7 +332,6 @@
     </div>
   </div>
 
-  <!-- SETTINGS (anchored programmatically near HUD while in move-mode) -->
   <div id="settings" class="overlay-paneltoggle" aria-hidden="true">
     <h3>HUD Settings</h3>
     <ul>
@@ -245,7 +351,6 @@
     <button id="resetHUD">🔄 Reset to Default</button>
   </div>
 
-  <!-- GUIDE -->
   <div id="guide" class="overlay-panel" aria-hidden="true">
     <h3>HUD Move Guide</h3>
     <ul>
@@ -256,7 +361,6 @@
     </ul>
   </div>
 
-  <!-- Admin Login -->
   <div id="adminLogin" style="display:none; position:absolute; inset:0; pointer-events:none; background:transparent; z-index:2600;">
     <div class="panel" style="width:320px; margin:auto; pointer-events:auto; top:20vh; position:relative;">
       <h2 style="color:var(--accent-color); margin-bottom:12px; font-size:18px">Admin Login</h2>
@@ -270,7 +374,6 @@
       window.GetParentResourceName = () => 'az-fw-hud';
     }
 
-    /* small cookie helpers */
     function setCookie(name, value, days = 365) {
       const expires = new Date(Date.now() + days * 864e5).toUTCString();
       document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
@@ -282,13 +385,63 @@
       }, '');
     }
 
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.applyHudConfig) {
+        const cfg = window.applyHudConfig() || window.__hud_config_applied || {};
+        const logo = document.getElementById('serverLogoImg');
+        if (logo && cfg.serverLogoURL) {
+          logo.src = cfg.serverLogoURL;
+        } else if (logo && !logo.src) {
+          logo.src = '';
+        }
+        const discordEl = document.getElementById('discordDisplay');
+        if (discordEl && cfg.discordInvite) {
+          discordEl.textContent = cfg.discordInvite;
+        }
+      }
+
+      const cards = Array.from(document.querySelectorAll('.hud-card'));
+      cards.forEach(card => {
+        const v = getCookie('hud_' + card.id);
+        if (v === '0') card.style.display = 'none';
+      });
+
+      cards.forEach(card => {
+        const raw = localStorage.getItem('hud_pos_' + card.id);
+        if (raw) {
+          try {
+            const pos = JSON.parse(raw);
+            if (pos.position && pos.position !== '') {
+              card.style.position = pos.position;
+            } else {
+              if (pos.left !== undefined || pos.top !== undefined) card.style.position = 'absolute';
+            }
+            if (pos.left !== undefined) card.style.left = (pos.left + 'px');
+            if (pos.top !== undefined)  card.style.top  = (pos.top  + 'px');
+            if (pos.width) card.style.width = pos.width;
+            if (pos.height) card.style.height = pos.height;
+          } catch(e){}
+        }
+      });
+
+      (function () {
+        const hud = document.getElementById('hudContainer');
+        const r = parseInt(localStorage.hudRight) || 20;
+        const t = parseInt(localStorage.hudTop)   || 20;
+        hud.style.right = r + 'px';
+        hud.style.top   = t + 'px';
+      })();
+
+      if (typeof positionOverlaysNearHUD === 'function') positionOverlaysNearHUD();
+      updateOverlays();
+    });
+
     const hud      = document.getElementById('hudContainer');
     const guide    = document.getElementById('guide');
     const settings = document.getElementById('settings');
     const cards    = Array.from(document.querySelectorAll('.hud-card'));
     const toggles  = settings.querySelectorAll('input[type=checkbox]');
 
-    // snapshot helpers
     let initialSnapshot = null;
     function snapshotCurrentState() {
       const rect = hud.getBoundingClientRect();
@@ -342,13 +495,10 @@
         hud.classList.add('move-mode');
         updateOverlays();
 
-      // initialize toggle checkboxes and attach change handlers so they remove/show elements
       toggles.forEach(box => {
         const id = box.dataset.target;
         const el = document.getElementById(id);
-        // default checked from cookie (treat absent cookie as checked)
         box.checked = (getCookie('hud_' + id) !== '0') ? true : (getCookie('hud_' + id) === '1');
-        // Ensure element visibility matches checkbox state
         if (el) el.style.display = box.checked ? '' : 'none';
 
         box.addEventListener('change', () => {
@@ -357,11 +507,9 @@
             el.style.display = '';
             setCookie('hud_' + id, '1');
           } else {
-            // remove/hide the element when toggled off
             el.style.display = 'none';
             setCookie('hud_' + id, '0');
           }
-          // reposition overlays in case HUD size changed
           positionOverlaysNearHUD();
         });
       });
@@ -398,7 +546,6 @@
       try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
     }
 
-    // --- dragging logic (whole hud and per-card) ---
     let containerDrag = false, containerStart = {};
     let cardDrag = null, cardStart = {}, hudRect = {};
 
@@ -474,7 +621,6 @@
         const rect = cardDrag.getBoundingClientRect();
         const left = Math.round(rect.left - hud.getBoundingClientRect().left);
         const top  = Math.round(rect.top  - hud.getBoundingClientRect().top);
-        // include current position so we can reapply it later
         localStorage.setItem('hud_pos_' + cardDrag.id, JSON.stringify({
           left: left,
           top: top,
@@ -492,10 +638,8 @@
 
     window.addEventListener('resize', positionOverlaysNearHUD);
 
-    // Expose toggleHudMoveMode globally
     window.toggleHudMoveMode = toggleMoveMode;
 
-    // Update helpers used by messages
     function updateHudPlayerName(name) {
       const el = document.getElementById('playerNameDisplay');
       if (!el) return;
@@ -512,10 +656,9 @@
       if (playerName) updateHudPlayerName(playerName);
     };
 
-    // Reset button — clears local UI and asks client.lua to delete KVP
     document.getElementById('resetHUD').addEventListener('click', () => {
       cards.forEach(card => {
-        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
         localStorage.removeItem('hud_pos_' + card.id);
         card.style.display = '';
         card.style.position = '';
@@ -535,8 +678,6 @@
         });
     });
 
-    // Save button behaviour: gather payload and send to client to persist
-    
     function saveHUDPos() {
       const rect = hud.getBoundingClientRect();
       localStorage.hudRight = Math.max(8, Math.round(window.innerWidth - rect.right));
@@ -598,10 +739,8 @@
       });
     });
 
-    // Cancel handler
     document.getElementById('cancelHUD').addEventListener('click', cancelMoveMode);
 
-    // Admin submit
     document.getElementById('adminSubmit').addEventListener('click', () => {
       const pass = document.getElementById('adminPassword').value;
       fetch(`https://${GetParentResourceName()}/adminAuth`, {
@@ -614,45 +753,10 @@
       });
     });
 
-    // Request settings from client on load & apply local fallback after DOM ready
     window.addEventListener('DOMContentLoaded', () => {
       try { fetch(`https://${GetParentResourceName()}/requestSettings`, { method: 'POST' }).catch(()=>{}); } catch(e){}
-
-      // apply cookie visibility and localStorage fallback *only after DOM is ready*
-      cards.forEach(card => {
-        const v = getCookie('hud_' + card.id);
-        if (v === '0') card.style.display = 'none';
-      });
-
-      cards.forEach(card => {
-        const raw = localStorage.getItem('hud_pos_' + card.id);
-        if (raw) {
-          try {
-            const pos = JSON.parse(raw);
-            if (pos.position && pos.position !== '') {
-              card.style.position = pos.position;
-            } else {
-              if (pos.left !== undefined || pos.top !== undefined) card.style.position = 'absolute';
-            }
-            if (pos.left !== undefined) card.style.left = (pos.left + 'px');
-            if (pos.top !== undefined)  card.style.top  = (pos.top  + 'px');
-            if (pos.width) card.style.width = pos.width;
-            if (pos.height) card.style.height = pos.height;
-          } catch(e){}
-        }
-      });
-
-      (function () {
-        const r = parseInt(localStorage.hudRight) || 20;
-        const t = parseInt(localStorage.hudTop)   || 20;
-        hud.style.right = r + 'px';
-        hud.style.top   = t + 'px';
-      })();
-
-      updateOverlays();
     });
 
-    // NUI messages from client.lua
     window.addEventListener('message', ev => {
       const d = ev.data;
       if (!d) return;
@@ -661,14 +765,11 @@
         const s = d.settings;
         if (!s) return;
 
-        // Defer to next frame so layout measurements are stable
         requestAnimationFrame(() => {
           try {
-            // apply HUD container first
             if (s.hudRight !== undefined) hud.style.right = (parseInt(s.hudRight) || 20) + 'px';
             if (s.hudTop !== undefined)  hud.style.top   = (parseInt(s.hudTop)  || 20) + 'px';
 
-            // toggles: apply visibility & cookie only if explicitly provided
             if (s.toggles && typeof s.toggles === 'object') {
               for (const k in s.toggles) {
                 const cb = settings.querySelector(`input[data-target="${k}"]`);
@@ -681,14 +782,12 @@
               }
             }
 
-            // cards: only set left/top when numbers are present
             if (s.cards && typeof s.cards === 'object') {
               for (const id in s.cards) {
                 const pos = s.cards[id];
                 const el = document.getElementById(id);
                 if (!el || !pos) continue;
 
-                // visibility: explicit
                 if (pos.display === 'none') {
                   el.style.display = 'none';
                   document.cookie = `hud_${id}=0; path=/; max-age=${365*24*60*60}`;
@@ -697,14 +796,12 @@
                   document.cookie = `hud_${id}=1; path=/; max-age=${365*24*60*60}`;
                 }
 
-                // position: apply only if provided; enforce absolute when left/top exist
                 if (pos.left !== undefined || pos.top !== undefined) {
                   el.style.position = (pos.position && pos.position !== '') ? pos.position : 'absolute';
                 } else if (pos.position && pos.position !== '') {
                   el.style.position = pos.position;
                 }
 
-                // only apply numeric coordinates if present and valid
                 if (pos.left !== undefined && pos.left !== null && pos.left !== '') {
                   const left = Number(pos.left);
                   if (!Number.isNaN(left)) el.style.left = Math.round(left) + 'px';
@@ -716,7 +813,6 @@
                 if (pos.width)  el.style.width  = pos.width;
                 if (pos.height) el.style.height = pos.height;
 
-                // persist only valid numeric values to localStorage (avoid overwriting good values with invalid ones)
                 try {
                   const existing = JSON.parse(localStorage.getItem('hud_pos_' + id) || 'null');
                   const storeObj = {
@@ -727,7 +823,7 @@
                     position: el.style.position || (existing ? existing.position : '')
                   };
                   localStorage.setItem('hud_pos_' + id, JSON.stringify(storeObj));
-                } catch (e) { /* ignore storage errors */ }
+                } catch (e) {}
               }
             }
 
@@ -770,14 +866,12 @@
       }
     });
 
-    // Exit on Escape
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
         cancelMoveMode();
       }
     });
 
-    // init overlays
     updateOverlays();
   </script>
 </body>

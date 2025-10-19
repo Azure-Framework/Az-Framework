@@ -4,7 +4,7 @@ lua54 'yes'
 
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.9.1'
+version '1.9.5'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -29,13 +29,15 @@ client_scripts {
     'presence.lua',
 }
 
-ui_page 'html/index.html'
-
 files {
+    'html/config.js',
     'html/index.html',
-    'init.lua'
+    'init.lua',
+
 }
 
+
+ui_page 'html/index.html'
 
 exports {
     "addMoney",
@@ -55,5 +57,3 @@ exports {
     "GetPlayerMoney",
     "logAdminCommand"
 }
-
-
