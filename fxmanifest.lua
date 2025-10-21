@@ -4,29 +4,29 @@ lua54 'yes'
 
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '1.9.5'
+version 'v1.9.2'
 
 shared_scripts {
     '@ox_lib/init.lua',
     "@Az-Framework/init.lua",
-    'config.lua',
+    'config/config.lua',
 } 
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'init.lua',        -- <--- add this
     'schema.lua',
-    'server.lua',
+    'core/server.lua',
     'parking/server.lua',
     'departments/server.lua',
 
 }
 
 client_scripts {
-    'client.lua',
+    'core/client.lua',
     'parking/client.lua',
     'departments/client.lua',
-    'presence.lua',
+    'discord/presence.lua',
 }
 
 files {
