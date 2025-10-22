@@ -1,0 +1,64 @@
+Azure Non-Commercial Attribution License (ANCA) v1.0
+For the Azure Framework project
+
+Copyright (c) 2025 Azure Framework Developer Azure
+Original repository: https://github.com/Azure-Framework
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the “Software”), to use, copy,
+modify, merge, publish, and redistribute the Software and derivative works,
+subject to the following conditions:
+
+1) Attribution
+   You must give appropriate credit to “Azure Framework Developer Azure” and
+   include a link to https://github.com/Azure-Framework. You must keep intact
+   all copyright, license, and attribution notices in source and binary
+   redistributions. If the Software (or a derivative) provides an “About,”
+   “Credits,” or equivalent screen, you must list “Azure Framework Developer Azure”
+   there.
+
+2) Non-Commercial Use Only
+   You may not sell the Software or derivatives, nor use them for any commercial
+   purpose. “Commercial” means intended for or directed toward commercial
+   advantage or monetary compensation, including but not limited to:
+   • paid licenses, paid downloads, paid hosting, or paid access;
+   • sale on marketplaces or inclusion in paid bundles;
+   • use in a service provided for a fee (including SaaS);
+   • use in advertising-supported or revenue-generating deployments.
+   Commercial use requires a separate written license from the copyright holder.
+
+3) Redistribution Requirements
+   Any redistribution of the Software or derivatives must:
+   • include this license text in full; and
+   • clearly disclose any material changes you made; and
+   • preserve all notices required by Section 1 (Attribution).
+
+4) No Trademark Rights
+   This license does not grant permission to use the names, logos, or trademarks
+   of Azure Framework Developer Azure.
+
+5) Patent Grant (Non-Commercial)
+   Subject to the Non-Commercial restriction, each contributor hereby grants you
+   a non-exclusive, worldwide, royalty-free patent license to make, use, and
+   redistribute the Software and derivatives, solely for non-commercial purposes,
+   under any patent claims they can license that are necessarily infringed by
+   their contributions.
+
+6) No Liability; No Warranty
+   THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+   OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+7) Severability
+   If any provision of this license is held unenforceable, the remaining
+   provisions will remain in effect.
+
+8) Not Open Source
+   This is a source-available license and is not an OSI-approved open-source
+   license because commercial use is restricted.
+
+END OF TERMS
