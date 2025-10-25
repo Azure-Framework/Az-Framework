@@ -1,4 +1,5 @@
--- server.lua (refactored — behavior identical)
+-- server.lua (refactored, defensive, and updated)
+-- Keeps original behavior but hardens exported APIs and adds safe server callbacks/events
 Config = Config or {}
 Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
@@ -27,8 +28,10 @@ if Config.Discord.WebhookURL == "" then
     print("^1[Discord]^0 DISCORD_WEBHOOK_URL not set! Check server.cfg")
 end
 
--- Active characters mapped by server source
+-- Active characters mapped by server source (number keys)
 local activeCharacters = {}
+-- Optional reverse map: discordid -> last active char for convenience (keeps things fast)
+local activeCharByDiscord = {}
 
 -- ===== Helpers =====
 local function debugPrint(msg)
@@ -98,12 +101,13 @@ end
 
 -- ===== Discord utilities =====
 local function getDiscordID(source)
-    -- Defensive: ensure valid source
-    if not source or tonumber(source) == nil or tonumber(source) == 0 then
+    -- Defensive: convert to number and ensure valid source
+    local src = tonumber(source)
+    if not src or src == 0 then
         return ""
     end
 
-    local ids = GetPlayerIdentifiers(source)
+    local ids = GetPlayerIdentifiers(src)
     if not ids or type(ids) ~= "table" then
         return ""
     end
@@ -125,14 +129,14 @@ local function getDiscordRoleList(playerSrc, cb)
 
     local discordID = getDiscordID(playerSrc)
     if discordID == "" then
-        debugPrint(("Player %d has no Discord ID"):format(playerSrc))
+        debugPrint(("Player %s has no Discord ID"):format(tostring(playerSrc)))
         return cb("no_discord_id", nil)
     end
 
     local guildId = GetConvar("DISCORD_GUILD_ID", "")
     local botToken = GetConvar("DISCORD_BOT_TOKEN", "")
 
-    if not guildId or not botToken then
+    if not guildId or guildId == "" or not botToken or botToken == "" then
         debugPrint("Missing GuildId or BotToken in config")
         return cb("config_error", nil)
     end
@@ -167,18 +171,18 @@ end
 
 local function isAdmin(playerSrc, cb)
     debugPrint(
-        ("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(playerSrc, tostring(Config.AdminRoleId))
+        ("isAdmin: checking player %s against Config.AdminRoleId = %s"):format(tostring(playerSrc), tostring(Config.AdminRoleId))
     )
 
     getDiscordRoleList(
         playerSrc,
         function(err, roles)
             if err then
-                debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
+                debugPrint(("isAdmin error for %s: %s"):format(tostring(playerSrc), tostring(err)))
                 return cb(false)
             end
 
-            debugPrint(("isAdmin: got roles for %d → %s"):format(playerSrc, json.encode(roles)))
+            debugPrint(("isAdmin: got roles for %s → %s"):format(tostring(playerSrc), json.encode(roles)))
 
             for _, roleID in ipairs(roles) do
                 debugPrint(("isAdmin: comparing role %s to %s"):format(tostring(roleID), tostring(Config.AdminRoleId)))
@@ -188,7 +192,7 @@ local function isAdmin(playerSrc, cb)
                 end
             end
 
-            debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
+            debugPrint(("isAdmin: no match found, denying admin for %s"):format(tostring(playerSrc)))
             cb(false)
         end
     )
@@ -221,21 +225,21 @@ local function sendWebhookLog(message)
 end
 
 local function logAdminCommand(commandName, source, args, success)
-    local playerName = GetPlayerName(source) or "Unknown"
+    local playerName = (type(source) == "number" and GetPlayerName(source)) or "Unknown"
     local statusIcon = success and "✅ Allowed" or "❌ Denied"
     local argsStr = args and table.concat(args, " ") or ""
     local msg = string.format(
-        "**Admin Command:** `%s`\n**Player:** %s (ID %d)\n**Status:** %s\n**Args:** %s",
-        commandName, playerName, source, statusIcon, argsStr
+        "**Admin Command:** `%s`\n**Player:** %s (ID %s)\n**Status:** %s\n**Args:** %s",
+        commandName, playerName, tostring(source), statusIcon, argsStr
     )
     sendWebhookLog(msg)
 end
 
 local function logLargeTransaction(txType, source, amount, reason)
-    local playerName = GetPlayerName(source) or "Unknown"
+    local playerName = (type(source) == "number" and GetPlayerName(source)) or "Unknown"
     local msg = string.format(
-        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %d)\n**Amount:** $%s\n**Reason:** %s",
-        txType, playerName, source, tostring(amount), reason
+        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %s)\n**Amount:** $%s\n**Reason:** %s",
+        txType, playerName, tostring(source), tostring(amount), reason
     )
     sendWebhookLog(msg)
 end
@@ -298,8 +302,11 @@ function UpdateMoney(discordID, charID, data, cb)
 end
 
 local function sendMoneyToClient(playerId)
-    local did = getDiscordID(playerId)
-    local charID = activeCharacters[playerId]
+    local src = tonumber(playerId)
+    if not src then return end
+
+    local did = getDiscordID(src)
+    local charID = activeCharacters[src]
     if not charID or charID == "" then
         return
     end
@@ -322,10 +329,10 @@ local function sendMoneyToClient(playerId)
                             "SELECT name FROM user_characters WHERE charid = ? LIMIT 1",
                             {charID},
                             function(fullName)
-                                local playerName = fullName or GetPlayerName(playerId) or "No Name"
+                                local playerName = fullName or (type(src) == "number" and GetPlayerName(src)) or "No Name"
                                 TriggerClientEvent(
                                     "updateCashHUD",
-                                    playerId,
+                                    src,
                                     tonumber(m.cash) or 0,
                                     checkingBalance or 0,
                                     playerName
@@ -353,11 +360,18 @@ local function sendMoneyToClient(playerId)
 end
 
 local function withMoney(src, fn)
-    local discordID = getDiscordID(src)
-    local charID = activeCharacters[src]
-    if discordID == "" or not charID then
+    local sourceNum = tonumber(src)
+    if not sourceNum then
         TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No character selected."}})
         TriggerClientEvent('ox_lib:notify', src, {title = "Account", description = "No character selected.", type = "error"})
+        return
+    end
+
+    local discordID = getDiscordID(sourceNum)
+    local charID = activeCharacters[sourceNum]
+    if discordID == "" or not charID then
+        TriggerClientEvent("chat:addMessage", sourceNum, {args = {"^1SYSTEM", "No character selected."}})
+        TriggerClientEvent('ox_lib:notify', sourceNum, {title = "Account", description = "No character selected.", type = "error"})
         return
     end
     GetMoney(
@@ -776,41 +790,97 @@ function claimDailyReward(source, rewardAmount)
     )
 end
 
-function GetPlayerCharacter(source)
-    return activeCharacters[source]
+-- Defensive exported function: always expects a server-side player id (number or numeric string).
+-- If caller passes invalid input we log it and return nil.
+function GetPlayerCharacter(playerId)
+    local id = tonumber(playerId)
+    if not id or id == 0 then
+        debugPrint(("GetPlayerCharacter called with invalid id: %s"):format(tostring(playerId)))
+        return nil
+    end
+    return activeCharacters[id] or nil
 end
 
 function GetPlayerCharacterName(source, callback)
+    -- Debugging print for source ID
+    debugPrint(("[Az-Framework] [GetPlayerCharacterName] Called for source: %s"):format(tostring(source)))
+
+    -- Fetch discordID and charID
     local discordID = getDiscordID(source)
     local charID = GetPlayerCharacter(source)
+
+    -- Debugging prints for discordID and charID
+    debugPrint(("[Az-Framework] [GetPlayerCharacterName] discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
+
+    -- Check if either discordID or charID is missing
     if not discordID or discordID == "" or not charID then
+        debugPrint("[Az-Framework] [GetPlayerCharacterName] Error: Missing discordID or charID")
         return safeCb(callback, "no_character", nil)
     end
 
+    -- Debug print before querying the database
+    debugPrint("[Az-Framework] [GetPlayerCharacterName] Querying the database for character name...")
+
+    -- Database query to fetch character name
     dbFetchScalar(
         "SELECT name FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1",
         {discordID, charID},
         function(name)
+            -- Check if the name was found
             if not name then
+                debugPrint("[Az-Framework] [GetPlayerCharacterName] Error: Character name not found in database")
                 return safeCb(callback, "not_found", nil)
             end
+
+            -- Debug print for the retrieved name
+            debugPrint(("[Az-Framework] [GetPlayerCharacterName] Fetched name: %s"):format(name))
+
+            -- Return the name via callback
             safeCb(callback, nil, name)
         end
     )
 end
 
 function GetPlayerMoney(source, callback)
+    -- Debugging: print the source ID and that function was called
+    debugPrint(("[AzPause] [GetPlayerMoney] Called for source: %s"):format(tostring(source)))
+
+    -- Fetch the Discord ID and Character ID
     local discordID = getDiscordID(source)
     local charID = GetPlayerCharacter(source)
+
+    -- Debugging prints for discordID and charID
+    debugPrint(("[AzPause] [GetPlayerMoney] Fetched discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
+
+    -- Check if either Discord ID or Character ID is invalid and return an error if so
     if not discordID or discordID == "" or not charID then
+        debugPrint(("[AzPause] [GetPlayerMoney] Error: Invalid discordID or charID. Returning 'no_character'"))
         return safeCb(callback, "no_character", nil)
     end
 
+    -- Proceed to fetch the money details
+    debugPrint("[AzPause] [GetPlayerMoney] Requesting money details from GetMoney...")
+
+    -- Call GetMoney to fetch the player's money
     GetMoney(
         discordID,
         charID,
         function(data)
-            safeCb(callback, nil, {cash = data.cash or 0, bank = data.bank or 0})
+            -- Debugging: log the fetched data
+            if data then
+                debugPrint(("[AzPause] [GetPlayerMoney] Fetched money details: cash=%s, bank=%s"):format(tostring(data.cash), tostring(data.bank)))
+            else
+                debugPrint("[AzPause] [GetPlayerMoney] Error: No data returned from GetMoney.")
+            end
+
+            -- Ensure callback gets valid data
+            if data then
+                -- Send the cash and bank values to the client
+                safeCb(callback, nil, {cash = data.cash or 0, bank = data.bank or 0})
+            else
+                -- In case no data was retrieved, send fallback values
+                safeCb(callback, "no_data", {cash = 0, bank = 0})
+            end
         end
     )
 end
@@ -918,6 +988,7 @@ registerCommand("selectchar", function(source, args)
         end
 
         activeCharacters[source] = chosen
+        activeCharByDiscord[discordID] = chosen
         TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Switched to character " .. chosen}})
         sendMoneyToClient(source)
 
@@ -953,6 +1024,30 @@ if lib and lib.callback and lib.callback.register then
                 p:resolve(result or {})
             end
         )
+        return Citizen.Await(p)
+    end)
+
+    -- safe server-side callback to return the caller's active character (uses server 'source')
+    lib.callback.register("az-fw-money:GetPlayerCharacterForSource", function(source)
+        return activeCharacters[source] or nil
+    end)
+
+    -- callback to fetch active character by discord id
+    lib.callback.register("az-fw-money:GetPlayerCharacterByDiscord", function(source, discordId)
+        if not discordId or discordId == "" then return nil end
+        -- quick local hit first
+        if activeCharByDiscord[discordId] then
+            return activeCharByDiscord[discordId]
+        end
+        -- fallback query
+        local p = promise.new()
+        MySQL.Async.fetchAll("SELECT charid FROM user_characters WHERE discordid = @discordid LIMIT 1", {["@discordid"] = discordId}, function(rows)
+            if rows and rows[1] and rows[1].charid then
+                p:resolve(rows[1].charid)
+            else
+                p:resolve(nil)
+            end
+        end)
         return Citizen.Await(p)
     end)
 end
@@ -993,6 +1088,7 @@ onNet("az-fw-money:registerCharacter", function(firstName, lastName)
                 debugPrint(("registerCharacter: inserted econ_user_money for %s / %s"):format(discordID, charID))
 
                 activeCharacters[src] = charID
+                activeCharByDiscord[discordID] = charID
                 TriggerClientEvent("az-fw-money:characterRegistered", src, charID)
                 sendMoneyToClient(src)
                 TriggerClientEvent("hud:setDepartment", src, "")
@@ -1098,6 +1194,7 @@ onNet("az-fw-money:selectCharacter", function(charID)
     dbQuery("SELECT 1 FROM user_characters WHERE discordid = ? AND charid = ?", {did, charID}, function(rows)
         if rows and #rows > 0 then
             activeCharacters[src] = charID
+            activeCharByDiscord[did] = charID
             sendMoneyToClient(src)
             dbFetchScalar("SELECT active_department FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1", {did, charID}, function(active_dept)
                 TriggerClientEvent("hud:setDepartment", src, active_dept or "")
@@ -1107,7 +1204,7 @@ onNet("az-fw-money:selectCharacter", function(charID)
     end)
 end)
 
--- Provide server exports (unchanged)
+-- Provide server exports (defensive)
 exports("getPlayerJob", function(source)
     if not source or source == 0 then
         return nil
@@ -1205,12 +1302,24 @@ Citizen.CreateThread(function()
 end)
 
 AddEventHandler("playerDropped", function(reason)
+    -- 'source' here is the server source that disconnected
     if activeCharacters[source] ~= nil then
+        -- clean both maps
+        local did = getDiscordID(source)
+        if did and did ~= "" and activeCharByDiscord[did] == activeCharacters[source] then
+            activeCharByDiscord[did] = nil
+        end
         activeCharacters[source] = nil
     end
 end)
 
--- Final exports (kept exactly the same)
+-- Helpful event for clients to request their current server-side active char (sends result back)
+RegisterNetEvent("az-fw-money:RequestPlayerCharacter", function()
+    local src = source
+    TriggerClientEvent("az-fw-money:ReceivePlayerCharacter", src, activeCharacters[src] or nil)
+end)
+
+-- Final exports (kept same names but functions are defensive)
 exports("addMoney", addMoney)
 exports("deductMoney", deductMoney)
 exports("depositMoney", depositMoney)
