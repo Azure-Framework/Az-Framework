@@ -4,8 +4,8 @@ console.log('[HUD][config.js] loaded');
 
 window.hudConfig = {
   // Use 6-digit hex or rgba(); 8-digit hex is tolerated but alpha is ignored for CSS vars.
-  accentColor: '#00b3ffff',
-  accent2: '#00c8ffff',
+  accentColor: '#2b8ae9ff',
+  accent2: '#2bb6e9ff',
   textPrimary: '#eaf6ff',
   textSecondary: '#dcc99fff',
   hudGap: '12px',

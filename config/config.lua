@@ -23,7 +23,7 @@ Config.EMOJIS = {
 -- ---------------------
 -- Discord role ID that grants admin access to the resource's admin commands.
 -- Keep it as a string (Discord snowflake).
-Config.AdminRoleId = "YOUR_DISCORD_ADMIN_ROLEID"
+Config.AdminRoleId = "ADMINROLEID"
 
 -- ---------------------
 -- Feature toggles
@@ -49,7 +49,7 @@ Config.FRAMEWORK = nil -- "esx" / "qb" / nil
 -- Discord / OAuth settings
 -- ---------------------
 -- Your Discord App ID (string). Put your app id here if using Discord OAuth/presence.
-Config.DISCORD_APP_ID = "YOUR_DISORD_APPID"
+Config.DISCORD_APP_ID = "APPID"
 
 
 -- ---------------------
