@@ -223,9 +223,18 @@ onNet("az-fw-money:characterSelected", function(charid)
   TriggerServerEvent("az-fw-money:requestMoney")
 end)
 
--- ==== Show char menu command ====
-RegisterCommand("char", function()
-  lib.showContext(CHAR_MAIN)
-end, false)
+-- ==== Client export: refresh / update HUD ====
+local function refreshHUD()
+  safePrint("refreshHUD export called; requesting money and department from server.")
+  -- Ask server to resend money + job/department info, which will in turn hit the NUI events above
+  TriggerServerEvent("az-fw-money:requestMoney")
+  TriggerServerEvent("hud:requestDepartment")
+end
+
+-- Exports usable from other client scripts:
+--   exports['az-fw-hud']:refreshHUD()
+--   exports['az-fw-hud']:updateHUD()
+exports('refreshHUD', refreshHUD)
+exports('updateHUD', refreshHUD)
 
 safePrint("client.lua (cookies-only) initialized.")

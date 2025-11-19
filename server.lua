@@ -1,33 +1,23 @@
--- server.lua (refactored, defensive, and updated)
--- Exports are now more forgiving:
---   exports['az-fw-money']:addMoney(500)                 -- uses current source (from event/command)
---   exports['az-fw-money']:addMoney(src, 500)            -- explicit source
---   exports['az-fw-money']:deductMoney(250)
---   exports['az-fw-money']:depositMoney(1000)
---   exports['az-fw-money']:withdrawMoney(500)
---   exports['az-fw-money']:transferMoney(target, 200)    -- from current source
---   exports['az-fw-money']:transferMoney(src, target, 200)
-
 Config = Config or {}
 Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
 Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
-
 local debug = Config.Debug
+local debugPrint
 
 local M = {
     money = "econ_user_money",
     accts = "econ_accounts",
-    pays  = "econ_payments",
+    pays = "econ_payments",
     cards = "econ_cards",
-    dept  = "econ_departments"
+    dept = "econ_departments"
 }
 
 local SAVINGS_APR = 0.05
 
-Config.Discord.BotToken   = GetConvar("DISCORD_BOT_TOKEN", "")
+Config.Discord.BotToken = GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = GetConvar("DISCORD_WEBHOOK_URL", "")
-Config.Discord.GuildId    = GetConvar("DISCORD_GUILD_ID", "")
+Config.Discord.GuildId = GetConvar("DISCORD_GUILD_ID", "")
 
 if Config.Discord.BotToken == "" then
     print("^1[Discord]^0 DISCORD_BOT_TOKEN not set! Check server.cfg")
@@ -36,34 +26,14 @@ if Config.Discord.WebhookURL == "" then
     print("^1[Discord]^0 DISCORD_WEBHOOK_URL not set! Check server.cfg")
 end
 
--- Active characters mapped by server source (number keys)
 local activeCharacters = {}
--- Optional reverse map: discordid -> last active char for convenience (keeps things fast)
-local activeCharByDiscord = {}
 
--- Utility: resolve a player source id.
---  • If you pass a number or numeric string, that is used.
---  • If you pass nil, we'll fall back to the global `source` (from event/command).
-local function resolveSourceId(arg)
-    local s = tonumber(arg)
-    if s and s > 0 then
-        return s
-    end
-
-    local g = tonumber(_G.source)
-    if g and g > 0 then
-        return g
-    end
-
-    return nil
-end
-
--- ===== Helpers =====
-local function debugPrint(msg)
+debugPrint = function(msg)
     if debug then
         print(("[az-fw-money] %s"):format(msg))
     end
 end
+
 
 local function safeCb(cb, ...)
     if type(cb) == "function" then
@@ -71,18 +41,7 @@ local function safeCb(cb, ...)
     end
 end
 
--- shorthand to register net events with handlers
-local function onNet(eventName, handler)
-    RegisterNetEvent(eventName)
-    AddEventHandler(eventName, handler)
-end
 
--- shorthand for commands
-local function registerCommand(name, handler, restricted)
-    RegisterCommand(name, handler, restricted)
-end
-
--- ===== Database wrappers =====
 local function dbQuery(query, params, cb)
     if not exports.oxmysql or not exports.oxmysql.query then
         debugPrint("oxmysql not available for dbQuery")
@@ -124,21 +83,9 @@ local function dbFetchScalar(query, params, cb)
     end)
 end
 
--- ===== Discord utilities =====
 local function getDiscordID(source)
-    -- Defensive: convert to number and ensure valid source
-    local src = tonumber(source)
-    if not src or src == 0 then
-        return ""
-    end
-
-    local ids = GetPlayerIdentifiers(src)
-    if not ids or type(ids) ~= "table" then
-        return ""
-    end
-
-    for _, id in ipairs(ids) do
-        if type(id) == "string" and id:sub(1, 8) == "discord:" then
+    for _, id in ipairs(GetPlayerIdentifiers(source) or {}) do
+        if type(id) == 'string' and id:sub(1, 8) == "discord:" then
             return id:sub(9)
         end
     end
@@ -146,22 +93,18 @@ local function getDiscordID(source)
 end
 
 local function getDiscordRoleList(playerSrc, cb)
-    if type(cb) ~= "function" then
-        debugPrint("getDiscordRoleList called without callback; ignoring request.")
-        return
-    end
     assert(type(cb) == "function", "getDiscordRoleList requires a callback")
 
     local discordID = getDiscordID(playerSrc)
     if discordID == "" then
-        debugPrint(("Player %s has no Discord ID"):format(tostring(playerSrc)))
+        debugPrint(("Player %d has no Discord ID"):format(playerSrc))
         return cb("no_discord_id", nil)
     end
 
     local guildId = GetConvar("DISCORD_GUILD_ID", "")
     local botToken = GetConvar("DISCORD_BOT_TOKEN", "")
 
-    if not guildId or guildId == "" or not botToken or botToken == "" then
+    if not guildId or not botToken then
         debugPrint("Missing GuildId or BotToken in config")
         return cb("config_error", nil)
     end
@@ -195,25 +138,19 @@ local function getDiscordRoleList(playerSrc, cb)
 end
 
 local function isAdmin(playerSrc, cb)
-    local src = resolveSourceId(playerSrc)
-    if not src then
-        debugPrint(("isAdmin: invalid source (%s)"):format(tostring(playerSrc)))
-        return safeCb(cb, false)
-    end
-
     debugPrint(
-        ("isAdmin: checking player %s against Config.AdminRoleId = %s"):format(tostring(src), tostring(Config.AdminRoleId))
+        ("isAdmin: checking player %d against Config.AdminRoleId = %s"):format(playerSrc, tostring(Config.AdminRoleId))
     )
 
     getDiscordRoleList(
-        src,
+        playerSrc,
         function(err, roles)
             if err then
-                debugPrint(("isAdmin error for %s: %s"):format(tostring(src), tostring(err)))
+                debugPrint(("isAdmin error for %d: %s"):format(playerSrc, tostring(err)))
                 return cb(false)
             end
 
-            debugPrint(("isAdmin: got roles for %s → %s"):format(tostring(src), json.encode(roles)))
+            debugPrint(("isAdmin: got roles for %d → %s"):format(playerSrc, json.encode(roles)))
 
             for _, roleID in ipairs(roles) do
                 debugPrint(("isAdmin: comparing role %s to %s"):format(tostring(roleID), tostring(Config.AdminRoleId)))
@@ -223,7 +160,7 @@ local function isAdmin(playerSrc, cb)
                 end
             end
 
-            debugPrint(("isAdmin: no match found, denying admin for %s"):format(tostring(src)))
+            debugPrint(("isAdmin: no match found, denying admin for %d"):format(playerSrc))
             cb(false)
         end
     )
@@ -256,26 +193,26 @@ local function sendWebhookLog(message)
 end
 
 local function logAdminCommand(commandName, source, args, success)
-    local playerName = (type(source) == "number" and GetPlayerName(source)) or "Unknown"
+    local playerName = GetPlayerName(source) or "Unknown"
     local statusIcon = success and "✅ Allowed" or "❌ Denied"
     local argsStr = args and table.concat(args, " ") or ""
     local msg = string.format(
-        "**Admin Command:** `%s`\n**Player:** %s (ID %s)\n**Status:** %s\n**Args:** %s",
-        commandName, playerName, tostring(source), statusIcon, argsStr
+        "**Admin Command:** `%s`\n**Player:** %s (ID %d)\n**Status:** %s\n**Args:** %s",
+        commandName, playerName, source, statusIcon, argsStr
     )
     sendWebhookLog(msg)
 end
 
 local function logLargeTransaction(txType, source, amount, reason)
-    local playerName = (type(source) == "number" and GetPlayerName(source)) or "Unknown"
+    local playerName = GetPlayerName(source) or "Unknown"
     local msg = string.format(
-        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %s)\n**Amount:** $%s\n**Reason:** %s",
-        txType, playerName, tostring(source), tostring(amount), reason
+        ":moneybag: **Large Transaction** **%s**\n**Player:** %s (ID %d)\n**Amount:** $%s\n**Reason:** %s",
+        txType, playerName, source, tostring(amount), reason
     )
     sendWebhookLog(msg)
 end
 
--- ===== Economy core functions =====
+
 function GetMoney(discordID, charID, callback)
     if type(callback) ~= "function" then
         debugPrint("GetMoney requires a callback")
@@ -290,7 +227,7 @@ function GetMoney(discordID, charID, callback)
                 return callback(result[1])
             end
 
-            -- create entry if missing
+            
             dbFetchScalar(
                 "SELECT name FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1",
                 {discordID, charID},
@@ -333,14 +270,8 @@ function UpdateMoney(discordID, charID, data, cb)
 end
 
 local function sendMoneyToClient(playerId)
-    local src = resolveSourceId(playerId)
-    if not src then
-        debugPrint(("sendMoneyToClient: invalid source (%s)"):format(tostring(playerId)))
-        return
-    end
-
-    local did = getDiscordID(src)
-    local charID = activeCharacters[src]
+    local did = getDiscordID(playerId)
+    local charID = activeCharacters[playerId]
     if not charID or charID == "" then
         return
     end
@@ -363,10 +294,10 @@ local function sendMoneyToClient(playerId)
                             "SELECT name FROM user_characters WHERE charid = ? LIMIT 1",
                             {charID},
                             function(fullName)
-                                local playerName = fullName or (type(src) == "number" and GetPlayerName(src)) or "No Name"
+                                local playerName = fullName or GetPlayerName(playerId) or "No Name"
                                 TriggerClientEvent(
                                     "updateCashHUD",
-                                    src,
+                                    playerId,
                                     tonumber(m.cash) or 0,
                                     checkingBalance or 0,
                                     playerName
@@ -392,71 +323,43 @@ local function sendMoneyToClient(playerId)
         end
     )
 end
-
 local function withMoney(src, fn)
-    local sourceNum = resolveSourceId(src)
-    if not sourceNum then
-        debugPrint(("withMoney: no valid source (got %s)"):format(tostring(src)))
-        return
-    end
-
-    local discordID = getDiscordID(sourceNum)
-    local charID = activeCharacters[sourceNum]
+    local discordID = getDiscordID(src)
+    local charID = activeCharacters[src]
     if discordID == "" or not charID then
-        TriggerClientEvent("chat:addMessage", sourceNum, {args = {"^1SYSTEM", "No character selected."}})
-        TriggerClientEvent('ox_lib:notify', sourceNum, {
-            title = "Account",
-            description = "No character selected.",
-            type = "error"
-        })
+        TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No character selected."}})
+        TriggerClientEvent('ox_lib:notify', src, {title = "Account", description = "No character selected.", type = "error"})
         return
     end
     GetMoney(
         discordID,
         charID,
         function(data)
-            fn(discordID, charID, data, sourceNum)
+            fn(discordID, charID, data)
         end
     )
 end
 
--- Flexible signatures:
---   addMoney(amount)              -> uses current event/command source
---   addMoney(source, amount)      -> explicit player id
-function addMoney(a, b)
-    local src, amount
-    if b == nil then
-        src = resolveSourceId(nil)
-        amount = a
-    else
-        src = resolveSourceId(a)
-        amount = b
-    end
-
-    amount = tonumber(amount)
-    if not src or not amount then
-        debugPrint(("addMoney: invalid src (%s) or amount (%s)"):format(tostring(src), tostring(amount)))
-        return false
-    end
-
+function addMoney(source, amount)
+    if not source or not amount then return end
     withMoney(
-        src,
+        source,
         function(dID, cID, data)
-            data.cash = (tonumber(data.cash) or 0) + amount
+            data.cash = (tonumber(data.cash) or 0) + tonumber(amount)
             UpdateMoney(
                 dID,
                 cID,
                 data,
                 function()
-                    sendMoneyToClient(src)
+                    sendMoneyToClient(source)
                     -- notify the player
-                    TriggerClientEvent('ox_lib:notify', src, {
+                    TriggerClientEvent('ox_lib:notify', source, {
                         title = "Bank",
                         description = "Added $" .. tostring(amount) .. " to your cash.",
                         type = "success"
                     })
-                    if amount >= 1e6 then
-                        logLargeTransaction("addMoney", src, amount, "addMoney() export")
+                    if tonumber(amount) and amount >= 1e6 then
+                        logLargeTransaction("addMoney", source, amount, "addMoney() export")
                     end
                 end
             )
@@ -464,43 +367,26 @@ function addMoney(a, b)
     )
 end
 
--- Flexible:
---   deductMoney(amount)             -> uses current source
---   deductMoney(source, amount)     -> explicit player id
-function deductMoney(a, b)
-    local src, amount
-    if b == nil then
-        src = resolveSourceId(nil)
-        amount = a
-    else
-        src = resolveSourceId(a)
-        amount = b
-    end
-
-    amount = tonumber(amount)
-    if not src or not amount then
-        debugPrint(("deductMoney: invalid src (%s) or amount (%s)"):format(tostring(src), tostring(amount)))
-        return false
-    end
-
+function deductMoney(source, amount)
+    if not source or not amount then return end
     withMoney(
-        src,
+        source,
         function(dID, cID, data)
-            data.cash = math.max(0, (tonumber(data.cash) or 0) - amount)
+            data.cash = math.max(0, (tonumber(data.cash) or 0) - tonumber(amount))
             UpdateMoney(
                 dID,
                 cID,
                 data,
                 function()
-                    sendMoneyToClient(src)
+                    sendMoneyToClient(source)
                     -- notify the player
-                    TriggerClientEvent('ox_lib:notify', src, {
+                    TriggerClientEvent('ox_lib:notify', source, {
                         title = "Bank",
                         description = "Removed $" .. tostring(amount) .. " from your cash.",
                         type = "warning"
                     })
-                    if amount >= 1e6 then
-                        logLargeTransaction("deductMoney", src, amount, "deductMoney() export")
+                    if tonumber(amount) and amount >= 1e6 then
+                        logLargeTransaction("deductMoney", source, amount, "deductMoney() export")
                     end
                 end
             )
@@ -508,45 +394,25 @@ function deductMoney(a, b)
     )
 end
 
--- Flexible:
---   depositMoney(amount)             -> uses current source
---   depositMoney(source, amount)     -> explicit player id
-function depositMoney(a, b)
-    local src, amount
-    if b == nil then
-        src = resolveSourceId(nil)
-        amount = a
-    else
-        src = resolveSourceId(a)
-        amount = b
-    end
-
-    amount = math.floor(tonumber(amount) or 0)
-
-    if not src then
-        debugPrint(("depositMoney: invalid source (arg=%s)"):format(tostring(a)))
+function depositMoney(source, amount)
+    if not amount then
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Invalid amount."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Invalid amount.", type = "error"})
         return
     end
+    amount = math.floor(tonumber(amount) or 0)
     if amount <= 0 then
-        TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Amount must be greater than 0."}})
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = "Bank",
-            description = "Amount must be greater than 0.",
-            type = "error"
-        })
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Amount must be greater than 0."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Amount must be greater than 0.", type = "error"})
         return
     end
 
     withMoney(
-        src,
+        source,
         function(dID, cID, data)
             if (tonumber(data.cash) or 0) < amount then
-                TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Not enough cash to deposit."}})
-                TriggerClientEvent('ox_lib:notify', src, {
-                    title = "Bank",
-                    description = "Not enough cash to deposit.",
-                    type = "error"
-                })
+                TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Not enough cash to deposit."}})
+                TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Not enough cash to deposit.", type = "error"})
                 return
             end
 
@@ -564,28 +430,20 @@ function depositMoney(a, b)
                                     {cID, dID, cID},
                                     function(accts2)
                                         if not accts2 or #accts2 == 0 then
-                                            TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No accounts found after creation."}})
-                                            TriggerClientEvent('ox_lib:notify', src, {
-                                                title = "Bank",
-                                                description = "No accounts found after creation.",
-                                                type = "error"
-                                            })
+                                            TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No accounts found after creation."}})
+                                            TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No accounts found after creation.", type = "error"})
                                             return
                                         end
                                         local checking = nil
-                                        for _, a2 in ipairs(accts2) do
-                                            if tostring(a2.type) == "checking" then
-                                                checking = a2
+                                        for _, a in ipairs(accts2) do
+                                            if tostring(a.type) == "checking" then
+                                                checking = a
                                                 break
                                             end
                                         end
                                         if not checking then
-                                            TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
-                                            TriggerClientEvent('ox_lib:notify', src, {
-                                                title = "Bank",
-                                                description = "No checking account found (internal error).",
-                                                type = "error"
-                                            })
+                                            TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
+                                            TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No checking account found (internal error).", type = "error"})
                                             return
                                         end
                                         local newBalance = (tonumber(checking.balance) or 0) + amount
@@ -600,15 +458,11 @@ function depositMoney(a, b)
                                                     cID,
                                                     data,
                                                     function()
-                                                        sendMoneyToClient(src)
-                                                        TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."}})
-                                                        TriggerClientEvent('ox_lib:notify', src, {
-                                                            title = "Bank",
-                                                            description = "Deposited $" .. tostring(amount) .. " to checking.",
-                                                            type = "success"
-                                                        })
+                                                        sendMoneyToClient(source)
+                                                        TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."}})
+                                                        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Deposited $" .. tostring(amount) .. " to checking.", type = "success"})
                                                         if amount >= 1e6 then
-                                                            logLargeTransaction("depositMoney", src, amount, "depositMoney() export")
+                                                            logLargeTransaction("depositMoney", source, amount, "depositMoney() export")
                                                         end
                                                     end
                                                 )
@@ -624,19 +478,15 @@ function depositMoney(a, b)
                         createAndDeposit()
                     else
                         local checking = nil
-                        for _, a2 in ipairs(accts) do
-                            if tostring(a2.type) == "checking" then
-                                checking = a2
+                        for _, a in ipairs(accts) do
+                            if tostring(a.type) == "checking" then
+                                checking = a
                                 break
                             end
                         end
                         if not checking then
-                            TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
-                            TriggerClientEvent('ox_lib:notify', src, {
-                                title = "Bank",
-                                description = "No checking account found (internal error).",
-                                type = "error"
-                            })
+                            TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
+                            TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No checking account found (internal error).", type = "error"})
                             return
                         end
                         local newBalance = (tonumber(checking.balance) or 0) + amount
@@ -651,15 +501,11 @@ function depositMoney(a, b)
                                     cID,
                                     data,
                                     function()
-                                        sendMoneyToClient(src)
-                                        TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."}})
-                                        TriggerClientEvent('ox_lib:notify', src, {
-                                            title = "Bank",
-                                            description = "Deposited $" .. tostring(amount) .. " to checking.",
-                                            type = "success"
-                                        })
+                                        sendMoneyToClient(source)
+                                        TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Deposited $" .. amount .. " to checking."}})
+                                        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Deposited $" .. tostring(amount) .. " to checking.", type = "success"})
                                         if amount >= 1e6 then
-                                            logLargeTransaction("depositMoney", src, amount, "depositMoney() export")
+                                            logLargeTransaction("depositMoney", source, amount, "depositMoney() export")
                                         end
                                     end
                                 )
@@ -672,44 +518,24 @@ function depositMoney(a, b)
     )
 end
 
--- Flexible:
---   withdrawMoney(amount)             -> uses current source
---   withdrawMoney(source, amount)     -> explicit player id
-function withdrawMoney(a, b)
-    local src, amount
-    if b == nil then
-        src = resolveSourceId(nil)
-        amount = a
-    else
-        src = resolveSourceId(a)
-        amount = b
+function withdrawMoney(source, amount)
+    if not amount then
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Invalid amount."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Invalid amount.", type = "error"})
+        return
     end
-
     amount = math.floor(tonumber(amount) or 0)
-
-    if not src then
-        debugPrint(("withdrawMoney: invalid source (arg=%s)"):format(tostring(a)))
-        return
-    end
     if amount <= 0 then
-        TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Amount must be greater than 0."}})
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = "Bank",
-            description = "Amount must be greater than 0.",
-            type = "error"
-        })
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Amount must be greater than 0."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Amount must be greater than 0.", type = "error"})
         return
     end
 
-    local discordID = getDiscordID(src)
-    local charID = activeCharacters[src]
+    local discordID = getDiscordID(source)
+    local charID = activeCharacters[source]
     if not discordID or discordID == "" or not charID then
-        TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No character selected."}})
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = "Bank",
-            description = "No character selected.",
-            type = "error"
-        })
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No character selected."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No character selected.", type = "error"})
         return
     end
 
@@ -727,38 +553,26 @@ function withdrawMoney(a, b)
                             {charID, discordID, charID},
                             function(accts2)
                                 if not accts2 or #accts2 == 0 then
-                                    TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No accounts found after creation."}})
-                                    TriggerClientEvent('ox_lib:notify', src, {
-                                        title = "Bank",
-                                        description = "No accounts found after creation.",
-                                        type = "error"
-                                    })
+                                    TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No accounts found after creation."}})
+                                    TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No accounts found after creation.", type = "error"})
                                     return
                                 end
                                 local checking = nil
-                                for _, a2 in ipairs(accts2) do
-                                    if tostring(a2.type) == "checking" then
-                                        checking = a2
+                                for _, a in ipairs(accts2) do
+                                    if tostring(a.type) == "checking" then
+                                        checking = a
                                         break
                                     end
                                 end
                                 if not checking then
-                                    TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
-                                    TriggerClientEvent('ox_lib:notify', src, {
-                                        title = "Bank",
-                                        description = "No checking account found (internal error).",
-                                        type = "error"
-                                    })
+                                    TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
+                                    TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No checking account found (internal error).", type = "error"})
                                     return
                                 end
                                 local current = tonumber(checking.balance) or 0
                                 if current < amount then
-                                    TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Not enough bank funds to withdraw."}})
-                                    TriggerClientEvent('ox_lib:notify', src, {
-                                        title = "Bank",
-                                        description = "Not enough bank funds to withdraw.",
-                                        type = "error"
-                                    })
+                                    TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Not enough bank funds to withdraw."}})
+                                    TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Not enough bank funds to withdraw.", type = "error"})
                                     return
                                 end
                                 local newBalance = current - amount
@@ -767,7 +581,7 @@ function withdrawMoney(a, b)
                                     {newBalance, discordID, charID, checking.id},
                                     function()
                                         withMoney(
-                                            src,
+                                            source,
                                             function(dID, cID, data)
                                                 data.bank = newBalance
                                                 data.cash = (tonumber(data.cash) or 0) + amount
@@ -776,15 +590,11 @@ function withdrawMoney(a, b)
                                                     cID,
                                                     data,
                                                     function()
-                                                        sendMoneyToClient(src)
-                                                        TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."}})
-                                                        TriggerClientEvent('ox_lib:notify', src, {
-                                                            title = "Bank",
-                                                            description = "Withdrew $" .. tostring(amount) .. " from checking.",
-                                                            type = "success"
-                                                        })
+                                                        sendMoneyToClient(source)
+                                                        TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."}})
+                                                        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Withdrew $" .. tostring(amount) .. " from checking.", type = "success"})
                                                         if amount >= 1e6 then
-                                                            logLargeTransaction("withdrawMoney", src, amount, "withdrawMoney() export")
+                                                            logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export")
                                                         end
                                                     end
                                                 )
@@ -802,29 +612,21 @@ function withdrawMoney(a, b)
                 createAndWithdraw()
             else
                 local checking = nil
-                for _, a2 in ipairs(accts) do
-                    if tostring(a2.type) == "checking" then
-                        checking = a2
+                for _, a in ipairs(accts) do
+                    if tostring(a.type) == "checking" then
+                        checking = a
                         break
                     end
                 end
                 if not checking then
-                    TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
-                    TriggerClientEvent('ox_lib:notify', src, {
-                        title = "Bank",
-                        description = "No checking account found (internal error).",
-                        type = "error"
-                    })
+                    TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "No checking account found (internal error)."}})
+                    TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "No checking account found (internal error).", type = "error"})
                     return
                 end
                 local current = tonumber(checking.balance) or 0
                 if current < amount then
-                    TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Not enough bank funds to withdraw."}})
-                    TriggerClientEvent('ox_lib:notify', src, {
-                        title = "Bank",
-                        description = "Not enough bank funds to withdraw.",
-                        type = "error"
-                    })
+                    TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Not enough bank funds to withdraw."}})
+                    TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Not enough bank funds to withdraw.", type = "error"})
                     return
                 end
                 local newBalance = current - amount
@@ -833,7 +635,7 @@ function withdrawMoney(a, b)
                     {newBalance, discordID, charID, checking.id},
                     function()
                         withMoney(
-                            src,
+                            source,
                             function(dID, cID, data)
                                 data.bank = newBalance
                                 data.cash = (tonumber(data.cash) or 0) + amount
@@ -842,15 +644,11 @@ function withdrawMoney(a, b)
                                     cID,
                                     data,
                                     function()
-                                        sendMoneyToClient(src)
-                                        TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."}})
-                                        TriggerClientEvent('ox_lib:notify', src, {
-                                            title = "Bank",
-                                            description = "Withdrew $" .. tostring(amount) .. " from checking.",
-                                            type = "success"
-                                        })
+                                        sendMoneyToClient(source)
+                                        TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Withdrew $" .. amount .. " from checking."}})
+                                        TriggerClientEvent('ox_lib:notify', source, {title = "Bank", description = "Withdrew $" .. tostring(amount) .. " from checking.", type = "success"})
                                         if amount >= 1e6 then
-                                            logLargeTransaction("withdrawMoney", src, amount, "withdrawMoney() export")
+                                            logLargeTransaction("withdrawMoney", source, amount, "withdrawMoney() export")
                                         end
                                     end
                                 )
@@ -863,48 +661,14 @@ function withdrawMoney(a, b)
     )
 end
 
--- Flexible:
---   transferMoney(target, amount)             -> from current source
---   transferMoney(source, target, amount)     -> explicit source + target
-function transferMoney(a, b, c)
-    local src, target, amount
-    if c == nil then
-        -- transferMoney(target, amount)
-        src = resolveSourceId(nil)
-        target = resolveSourceId(a)
-        amount = b
-    else
-        -- transferMoney(source, target, amount)
-        src = resolveSourceId(a)
-        target = resolveSourceId(b)
-        amount = c
-    end
-
-    amount = tonumber(amount)
-
-    if not src or not target or not amount then
-        debugPrint(("transferMoney: invalid src(%s) target(%s) amt(%s)"):format(tostring(src), tostring(target), tostring(amount)))
-        if src then
-            TriggerClientEvent('ox_lib:notify', src, {
-                title = "Transfer",
-                description = "Invalid transfer parameters.",
-                type = "error"
-            })
-        end
-        return
-    end
-
-    local senderID = getDiscordID(src)
-    local senderChar = activeCharacters[src]
+function transferMoney(source, target, amount)
+    local senderID = getDiscordID(source)
+    local senderChar = activeCharacters[source]
     local targetID = getDiscordID(target)
     local targetChar = activeCharacters[target]
     if senderID == "" or not senderChar or targetID == "" or not targetChar then
-        TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Discord ID or character missing for sender/target."}})
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = "Transfer",
-            description = "Sender/target Discord ID or character missing.",
-            type = "error"
-        })
+        TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Discord ID or character missing for sender/target."}})
+        TriggerClientEvent('ox_lib:notify', source, {title = "Transfer", description = "Sender/target Discord ID or character missing.", type = "error"})
         return
     end
 
@@ -912,35 +676,27 @@ function transferMoney(a, b, c)
         senderID,
         senderChar,
         function(sData)
-            if (tonumber(sData.cash) or 0) < amount then
-                TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Not enough cash to transfer."}})
-                TriggerClientEvent('ox_lib:notify', src, {
-                    title = "Transfer",
-                    description = "Not enough cash to transfer.",
-                    type = "error"
-                })
+            if (tonumber(sData.cash) or 0) < tonumber(amount) then
+                TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Not enough cash to transfer."}})
+                TriggerClientEvent('ox_lib:notify', source, {title = "Transfer", description = "Not enough cash to transfer.", type = "error"})
                 return
             end
             GetMoney(
                 targetID,
                 targetChar,
                 function(tData)
-                    sData.cash = (tonumber(sData.cash) or 0) - amount
-                    tData.cash = (tonumber(tData.cash) or 0) + amount
+                    sData.cash = (tonumber(sData.cash) or 0) - tonumber(amount)
+                    tData.cash = (tonumber(tData.cash) or 0) + tonumber(amount)
 
                     UpdateMoney(
                         senderID,
                         senderChar,
                         sData,
                         function()
-                            sendMoneyToClient(src)
+                            sendMoneyToClient(source)
                             -- notify sender after update (to ensure amount deducted)
-                            TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "You sent $" .. amount}})
-                            TriggerClientEvent('ox_lib:notify', src, {
-                                title = "Transfer",
-                                description = "You sent $" .. tostring(amount) .. ".",
-                                type = "success"
-                            })
+                            TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "You sent $" .. amount}})
+                            TriggerClientEvent('ox_lib:notify', source, {title = "Transfer", description = "You sent $" .. tostring(amount) .. ".", type = "success"})
                         end
                     )
                     UpdateMoney(
@@ -952,14 +708,10 @@ function transferMoney(a, b, c)
                             TriggerClientEvent("chat:addMessage", target, {args = {"^2SYSTEM", "You received $" .. amount}})
 
                             -- notify target
-                            TriggerClientEvent('ox_lib:notify', target, {
-                                title = "Transfer",
-                                description = "You received $" .. tostring(amount) .. ".",
-                                type = "success"
-                            })
+                            TriggerClientEvent('ox_lib:notify', target, {title = "Transfer", description = "You received $" .. tostring(amount) .. ".", type = "success"})
 
                             if amount >= 1e6 then
-                                logLargeTransaction("transferMoney", src, amount, "to ID " .. tostring(target))
+                                logLargeTransaction("transferMoney", source, amount, "to ID " .. tostring(target))
                             end
                         end
                     )
@@ -969,46 +721,26 @@ function transferMoney(a, b, c)
     )
 end
 
--- Flexible:
---   claimDailyReward(amount)            -> uses current source
---   claimDailyReward(source, amount)    -> explicit source
-function claimDailyReward(a, b)
-    local src, rewardAmount
-    if b == nil then
-        src = resolveSourceId(nil)
-        rewardAmount = a
-    else
-        src = resolveSourceId(a)
-        rewardAmount = b
-    end
 
-    rewardAmount = tonumber(rewardAmount) or 0
-    if not src then
-        debugPrint(("claimDailyReward: invalid source (arg=%s)"):format(tostring(a)))
-        return
-    end
-    if rewardAmount <= 0 then
-        rewardAmount = 500 -- fallback
-    end
-
+function claimDailyReward(source, rewardAmount)
     withMoney(
-        src,
+        source,
         function(dID, cID, data)
             local now = os.time()
             if now - tonumber(data.last_daily or 0) < 86400 then
-                return TriggerClientEvent("chat:addMessage", src, {args = {"^1SYSTEM", "Daily reward already claimed."}})
+                return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Daily reward already claimed."}})
             end
-            data.cash = (tonumber(data.cash) or 0) + rewardAmount
+            data.cash = (tonumber(data.cash) or 0) + tonumber(rewardAmount)
             data.last_daily = now
             UpdateMoney(
                 dID,
                 cID,
                 data,
                 function()
-                    sendMoneyToClient(src)
-                    TriggerClientEvent("chat:addMessage", src, {args = {"^2SYSTEM", "Daily reward: $" .. rewardAmount}})
+                    sendMoneyToClient(source)
+                    TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Daily reward: $" .. rewardAmount}})
                     if rewardAmount >= 1e6 then
-                        logLargeTransaction("claimDailyReward", src, rewardAmount, "Daily reward")
+                        logLargeTransaction("claimDailyReward", source, rewardAmount, "Daily reward")
                     end
                 end
             )
@@ -1016,113 +748,54 @@ function claimDailyReward(a, b)
     )
 end
 
--- Defensive exported function: always expects a server-side player id (number or numeric string).
--- If caller passes invalid input we log it and return nil.
--- Now also supports GetPlayerCharacter() using current source.
-function GetPlayerCharacter(playerId)
-    local id = resolveSourceId(playerId)
-    if not id then
-        debugPrint(("GetPlayerCharacter called with invalid id: %s"):format(tostring(playerId)))
-        return nil
-    end
-    return activeCharacters[id] or nil
+function GetPlayerCharacter(source)
+    return activeCharacters[source]
 end
 
--- Flexible:
---   GetPlayerCharacterName(source, cb)
---   GetPlayerCharacterName(cb)          -> uses current source
-function GetPlayerCharacterName(a, b)
-    local src, callback
-    if type(a) == "function" and b == nil then
-        src = resolveSourceId(nil)
-        callback = a
-    else
-        src = resolveSourceId(a)
-        callback = b
-    end
-
-    debugPrint(("[Az-Framework] [GetPlayerCharacterName] Called for source: %s"):format(tostring(src)))
-
-    local discordID = getDiscordID(src)
-    local charID = GetPlayerCharacter(src)
-
-    debugPrint(("[Az-Framework] [GetPlayerCharacterName] discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
-
+function GetPlayerCharacterName(source, callback)
+    local discordID = getDiscordID(source)
+    local charID = GetPlayerCharacter(source)
     if not discordID or discordID == "" or not charID then
-        debugPrint("[Az-Framework] [GetPlayerCharacterName] Error: Missing discordID or charID")
-        return safeCb(callback, "no_character", nil)
+        return callback("no_character", nil)
     end
-
-    debugPrint("[Az-Framework] [GetPlayerCharacterName] Querying the database for character name...")
 
     dbFetchScalar(
         "SELECT name FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1",
         {discordID, charID},
         function(name)
             if not name then
-                debugPrint("[Az-Framework] [GetPlayerCharacterName] Error: Character name not found in database")
-                return safeCb(callback, "not_found", nil)
+                return callback("not_found", nil)
             end
-
-            debugPrint(("[Az-Framework] [GetPlayerCharacterName] Fetched name: %s"):format(name))
-            safeCb(callback, nil, name)
+            callback(nil, name)
         end
     )
 end
 
--- Flexible:
---   GetPlayerMoney(source, cb)
---   GetPlayerMoney(cb)          -> uses current source
-function GetPlayerMoney(a, b)
-    local src, callback
-    if type(a) == "function" and b == nil then
-        src = resolveSourceId(nil)
-        callback = a
-    else
-        src = resolveSourceId(a)
-        callback = b
-    end
-
-    debugPrint(("[AzPause] [GetPlayerMoney] Called for source: %s"):format(tostring(src)))
-
-    local discordID = getDiscordID(src)
-    local charID = GetPlayerCharacter(src)
-
-    debugPrint(("[AzPause] [GetPlayerMoney] Fetched discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
-
+function GetPlayerMoney(source, callback)
+    local discordID = getDiscordID(source)
+    local charID = GetPlayerCharacter(source)
     if not discordID or discordID == "" or not charID then
-        debugPrint(("[AzPause] [GetPlayerMoney] Error: Invalid discordID or charID. Returning 'no_character'"))
-        return safeCb(callback, "no_character", nil)
+        return callback("no_character", nil)
     end
-
-    debugPrint("[AzPause] [GetPlayerMoney] Requesting money details from GetMoney...")
 
     GetMoney(
         discordID,
         charID,
         function(data)
-            if data then
-                debugPrint(("[AzPause] [GetPlayerMoney] Fetched money details: cash=%s, bank=%s"):format(tostring(data.cash), tostring(data.bank)))
-            else
-                debugPrint("[AzPause] [GetPlayerMoney] Error: No data returned from GetMoney.")
-            end
-
-            if data then
-                safeCb(callback, nil, {cash = data.cash or 0, bank = data.bank or 0})
-            else
-                safeCb(callback, "no_data", {cash = 0, bank = 0})
-            end
+            callback(nil, {cash = data.cash or 0, bank = data.bank or 0})
         end
     )
 end
 
--- ===== Misc handlers & commands =====
 AddEventHandler("playerConnecting", function(name, setKickReason, deferrals)
     deferrals.defer()
     deferrals.done()
 end)
 
-registerCommand("addmoney", function(source, args)
+
+
+
+RegisterCommand("addmoney", function(source, args)
     if source == 0 then return end
     isAdmin(source, function(ok)
         logAdminCommand("addmoney", source, args, ok)
@@ -1137,22 +810,22 @@ registerCommand("addmoney", function(source, args)
     end)
 end, false)
 
-registerCommand("deductMoney", function(source, args)
+RegisterCommand("deductmoney", function(source, args)
     if source == 0 then return end
     isAdmin(source, function(ok)
-        logAdminCommand("deductMoney", source, args, ok)
+        logAdminCommand("deductmoney", source, args, ok)
         if not ok then
             return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Permission denied."}})
         end
         local amt = tonumber(args[1])
         if not amt then
-            return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Usage: /deductMoney [amount]"}})
+            return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Usage: /deductmoney [amount]"}})
         end
         deductMoney(source, amt)
     end)
 end, false)
 
-registerCommand("deposit", function(source, args)
+RegisterCommand("deposit", function(source, args)
     local amount = tonumber(args[1])
     if not amount then
         return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Usage: /deposit [amount]"}})
@@ -1160,7 +833,7 @@ registerCommand("deposit", function(source, args)
     depositMoney(source, amount)
 end, false)
 
-registerCommand("withdraw", function(source, args)
+RegisterCommand("withdraw", function(source, args)
     local amount = tonumber(args[1])
     if not amount then
         return TriggerClientEvent("chat:addMessage", source, {args = {"^1SYSTEM", "Usage: /withdraw [amount]"}})
@@ -1168,7 +841,7 @@ registerCommand("withdraw", function(source, args)
     withdrawMoney(source, amount)
 end, false)
 
-registerCommand("transfer", function(source, args)
+RegisterCommand("transfer", function(source, args)
     local targetId = tonumber(args[1])
     local amount = tonumber(args[2])
     if not targetId or not amount then
@@ -1177,13 +850,13 @@ registerCommand("transfer", function(source, args)
     transferMoney(source, targetId, amount)
 end, false)
 
-registerCommand("dailyreward", function(source, args)
+RegisterCommand("dailyreward", function(source, args)
     if source == 0 then return end
     local reward = tonumber(args[1]) or 500
     claimDailyReward(source, reward)
 end, false)
 
-registerCommand("listchars", function(source, args)
+RegisterCommand("listchars", function(source, args)
     if source == 0 then return end
     local discordID = getDiscordID(source)
     if discordID == "" then
@@ -1201,7 +874,7 @@ registerCommand("listchars", function(source, args)
     end)
 end, false)
 
-registerCommand("selectchar", function(source, args)
+RegisterCommand("selectchar", function(source, args)
     if source == 0 then return end
     local chosen = args[1]
     if not chosen then
@@ -1219,7 +892,6 @@ registerCommand("selectchar", function(source, args)
         end
 
         activeCharacters[source] = chosen
-        activeCharByDiscord[discordID] = chosen
         TriggerClientEvent("chat:addMessage", source, {args = {"^2SYSTEM", "Switched to character " .. chosen}})
         sendMoneyToClient(source)
 
@@ -1229,62 +901,40 @@ registerCommand("selectchar", function(source, args)
     end)
 end, false)
 
--- lib callback (keeps the MySQL.Async usage exactly as before)
+
 lib = lib or {}
 if lib and lib.callback and lib.callback.register then
-    lib.callback.register("az-fw-money:fetchCharacters", function(source)
-        local ids = GetPlayerIdentifiers(source)
-        local discordId
-        for _, id in ipairs(ids) do
-            if id:find("discord:") then
-                discordId = id:gsub("discord:", "")
-                break
-            end
+
+lib.callback.register("az-fw-money:fetchCharacters", function(source)
+    local ids = GetPlayerIdentifiers(source)
+    local discordId
+    for _, id in ipairs(ids) do
+        if id:find("discord:") then
+            discordId = id:gsub("discord:", "")
+            break
         end
+    end
 
-        if not discordId then
-            print(("[az-fw-money] No Discord ID found for src=%s"):format(source))
-            return {}
+    if not discordId then
+        print(("[az-fw-money] No Discord ID found for src=%s"):format(source))
+        return {}
+    end
+
+    local p = promise.new()
+    MySQL.Async.fetchAll(
+        "SELECT * FROM user_characters WHERE discordid = @discordid",
+        {["@discordid"] = discordId},
+        function(result)
+            p:resolve(result or {})
         end
+    )
+    return Citizen.Await(p)
+end)
 
-        local p = promise.new()
-        MySQL.Async.fetchAll(
-            "SELECT * FROM user_characters WHERE discordid = @discordid",
-            {["@discordid"] = discordId},
-            function(result)
-                p:resolve(result or {})
-            end
-        )
-        return Citizen.Await(p)
-    end)
-
-    -- safe server-side callback to return the caller's active character (uses server 'source')
-    lib.callback.register("az-fw-money:GetPlayerCharacterForSource", function(source)
-        return activeCharacters[source] or nil
-    end)
-
-    -- callback to fetch active character by discord id
-    lib.callback.register("az-fw-money:GetPlayerCharacterByDiscord", function(source, discordId)
-        if not discordId or discordId == "" then return nil end
-        -- quick local hit first
-        if activeCharByDiscord[discordId] then
-            return activeCharByDiscord[discordId]
-        end
-        -- fallback query
-        local p = promise.new()
-        MySQL.Async.fetchAll("SELECT charid FROM user_characters WHERE discordid = @discordid LIMIT 1", {["@discordid"] = discordId}, function(rows)
-            if rows and rows[1] and rows[1].charid then
-                p:resolve(rows[1].charid)
-            else
-                p:resolve(nil)
-            end
-        end)
-        return Citizen.Await(p)
-    end)
 end
 
--- ===== Register character / select / request money events =====
-onNet("az-fw-money:registerCharacter", function(firstName, lastName)
+RegisterNetEvent("az-fw-money:registerCharacter")
+AddEventHandler("az-fw-money:registerCharacter", function(firstName, lastName)
     local src = source
     local discordID = getDiscordID(src)
     if discordID == "" then
@@ -1319,7 +969,6 @@ onNet("az-fw-money:registerCharacter", function(firstName, lastName)
                 debugPrint(("registerCharacter: inserted econ_user_money for %s / %s"):format(discordID, charID))
 
                 activeCharacters[src] = charID
-                activeCharByDiscord[discordID] = charID
                 TriggerClientEvent("az-fw-money:characterRegistered", src, charID)
                 sendMoneyToClient(src)
                 TriggerClientEvent("hud:setDepartment", src, "")
@@ -1372,7 +1021,8 @@ onNet("az-fw-money:registerCharacter", function(firstName, lastName)
     end)
 end)
 
-onNet("az-fw-money:requestMoney", function()
+RegisterNetEvent("az-fw-money:requestMoney")
+AddEventHandler("az-fw-money:requestMoney", function()
     local src = source
     sendMoneyToClient(src)
 end)
@@ -1415,7 +1065,8 @@ local function fetchAccounts(did, cb)
     end)
 end
 
-onNet("az-fw-money:selectCharacter", function(charID)
+RegisterNetEvent("az-fw-money:selectCharacter")
+AddEventHandler("az-fw-money:selectCharacter", function(charID)
     local src = source
     local did = getDiscordID(src)
     if not did or did == "" then
@@ -1425,7 +1076,6 @@ onNet("az-fw-money:selectCharacter", function(charID)
     dbQuery("SELECT 1 FROM user_characters WHERE discordid = ? AND charid = ?", {did, charID}, function(rows)
         if rows and #rows > 0 then
             activeCharacters[src] = charID
-            activeCharByDiscord[did] = charID
             sendMoneyToClient(src)
             dbFetchScalar("SELECT active_department FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1", {did, charID}, function(active_dept)
                 TriggerClientEvent("hud:setDepartment", src, active_dept or "")
@@ -1435,15 +1085,13 @@ onNet("az-fw-money:selectCharacter", function(charID)
     end)
 end)
 
--- Provide server exports (defensive)
-exports("getPlayerJob", function(src)
-    local sourceId = resolveSourceId(src)
-    if not sourceId then
+exports("getPlayerJob", function(source)
+    if not source or source == 0 then
         return nil
     end
 
-    local discordID = getDiscordID(sourceId)
-    local charID = activeCharacters[sourceId]
+    local discordID = getDiscordID(source)
+    local charID = activeCharacters[source]
 
     if not discordID or discordID == "" or not charID then
         return nil
@@ -1534,24 +1182,14 @@ Citizen.CreateThread(function()
 end)
 
 AddEventHandler("playerDropped", function(reason)
-    -- 'source' here is the server source that disconnected
     if activeCharacters[source] ~= nil then
-        -- clean both maps
-        local did = getDiscordID(source)
-        if did and did ~= "" and activeCharByDiscord[did] == activeCharacters[source] then
-            activeCharByDiscord[did] = nil
-        end
         activeCharacters[source] = nil
     end
 end)
 
--- Helpful event for clients to request their current server-side active char (sends result back)
-RegisterNetEvent("az-fw-money:RequestPlayerCharacter", function()
-    local src = source
-    TriggerClientEvent("az-fw-money:ReceivePlayerCharacter", src, activeCharacters[src] or nil)
-end)
 
--- Final exports
+
+
 exports("addMoney", addMoney)
 exports("deductMoney", deductMoney)
 exports("depositMoney", depositMoney)

@@ -2,7 +2,7 @@ Config = {}
 -- ---------------------
 -- Basic server settings
 -- ---------------------
-Config.SERVER_NAME = "Azure Framework Showcase"  -- shown in presence text
+Config.SERVER_NAME = "YOUR_SERVER_NAME"  -- shown in presence text
 Config.UPDATE_INTERVAL = 5                       -- presence update interval (seconds)
 
 -- Emojis used in presence / messages. Change to your taste.
@@ -23,7 +23,7 @@ Config.EMOJIS = {
 -- ---------------------
 -- Discord role ID that grants admin access to the resource's admin commands.
 -- Keep it as a string (Discord snowflake).
-Config.AdminRoleId = "ADMINROLEID"
+Config.AdminRoleId = "YOUR_DISCORD_ADMIN_ROLE"
 
 -- ---------------------
 -- Feature toggles
@@ -49,7 +49,7 @@ Config.FRAMEWORK = nil -- "esx" / "qb" / nil
 -- Discord / OAuth settings
 -- ---------------------
 -- Your Discord App ID (string). Put your app id here if using Discord OAuth/presence.
-Config.DISCORD_APP_ID = "APPID"
+Config.DISCORD_APP_ID = "YOUR_DISCORD_APP_ID"
 
 
 -- ---------------------
