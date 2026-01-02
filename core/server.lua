@@ -1070,48 +1070,145 @@ function GetPlayerCharacterName(a, b)
     )
 end
 
+-- -- Flexible:
+-- --   GetPlayerMoney(source, cb)
+-- --   GetPlayerMoney(cb)          -> uses current source
+-- function GetPlayerMoney(a, b)
+--     local src, callback
+--     if type(a) == "function" and b == nil then
+--         src = resolveSourceId(nil)
+--         callback = a
+--     else
+--         src = resolveSourceId(a)
+--         callback = b
+--     end
+
+--     debugPrint(("[AzPause] [GetPlayerMoney] Called for source: %s"):format(tostring(src)))
+
+--     local discordID = getDiscordID(src)
+--     local charID = GetPlayerCharacter(src)
+
+--     debugPrint(("[AzPause] [GetPlayerMoney] Fetched discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
+
+--     if not discordID or discordID == "" or not charID then
+--         debugPrint(("[AzPause] [GetPlayerMoney] Error: Invalid discordID or charID. Returning 'no_character'"))
+--         return safeCb(callback, "no_character", nil)
+--     end
+
+--     debugPrint("[AzPause] [GetPlayerMoney] Requesting money details from GetMoney...")
+
+--     GetMoney(
+--         discordID,
+--         charID,
+--         function(data)
+--             if data then
+--                 debugPrint(("[AzPause] [GetPlayerMoney] Fetched money details: cash=%s, bank=%s"):format(tostring(data.cash), tostring(data.bank)))
+--             else
+--                 debugPrint("[AzPause] [GetPlayerMoney] Error: No data returned from GetMoney.")
+--             end
+
+--             if data then
+--                 safeCb(callback, nil, {cash = data.cash or 0, bank = data.bank or 0})
+--             else
+--                 safeCb(callback, "no_data", {cash = 0, bank = 0})
+--             end
+--         end
+--     )
+-- end
+
 -- Flexible:
 --   GetPlayerMoney(source, cb)
---   GetPlayerMoney(cb)          -> uses current source
+--   GetPlayerMoney(cb)          -> uses current source (if available)
 function GetPlayerMoney(a, b)
     local src, callback
+
     if type(a) == "function" and b == nil then
+        -- GetPlayerMoney(cb) → implicit source (event/command context only)
+        src      = resolveSourceId(nil)
+        callback = a
+    else
+        -- GetPlayerMoney(source, cb)
+        src      = resolveSourceId(a)
+        callback = b
+    end
+
+    if not src then
+        debugPrint("[GetPlayerMoney] No valid source; returning 'invalid_source'")
+        return safeCb(callback, "invalid_source", nil)
+    end
+
+    debugPrint(("[GetPlayerMoney] Called for source: %s"):format(tostring(src)))
+
+    local discordID = getDiscordID(src)
+    local charID    = GetPlayerCharacter(src)
+
+    debugPrint(("[GetPlayerMoney] discordID=%s charID=%s"):format(tostring(discordID), tostring(charID)))
+
+    if not discordID or discordID == "" or not charID then
+        debugPrint("[GetPlayerMoney] Missing discordID or charID; returning 'no_character'")
+        return safeCb(callback, "no_character", nil)
+    end
+
+    debugPrint("[GetPlayerMoney] Requesting money from GetMoney...")
+
+    GetMoney(discordID, charID, function(data)
+        if data then
+            debugPrint(("[GetPlayerMoney] Result: cash=%s bank=%s"):format(
+                tostring(data.cash or 0),
+                tostring(data.bank or 0)
+            ))
+            safeCb(callback, nil, {
+                cash = data.cash or 0,
+                bank = data.bank or 0
+            })
+        else
+            debugPrint("[GetPlayerMoney] GetMoney returned no data; returning 'no_data'")
+            safeCb(callback, "no_data", {
+                cash = 0,
+                bank = 0
+            })
+        end
+    end)
+end
+
+
+-- Async helper: GetPlayerJob(source, cb) or GetPlayerJob(cb) (uses current source)
+function GetPlayerJob(a, b)
+    local src, callback
+    if type(a) == "function" and b == nil then
+        -- GetPlayerJob(cb) → use current event/command source
         src = resolveSourceId(nil)
         callback = a
     else
+        -- GetPlayerJob(source, cb)
         src = resolveSourceId(a)
         callback = b
     end
 
-    debugPrint(("[AzPause] [GetPlayerMoney] Called for source: %s"):format(tostring(src)))
+    debugPrint(("[Az-Framework] [GetPlayerJob] Called for source: %s"):format(tostring(src)))
+
+    if not src then
+        debugPrint("[Az-Framework] [GetPlayerJob] Error: invalid source")
+        return safeCb(callback, "invalid_source", nil)
+    end
 
     local discordID = getDiscordID(src)
-    local charID = GetPlayerCharacter(src)
+    local charID    = GetPlayerCharacter(src)
 
-    debugPrint(("[AzPause] [GetPlayerMoney] Fetched discordID: %s, charID: %s"):format(tostring(discordID), tostring(charID)))
+    debugPrint(("[Az-Framework] [GetPlayerJob] discordID=%s charID=%s"):format(tostring(discordID), tostring(charID)))
 
     if not discordID or discordID == "" or not charID then
-        debugPrint(("[AzPause] [GetPlayerMoney] Error: Invalid discordID or charID. Returning 'no_character'"))
+        debugPrint("[Az-Framework] [GetPlayerJob] Error: Missing discordID or charID")
         return safeCb(callback, "no_character", nil)
     end
 
-    debugPrint("[AzPause] [GetPlayerMoney] Requesting money details from GetMoney...")
-
-    GetMoney(
-        discordID,
-        charID,
-        function(data)
-            if data then
-                debugPrint(("[AzPause] [GetPlayerMoney] Fetched money details: cash=%s, bank=%s"):format(tostring(data.cash), tostring(data.bank)))
-            else
-                debugPrint("[AzPause] [GetPlayerMoney] Error: No data returned from GetMoney.")
-            end
-
-            if data then
-                safeCb(callback, nil, {cash = data.cash or 0, bank = data.bank or 0})
-            else
-                safeCb(callback, "no_data", {cash = 0, bank = 0})
-            end
+    dbFetchScalar(
+        "SELECT active_department FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1",
+        { discordID, charID },
+        function(job)
+            job = job or ""
+            debugPrint(("[Az-Framework] [GetPlayerJob] Fetched active_department='%s'"):format(tostring(job)))
+            safeCb(callback, nil, job)
         end
     )
 end
@@ -1435,33 +1532,35 @@ onNet("az-fw-money:selectCharacter", function(charID)
     end)
 end)
 
--- Provide server exports (defensive)
 exports("getPlayerJob", function(src)
     local sourceId = resolveSourceId(src)
     if not sourceId then
+        debugPrint("[Az-Framework] [getPlayerJob export] Invalid source")
         return nil
     end
 
-    local discordID = getDiscordID(sourceId)
-    local charID = activeCharacters[sourceId]
+    local result, done = nil, false
 
-    if not discordID or discordID == "" or not charID then
-        return nil
-    end
-
-    local jobValue = nil
-    local done = false
-    dbFetchScalar("SELECT active_department FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1", {discordID, charID}, function(val)
-        jobValue = val
+    GetPlayerJob(sourceId, function(err, job)
+        if err then
+            debugPrint(("[Az-Framework] [getPlayerJob export] Error: %s"):format(tostring(err)))
+        else
+            result = job
+        end
         done = true
     end)
+
+    -- wait briefly for async DB result (max ~500ms)
     local tick = 0
     while not done and tick < 50 do
         Citizen.Wait(10)
         tick = tick + 1
     end
-    return jobValue or nil
+
+    return result
 end)
+
+
 
 Citizen.CreateThread(function()
     print("Hourly-paycheck thread starting. Interval = " .. tostring(Config.PaycheckIntervalMinutes or 60) .. " minutes.")

@@ -11,6 +11,46 @@ if Config.Parking then
     end
 
     -- =========================
+    -- ✅ NET DELETE (server cleanup will call this)
+    -- =========================
+    RegisterNetEvent('raptor:deleteNetVehicle', function(netId)
+        netId = tonumber(netId)
+        if not netId or netId <= 0 then return end
+
+        local veh = NetToVeh(netId)
+        if veh == 0 or not DoesEntityExist(veh) then
+            debugPrint(('deleteNetVehicle: netId=%s -> no entity'):format(netId))
+            return
+        end
+
+        debugPrint(('deleteNetVehicle: attempting delete netId=%s veh=%s'):format(netId, veh))
+
+        -- Try to gain control (whoever has control will delete)
+        NetworkRequestControlOfEntity(veh)
+        local t = GetGameTimer() + 1500
+        while not NetworkHasControlOfEntity(veh) and GetGameTimer() < t do
+            Wait(0)
+            NetworkRequestControlOfEntity(veh)
+        end
+
+        if NetworkHasControlOfEntity(veh) then
+            SetEntityAsMissionEntity(veh, true, true)
+            DeleteEntity(veh)
+            debugPrint(('deleteNetVehicle: deleted netId=%s'):format(netId))
+        else
+            debugPrint(('deleteNetVehicle: no control netId=%s'):format(netId))
+        end
+
+        -- Also remove from local list so tag loop stops
+        for i = #parkedVehicles, 1, -1 do
+            local entry = parkedVehicles[i]
+            if entry and entry.netId and tonumber(entry.netId) == netId then
+                table.remove(parkedVehicles, i)
+            end
+        end
+    end)
+
+    -- =========================
     -- 3D TEXT (NO RECT)
     -- =========================
     local function DrawText3D(x, y, z, text)
@@ -107,6 +147,31 @@ if Config.Parking then
         end
     end
 
+    -- ✅ helper to register a spawned parked vehicle to server cleanup tracker
+    local function registerParkedWorldVehicle(veh, plate)
+        if not veh or veh == 0 or not DoesEntityExist(veh) then return end
+        plate = tostring(plate or GetVehicleNumberPlateText(veh) or '')
+        if plate == '' then return end
+
+        local netId = NetworkGetNetworkIdFromEntity(veh)
+        if not netId or netId <= 0 then return end
+
+        -- Make sure it is networked
+        SetNetworkIdExistsOnAllMachines(netId, true)
+
+        debugPrint(('Register parked-world netId=%s plate=%s'):format(netId, plate))
+        TriggerServerEvent('raptor:registerParkedWorldVehicle', netId, plate)
+
+        return netId
+    end
+
+    local function unregisterParkedWorldVehicle(netId)
+        netId = tonumber(netId)
+        if not netId or netId <= 0 then return end
+        debugPrint(('Unregister parked-world netId=%s'):format(netId))
+        TriggerServerEvent('raptor:unregisterParkedWorldVehicle', netId)
+    end
+
     -- =========================
     -- PARK / UNPARK KEYBIND
     -- =========================
@@ -146,6 +211,11 @@ if Config.Parking then
                     if found then
                         debugPrint(('Requesting UNPARK for %s'):format(found.plate))
                         TriggerServerEvent('raptor:toggleParkVehicle', { plate = found.plate })
+
+                        -- ✅ also unregister this parked-world entity immediately
+                        if found.netId then
+                            unregisterParkedWorldVehicle(found.netId)
+                        end
                     else
                         debugPrint('No parked vehicle within 5m to unpark')
                     end
@@ -214,16 +284,22 @@ if Config.Parking then
                 SetVehicleOnGroundProperly(veh)
                 SetVehicleDoorsLocked(veh, 2)
 
+                -- ✅ Register parked-world copy so server can delete it when DB row disappears
+                local plate = v.plate or props.plate or ''
+                local netId = registerParkedWorldVehicle(veh, plate)
+
                 table.insert(parkedVehicles, {
                     handle    = veh,
-                    plate     = v.plate or props.plate or '',
-                    ownerName = props.ownerName or 'Unknown Owner'
+                    plate     = plate,
+                    ownerName = props.ownerName or 'Unknown Owner',
+                    netId     = netId
                 })
 
-                debugPrint(('Parked #%d: %s owner=%s'):format(
+                debugPrint(('Parked #%d: %s owner=%s netId=%s'):format(
                     i,
-                    v.plate or props.plate or 'UNKNOWN',
-                    tostring(props.ownerName))
+                    plate ~= '' and plate or 'UNKNOWN',
+                    tostring(props.ownerName),
+                    tostring(netId))
                 )
 
                 SetModelAsNoLongerNeeded(modelHash)
@@ -252,10 +328,14 @@ if Config.Parking then
             SetVehicleDoorsLocked(veh, 2)
             FreezeEntityPosition(veh, true)
 
+            -- ✅ register so cleanup can find it
+            local netId = registerParkedWorldVehicle(veh, plate)
+
             table.insert(parkedVehicles, {
                 handle    = veh,
                 plate     = plate,
-                ownerName = GetPlayerName(PlayerId())
+                ownerName = GetPlayerName(PlayerId()),
+                netId     = netId
             })
 
             TriggerEvent('chat:addMessage', {
@@ -269,6 +349,11 @@ if Config.Parking then
                 if entry.plate == plate and entry.handle and DoesEntityExist(entry.handle) then
                     SetVehicleDoorsLocked(entry.handle, 1)
                     FreezeEntityPosition(entry.handle, false)
+
+                    -- ✅ unregister from server cleanup tracker
+                    if entry.netId then
+                        unregisterParkedWorldVehicle(entry.netId)
+                    end
 
                     -- make sure we don't have a second locked clone with same plate
                     cleanupNearbyPlateClones(plate, entry.handle)

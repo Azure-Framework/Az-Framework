@@ -112,7 +112,8 @@ CREATE TABLE IF NOT EXISTS `econ_departments` (
   `department` varchar(100) NOT NULL,
   `paycheck` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`discordid`,`department`),
-  KEY `idx_econ_departments_charid` (`charid`)
+  KEY `idx_econ_departments_charid` (`charid`),
+  KEY `idx_econ_departments__charid_` (`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 [[

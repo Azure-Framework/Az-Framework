@@ -3,15 +3,17 @@
 console.log('[HUD][config.js] loaded');
 
 window.hudConfig = {
-  // Use 6-digit hex or rgba(); 8-digit hex is tolerated but alpha is ignored for CSS vars.
-  accentColor: '#2b8ae9ff',
-  accent2: '#2ba3e9ff',
-  textPrimary: '#eaf6ff',
-  textSecondary: '#dcc99fff',
+  // GTA 6–style neon palette to match State of Los Santos branding
+  accentColor:   '#ff4da6',                         // neon magenta (primary)
+  accent2:       '#42e0ff',                         // neon cyan (secondary)
+  textPrimary:   '#fdf7ff',                         // soft off-white
+  textSecondary: '#9aa8d6',                         // muted blue/violet
+
   hudGap: '12px',
   hudPadding: '10px 14px',
   hudRadius: '12px',
-  hudShadow: '0 8px 30px rgba(30,60,110,0.14)',
-  discordInvite: 'https://discord.gg/tBg2U6CTHE',
-  serverLogoURL: 'https://imgimp.xyz/images/Stoic-2025-06-28_06-06-19-685f865b90047.png'
+  hudShadow: '0 8px 30px rgba(5,8,20,0.85)',        // deeper navy shadow
+
+  discordInvite: 'https://discord.gg/UCNE5H58Pt',
+  serverLogoURL: 'https://imgimp.xyz/images/Stoic-2025-11-27_20-20-42-6928b29a61ed6.png'
 };
