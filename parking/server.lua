@@ -18,8 +18,7 @@ if Config.Parking then
         end
         return nil
     end
-
-    -- helper to safely turn number[] into a single number for old columns
+   
     local function scalarOrFirst(v)
         if type(v) == 'table' then
             return v[1] or 0
@@ -27,13 +26,8 @@ if Config.Parking then
         return v or 0
     end
 
-    ---------------------------------------------------------------------
-    -- 🌍 Parked world vehicle tracking (netId registry)
-    -- We ONLY delete vehicles that were spawned as "parked copies".
-    -- Another resource can delete DB row -> we then delete the parked copy.
-    ---------------------------------------------------------------------
-    local parkedWorldByNet = {} -- [netId] = { discordid=string, plate=string, added=os.time() }
-    local parkedWorldByKey = {} -- [discordid.."::"..plate] = { [netId]=true, ... }
+    local parkedWorldByNet = {} 
+    local parkedWorldByKey = {} 
 
     local function makeKey(discordid, plate)
         return tostring(discordid or '') .. "::" .. tostring(plate or '')
@@ -72,8 +66,6 @@ if Config.Parking then
 
         parkedWorldByNet[netId] = nil
     end
-
-    -- Client registers a spawned parked vehicle so we can clean it up if DB row disappears
     RegisterNetEvent('raptor:registerParkedWorldVehicle', function(netId, plate)
         local src = source
         local discordID = getDiscordID(src)
@@ -99,7 +91,7 @@ if Config.Parking then
         removeParkedWorld(netId)
     end)
 
-    -- Optional server export so OTHER scripts can register parked vehicles too
+    
     exports('RegisterParkedWorldVehicle', function(discordID, netId, plate)
         addParkedWorld(netId, discordID, plate)
     end)
@@ -107,10 +99,7 @@ if Config.Parking then
     exports('UnregisterParkedWorldVehicle', function(netId)
         removeParkedWorld(netId)
     end)
-
-    ---------------------------------------------------------------------
-    -- 🔁 Every 5 seconds: delete parked-world vehicles whose DB row is gone
-    ---------------------------------------------------------------------
+    
     CreateThread(function()
         while true do
             Wait(5000)
@@ -119,7 +108,7 @@ if Config.Parking then
                 goto continue
             end
 
-            -- Build a set of all currently PARKED vehicles still present in DB
+            
             MySQL.Async.fetchAll([[
                 SELECT discordid, plate
                 FROM user_vehicles
@@ -139,14 +128,14 @@ if Config.Parking then
                     checked = checked + 1
                     local key = makeKey(info.discordid, info.plate)
 
-                    -- If row no longer exists, it is "unparked" -> delete parked-world copy
+                    
                     if not dbSet[key] then
                         debugPrint(("DB missing -> deleting parked-world copy netId=%s key=%s"):format(netId, key))
 
-                        -- Tell ALL clients to delete this network entity (whoever has control will delete)
+                        
                         TriggerClientEvent('raptor:deleteNetVehicle', -1, netId)
 
-                        -- Remove from registry so we stop trying
+                        
                         removeParkedWorld(netId)
                         deleted = deleted + 1
                     end
@@ -161,9 +150,6 @@ if Config.Parking then
         end
     end)
 
-    ---------------------------------------------------------------------
-    -- 🔁 Shared DB helper – used by both events AND exports
-    ---------------------------------------------------------------------
     local function fetchVehiclesForDiscord(discordID, cb)
         if not discordID or discordID == '' then
             if cb then
@@ -201,10 +187,7 @@ if Config.Parking then
             end
         end)
     end
-
-    ---------------------------------------------------------------------
-    -- 🚗 Toggle Park / Unpark
-    ---------------------------------------------------------------------
+    
     RegisterNetEvent('raptor:toggleParkVehicle')
     AddEventHandler('raptor:toggleParkVehicle', function(props)
         local src = source
@@ -234,7 +217,7 @@ if Config.Parking then
             ['@plate']     = plate
         }, function(rows)
             if #rows == 0 then
-                -- PARK -> INSERT / UPDATE
+                
                 local azParking = props.azParking or {}
                 local px, py, pz, ph = azParking.x or 0.0, azParking.y or 0.0, azParking.z or 0.0, azParking.h or 0.0
 
@@ -286,7 +269,7 @@ if Config.Parking then
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = true })
                 end)
             else
-                -- UNPARK -> DELETE
+                
                 debugPrint(('UNPARK -> DELETE %s for %s'):format(plate, discordID))
                 MySQL.Async.execute([[
                     DELETE FROM user_vehicles WHERE discordid=@discordid AND plate=@plate
@@ -296,7 +279,7 @@ if Config.Parking then
                 }, function()
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = false })
 
-                    -- Immediately nuke any parked-world copies we already know about for this key
+                    
                     local key = makeKey(discordID, plate)
                     local bucket = parkedWorldByKey[key]
                     if bucket then
@@ -311,9 +294,6 @@ if Config.Parking then
         end)
     end)
 
-    ---------------------------------------------------------------------
-    -- 🚚 Load parked vehicles (existing event)
-    ---------------------------------------------------------------------
     RegisterNetEvent('raptor:loadVehicles')
     AddEventHandler('raptor:loadVehicles', function()
         local src = source
@@ -329,10 +309,7 @@ if Config.Parking then
             TriggerClientEvent('raptor:vehiclesLoaded', src, results)
         end)
     end)
-
-    ---------------------------------------------------------------------
-    -- 📦 EXPORTS for Az-Insurance & other Az-Framework modules
-    ---------------------------------------------------------------------
+    
     local function dbgCaller(prefix, ...)
         local inv = GetInvokingResource() or "UNKNOWN"
         local argStrs = {}

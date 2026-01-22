@@ -23,7 +23,7 @@ Config.EMOJIS = {
 -- ---------------------
 -- Discord role ID that grants admin access to the resource's admin commands.
 -- Keep it as a string (Discord snowflake).
-Config.AdminRoleId = "1383518537628389406"
+Config.AdminRoleId = "1437877833048395986"
 
 -- ---------------------
 -- Feature toggles

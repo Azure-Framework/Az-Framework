@@ -1,4 +1,3 @@
--- client.lua (refactored, same behavior)
 local RESOURCE = GetCurrentResourceName()
 print(("[az-fw-hud] client.lua (cookies-only) loaded. Resource=%s IsDuplicity=%s"):format(RESOURCE, tostring(IsDuplicityVersion())))
 
@@ -7,7 +6,7 @@ if IsDuplicityVersion() then
   return
 end
 
--- ==== Utilities & Constants ====
+
 local function safePrint(msg)
   print("[az-fw-hud] " .. tostring(msg))
 end
@@ -25,13 +24,13 @@ local function trim(s)
   return (s and s:gsub("^%s*(.-)%s*$", "%1") or "")
 end
 
--- small helper to register network events + handler in one line (keeps behavior same)
+
 local function onNet(eventName, handler)
   RegisterNetEvent(eventName)
   AddEventHandler(eventName, handler)
 end
 
--- ==== NUI callbacks ====
+
 if type(RegisterNUICallback) ~= "function" then
   safePrint("WARNING: RegisterNUICallback not available; NUI callbacks won't be registered.")
 else
@@ -63,7 +62,7 @@ else
   registerNuiCallbacks()
 end
 
--- ==== Net events (HUD updates / job / cash) ====
+
 onNet("updateCashHUD", function(cash, bank, playerName)
   sendNui({ action = "updateCash", cash = cash, bank = bank, playerName = playerName })
 end)
@@ -77,7 +76,7 @@ onNet("hud:setDepartment", function(job)
   sendNui({ action = "updateJob", job = job })
 end)
 
--- ==== First spawn department request ====
+
 local firstSpawn = true
 AddEventHandler("playerSpawned", function()
   if firstSpawn then
@@ -86,19 +85,19 @@ AddEventHandler("playerSpawned", function()
   end
 end)
 
--- ==== Commands ====
+
 RegisterCommand("movehud", function()
   SetNuiFocus(true, true)
   sendNui({ action = "toggleMove" })
 end, false)
 
--- ==== Character menu & context helpers ====
+
 local CHAR_MAIN = "char_main_menu"
 local CHAR_LIST = "char_list_menu"
 local EVENT_SHOW_LIST = "az-fw-money:openListMenu"
--- lib.registerContext is used later to register contexts
 
--- Pre-register the main context (structure kept the same)
+
+
 lib.registerContext({
   id = CHAR_MAIN,
   title = "📝 Character Menu",
@@ -119,7 +118,7 @@ lib.registerContext({
   }
 })
 
--- ==== Register dialog for new characters ====
+
 onNet("az-fw-money:openRegisterDialog", function()
   local title = "Register Character"
   local fields = {
@@ -173,7 +172,7 @@ onNet("az-fw-money:openRegisterDialog", function()
   end
 end)
 
--- ==== Show list / select character ====
+
 onNet(EVENT_SHOW_LIST, function()
   lib.callback("az-fw-money:fetchCharacters", {}, function(rows)
     local opts = {}
@@ -204,7 +203,7 @@ onNet(EVENT_SHOW_LIST, function()
   end)
 end)
 
--- ==== Character notifications (registered / selected) ====
+
 onNet("az-fw-money:characterRegistered", function(charid)
   lib.notify({
     title = "Character Registered",
@@ -223,17 +222,17 @@ onNet("az-fw-money:characterSelected", function(charid)
   TriggerServerEvent("az-fw-money:requestMoney")
 end)
 
--- ==== Client export: refresh / update HUD ====
+
 local function refreshHUD()
   safePrint("refreshHUD export called; requesting money and department from server.")
-  -- Ask server to resend money + job/department info, which will in turn hit the NUI events above
+  
   TriggerServerEvent("az-fw-money:requestMoney")
   TriggerServerEvent("hud:requestDepartment")
 end
 
--- Exports usable from other client scripts:
---   exports['az-fw-hud']:refreshHUD()
---   exports['az-fw-hud']:updateHUD()
+
+
+
 exports('refreshHUD', refreshHUD)
 exports('updateHUD', refreshHUD)
 

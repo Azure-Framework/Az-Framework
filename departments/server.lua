@@ -1,24 +1,16 @@
--- [[ server.lua ]]  (az-fw-departments)
 if Config.Departments then
     print('[az-fw-departments-server] Departments enabled, initializing...')
-
-    ----------------------------------------------------------------
-    -- Character Export Wrapper
-    ----------------------------------------------------------------
-    -- Wraps the export call to retrieve the active character ID
+      
     local function GetPlayerCharacter(src)
         return exports['Az-Framework']:GetPlayerCharacter(src)
     end
-
-    ----------------------------------------------------------------
-    -- Discord API credentials (keep these secret!).
-    ----------------------------------------------------------------
+        
     local DISCORD_BOT_TOKEN = GetConvar("DISCORD_BOT_TOKEN", "")
     local DISCORD_GUILD_ID  = GetConvar("DISCORD_GUILD_ID", "")
 
-    ----------------------------------------------------------------
-    -- Utility: extract a player’s Discord user ID
-    ----------------------------------------------------------------
+    
+    
+    
     local function getDiscordUserId(playerId)
         for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
             local discordId = id:match('^discord:(%d+)$')
@@ -29,11 +21,8 @@ if Config.Departments then
         end
         print(('[Az-Dept-Debug] No Discord UserID found for player %s'):format(playerId))
         return nil
-    end
-
-    ----------------------------------------------------------------
-    -- Fetch a guild member’s roles from Discord
-    ----------------------------------------------------------------
+    end    
+    
     local function fetchDiscordRoles(discordId, cb)
         local url = ('https://discord.com/api/v10/guilds/%s/members/%s'):format(DISCORD_GUILD_ID, discordId)
         PerformHttpRequest(url, function(status, body)
@@ -52,12 +41,7 @@ if Config.Departments then
             ['Content-Type']  = 'application/json'
         })
     end
-
-
-
-    ----------------------------------------------------------------
-    -- Request /jobs handler for selecting on-duty job
-    ----------------------------------------------------------------
+    
     RegisterServerEvent('az-fw-departments:requestDeptList')
     AddEventHandler('az-fw-departments:requestDeptList', function()
         local src = source
@@ -86,10 +70,7 @@ if Config.Departments then
             end)
         end)
     end)
-
-    ----------------------------------------------------------------
-    -- Set on-duty job
-    ----------------------------------------------------------------
+    
     RegisterServerEvent('az-fw-departments:setJob')
     AddEventHandler('az-fw-departments:setJob', function(dept)
         local src       = source
@@ -101,7 +82,7 @@ if Config.Departments then
             return
         end
 
-        -- DEBUG: show exactly what we're about to run
+        
         print(('[Az-Dept-Debug] setJob: UPDATE user_characters SET active_department=%s WHERE discordid=%s AND charid=%s')
             :format(dept, discordId, charId))
 
@@ -115,7 +96,7 @@ if Config.Departments then
             ['@discordId'] = discordId,
             ['@charId']    = charId,
         }, function(affected)
-            -- report exactly how many rows got updated
+            
             print(('[Az-Dept-Debug] setJob: updated %d row(s) for %s / %s'):format(affected, discordId, charId))
             TriggerClientEvent('az-fw-departments:refreshJob', src, { job = dept })
         end)
