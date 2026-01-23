@@ -1,9 +1,11 @@
+Config = Config or {}
+
 if Config.Departments then
     print('[az-fw-departments-client] Departments enabled, initializing...')
 
     RegisterCommand('jobs', function()
         TriggerServerEvent('az-fw-departments:requestDeptList')
-    end)
+    end, false)
 
     RegisterNetEvent('az-fw-departments:openJobsDialog')
     AddEventHandler('az-fw-departments:openJobsDialog', function(depts)
@@ -27,16 +29,27 @@ if Config.Departments then
         end
 
         local input = lib.inputDialog('Select On-Duty Job', {{
-            type = 'select', label = 'Job', options = opts, required = true
+            type = 'select',
+            label = 'Job',
+            options = opts,
+            required = true
         }}, { allowCancel = true })
 
         if not input then return end
-        TriggerServerEvent('az-fw-departments:setJob', input[1])
+
+        local chosen = input[1]
+        print("[az-fw-departments-client] selected job = " .. tostring(chosen))
+
+        TriggerServerEvent('az-fw-departments:setJob', chosen)
     end)
 
     RegisterNetEvent('az-fw-departments:refreshJob')
     AddEventHandler('az-fw-departments:refreshJob', function(data)
-        SendNUIMessage({ action = 'updateJob', job = data.job })
+        local job = data and data.job or ""
+
+        SendNUIMessage({ action = 'updateJob', job = job })
+
+        TriggerEvent("hud:setDepartment", job)
     end)
 
     RegisterNetEvent("updateCashHUD")
@@ -44,10 +57,11 @@ if Config.Departments then
         SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })
     end)
 
-    Citizen.CreateThread(function()
-        Citizen.Wait(2000)
+    CreateThread(function()
+        Wait(2000)
         TriggerServerEvent('hud:requestDepartment')
     end)
+
 else
     print('[az-fw-departments-client] Departments disabled; skipping department features.')
 end
