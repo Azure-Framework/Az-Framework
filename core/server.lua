@@ -5,15 +5,12 @@ Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
 Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
 
-
 Config.Discord.BotToken   = Config.Discord.BotToken   or GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = Config.Discord.WebhookURL or GetConvar("DISCORD_WEBHOOK_URL", "")
 Config.Discord.GuildId    = Config.Discord.GuildId    or GetConvar("DISCORD_GUILD_ID", "")
 
-
 Config.AdminRoleId        = tostring(Config.AdminRoleId or GetConvar("AZFW_ADMIN_ROLE_ID", "") or "")
 Config.AdminAcePermission = Config.AdminAcePermission or "adminmenu.use"
-
 
 local T = {
   money = "econ_user_money",
@@ -23,12 +20,8 @@ local T = {
 
 local SAVINGS_APR = 0.05
 
-
-local activeCharacters = {}        
-local activeCharByDiscord = {}     
-
-
-
+local activeCharacters = {}
+local activeCharByDiscord = {}
 
 local function dprint(...)
   if not Config.Debug then return end
@@ -48,9 +41,6 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-
-
-
 local function resolveSourceId(arg)
   local s = tonumber(arg)
   if s and s > 0 then return s end
@@ -58,8 +48,6 @@ local function resolveSourceId(arg)
   if g and g > 0 then return g end
   return nil
 end
-
-
 
 local function stripSelf(...)
   local a = { ... }
@@ -69,9 +57,6 @@ local function stripSelf(...)
   end
   return table.unpack(a)
 end
-
-
-
 
 local function hasOx()
   return exports.oxmysql ~= nil
@@ -121,7 +106,6 @@ local function oxScalar(query, params, cb)
   end)
 end
 
-
 if MySQL == nil then MySQL = {} end
 if MySQL.Async == nil then MySQL.Async = {} end
 if type(MySQL.Async.fetchAll) ~= "function" then
@@ -145,9 +129,6 @@ if type(MySQL.Async.scalar) ~= "function" then
   end
 end
 
-
-
-
 local function getDiscordID(src)
   src = tonumber(src or 0) or 0
   if src <= 0 then return "" end
@@ -163,7 +144,7 @@ local function getDiscordID(src)
   return ""
 end
 
-local roleCache = {} 
+local roleCache = {}
 local ROLE_TTL_MS = 60 * 1000
 
 local function getDiscordRoleList(src, cb)
@@ -175,7 +156,6 @@ local function getDiscordRoleList(src, cb)
   local discordID = getDiscordID(src)
   if discordID == "" then return cb("no_discord_id", nil) end
 
-  
   local now = GetGameTimer()
   local c = roleCache[discordID]
   if c and c.exp and c.exp > now and type(c.roles) == "table" then
@@ -207,9 +187,6 @@ local function getDiscordRoleList(src, cb)
   })
 end
 
-
-
-
 local function isAdmin_impl(playerSrc, cb)
   playerSrc = resolveSourceId(playerSrc)
   if not playerSrc then
@@ -220,14 +197,12 @@ local function isAdmin_impl(playerSrc, cb)
     return safeCb(cb, true, "console")
   end
 
-  
   local acePerm = Config.AdminAcePermission or "adminmenu.use"
   local aceAllowed = IsPlayerAceAllowed(playerSrc, acePerm)
   if aceAllowed then
     return safeCb(cb, true, "ace")
   end
 
-  
   local wanted = tostring(Config.AdminRoleId or "")
   if wanted == "" or wanted == "nil" then
     return safeCb(cb, false, "no_role_config")
@@ -249,13 +224,11 @@ end
 local function isAdmin_export(...)
   local src, cb = stripSelf(...)
 
-  
   if type(src) == "function" then
     cb = src
     src = resolveSourceId(nil)
   end
 
-  
   if src == nil and cb == nil then
     src = resolveSourceId(nil)
   end
@@ -264,7 +237,6 @@ local function isAdmin_export(...)
     return isAdmin_impl(src, cb)
   end
 
-  
   local p = promise.new()
   local done = false
   isAdmin_impl(src, function(ok)
@@ -276,7 +248,7 @@ local function isAdmin_export(...)
   SetTimeout(1500, function()
     if done then return end
     done = true
-    
+
     local s = resolveSourceId(src)
     if s and s > 0 then
       local acePerm = Config.AdminAcePermission or "adminmenu.use"
@@ -287,9 +259,6 @@ local function isAdmin_export(...)
 
   return Citizen.Await(p)
 end
-
-
-
 
 local function sendWebhookLog(message)
   local url = Config.Discord.WebhookURL or ""
@@ -321,9 +290,6 @@ local function logLargeTransaction(txType, src, amount, reason)
   sendWebhookLog(msg)
 end
 
-
-
-
 local function GetMoney(discordID, charID, callback)
   if type(callback) ~= "function" then return end
 
@@ -334,7 +300,6 @@ local function GetMoney(discordID, charID, callback)
         return callback(rows[1])
       end
 
-      
       oxScalar("SELECT name FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
         { discordID, charID },
         function(fullName)
@@ -366,7 +331,7 @@ local function UpdateMoney(discordID, charID, data, cb)
 end
 
 local function ensureChecking(discordID, charID, cb)
-  
+
   oxQuery(("SELECT id, balance FROM `%s` WHERE charid=? AND type='checking' LIMIT 1"):format(T.accts),
     { charID },
     function(rows)
@@ -374,7 +339,6 @@ local function ensureChecking(discordID, charID, cb)
         return cb(rows[1].id, tonumber(rows[1].balance) or 0)
       end
 
-      
       oxInsert(("INSERT INTO `%s` (discordid,charid,type,balance) VALUES (?,?,?,?),(?,?,?,?)"):format(T.accts),
         { discordID, charID, "checking", 0, discordID, charID, "savings", 0 },
         function()
@@ -432,9 +396,6 @@ local function withMoney(src, fn)
     fn(discordID, charID, data, src)
   end)
 end
-
-
-
 
 local function addMoney_export(...)
   local a, b = stripSelf(...)
@@ -584,12 +545,12 @@ local function transferMoney_export(...)
   local src, target, amount
 
   if c == nil then
-    
+
     src = resolveSourceId(nil)
     target = resolveSourceId(a)
     amount = b
   else
-    
+
     src = resolveSourceId(a)
     target = resolveSourceId(b)
     amount = c
@@ -666,9 +627,6 @@ local function claimDailyReward_export(...)
   return true
 end
 
-
-
-
 local function GetPlayerCharacter_export(...)
   local playerId = stripSelf(...)
   local id = resolveSourceId(playerId)
@@ -680,7 +638,7 @@ local function GetPlayerCharacterName_export(...)
   local src, cb
 
   if type(a) == "function" and b == nil then
-    
+
     src = resolveSourceId(nil)
     cb = a
   else
@@ -701,7 +659,6 @@ local function GetPlayerCharacterName_export(...)
     return safeCb(cb, "no_character", nil)
   end
 
-  
   local ok, perr = pcall(function()
     oxScalar(
       "SELECT name FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
@@ -716,11 +673,9 @@ local function GetPlayerCharacterName_export(...)
   end)
 
   if not ok then
-    return safeCb(cb, "db_error", nil) 
+    return safeCb(cb, "db_error", nil)
   end
 end
-
-
 
 local function GetPlayerCharacterNameSync_export(...)
   local src = stripSelf(...)
@@ -761,7 +716,6 @@ local function GetPlayerCharacterNameSync_export(...)
 end
 
 exports("GetPlayerCharacterNameSync", GetPlayerCharacterNameSync_export)
-
 
 local function GetPlayerMoney_export(...)
   local a, b = stripSelf(...)
@@ -808,7 +762,6 @@ local function GetPlayerJob_async(src, cb)
   )
 end
 
-
 local function getPlayerJob_export(...)
   local src = stripSelf(...)
   src = resolveSourceId(src)
@@ -830,9 +783,6 @@ local function getPlayerJob_export(...)
 
   return Citizen.Await(p)
 end
-
-
-
 
 RegisterCommand("addmoney", function(src, args)
   if src == 0 then return end
@@ -929,9 +879,6 @@ RegisterCommand("selectchar", function(src, args)
   end)
 end, false)
 
-
-
-
 RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
   local src = source
   local did = getDiscordID(src)
@@ -1004,9 +951,6 @@ AddEventHandler("playerDropped", function()
   activeCharacters[src] = nil
 end)
 
-
-
-
 CreateThread(function()
   local interval = (tonumber(Config.PaycheckIntervalMinutes) or 60) * 60 * 1000
   print(("[Az-Framework] Paycheck thread started. Interval=%s minutes."):format(tostring(Config.PaycheckIntervalMinutes or 60)))
@@ -1054,9 +998,6 @@ CreateThread(function()
   end
 end)
 
-
-
-
 lib = lib or {}
 if lib.callback and lib.callback.register then
   lib.callback.register("az-fw-money:fetchCharacters", function(source)
@@ -1091,9 +1032,6 @@ if lib.callback and lib.callback.register then
   end)
 end
 
-
-
-
 exports("addMoney", addMoney_export)
 exports("deductMoney", deductMoney_export)
 exports("depositMoney", depositMoney_export)
@@ -1113,7 +1051,5 @@ exports("GetPlayerCharacterName", GetPlayerCharacterName_export)
 exports("GetPlayerMoney", GetPlayerMoney_export)
 
 exports("logAdminCommand", function(...) local a,b,c,d = stripSelf(...) return logAdminCommand(a,b,c,d) end)
-
-
 
 exports("getPlayerJob", getPlayerJob_export)
