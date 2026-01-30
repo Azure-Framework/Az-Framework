@@ -3,7 +3,7 @@ local RESOURCE_NAME = GetCurrentResourceName()
 Config = Config or {}
 Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
-Config.PaycheckIntervalMinutes = Config.PaycheckIntervalMinutes or 60
+Config.PaycheckIntervalMinutes = tonumber(Config.PaycheckIntervalMinutes) or 60
 
 Config.Discord.BotToken   = Config.Discord.BotToken   or GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = Config.Discord.WebhookURL or GetConvar("DISCORD_WEBHOOK_URL", "")
@@ -109,24 +109,16 @@ end
 if MySQL == nil then MySQL = {} end
 if MySQL.Async == nil then MySQL.Async = {} end
 if type(MySQL.Async.fetchAll) ~= "function" then
-  MySQL.Async.fetchAll = function(query, params, cb)
-    oxQuery(query, params, cb)
-  end
+  MySQL.Async.fetchAll = function(query, params, cb) oxQuery(query, params, cb) end
 end
 if type(MySQL.Async.execute) ~= "function" then
-  MySQL.Async.execute = function(query, params, cb)
-    oxExecute(query, params, cb)
-  end
+  MySQL.Async.execute = function(query, params, cb) oxExecute(query, params, cb) end
 end
 if type(MySQL.Async.insert) ~= "function" then
-  MySQL.Async.insert = function(query, params, cb)
-    oxInsert(query, params, cb)
-  end
+  MySQL.Async.insert = function(query, params, cb) oxInsert(query, params, cb) end
 end
 if type(MySQL.Async.scalar) ~= "function" then
-  MySQL.Async.scalar = function(query, params, cb)
-    oxScalar(query, params, cb)
-  end
+  MySQL.Async.scalar = function(query, params, cb) oxScalar(query, params, cb) end
 end
 
 local function getDiscordID(src)
@@ -145,7 +137,8 @@ local function getDiscordID(src)
 end
 
 local roleCache = {}
-local ROLE_TTL_MS = 60 * 1000
+local roleInFlight = {}
+local ROLE_TTL_MS = 5 * 60 * 1000
 
 local function getDiscordRoleList(src, cb)
   if type(cb) ~= "function" then return end
@@ -157,30 +150,46 @@ local function getDiscordRoleList(src, cb)
   if discordID == "" then return cb("no_discord_id", nil) end
 
   local now = GetGameTimer()
+
   local c = roleCache[discordID]
   if c and c.exp and c.exp > now and type(c.roles) == "table" then
     return cb(nil, c.roles)
   end
 
+  if roleInFlight[discordID] then
+    table.insert(roleInFlight[discordID].cbs, cb)
+    return
+  end
+  roleInFlight[discordID] = { cbs = { cb } }
+
   local guildId  = Config.Discord.GuildId or ""
   local botToken = Config.Discord.BotToken or ""
   if guildId == "" or botToken == "" then
-    return cb("config_error", nil)
+    local cbs = roleInFlight[discordID].cbs
+    roleInFlight[discordID] = nil
+    for _, f in ipairs(cbs) do f("config_error", nil) end
+    return
   end
 
   local url = ("https://discord.com/api/v10/guilds/%s/members/%s"):format(guildId, discordID)
 
   PerformHttpRequest(url, function(status, body)
+    local cbs = roleInFlight[discordID] and roleInFlight[discordID].cbs or {}
+    roleInFlight[discordID] = nil
+
     if status ~= 200 or not body or body == "" then
-      return cb("http_" .. tostring(status), nil)
+      for _, f in ipairs(cbs) do f("http_" .. tostring(status), nil) end
+      return
     end
+
     local ok, data = pcall(json.decode, body)
     if not ok or type(data) ~= "table" or type(data.roles) ~= "table" then
-      return cb("bad_json", nil)
+      for _, f in ipairs(cbs) do f("bad_json", nil) end
+      return
     end
 
     roleCache[discordID] = { roles = data.roles, exp = GetGameTimer() + ROLE_TTL_MS }
-    cb(nil, data.roles)
+    for _, f in ipairs(cbs) do f(nil, data.roles) end
   end, "GET", "", {
     ["Authorization"] = "Bot " .. botToken,
     ["Content-Type"]  = "application/json"
@@ -248,7 +257,6 @@ local function isAdmin_export(...)
   SetTimeout(1500, function()
     if done then return end
     done = true
-
     local s = resolveSourceId(src)
     if s and s > 0 then
       local acePerm = Config.AdminAcePermission or "adminmenu.use"
@@ -331,7 +339,6 @@ local function UpdateMoney(discordID, charID, data, cb)
 end
 
 local function ensureChecking(discordID, charID, cb)
-
   oxQuery(("SELECT id, balance FROM `%s` WHERE charid=? AND type='checking' LIMIT 1"):format(T.accts),
     { charID },
     function(rows)
@@ -364,9 +371,27 @@ local function getFullName(charID, fallbackSrc, cb)
   end)
 end
 
-local function sendMoneyToClient(playerId)
+local MONEY_PUSH_MIN_MS = 2500
+local lastMoneyPush = {}
+
+local function canPushMoney(src)
+  local now = GetGameTimer()
+  local last = lastMoneyPush[src] or 0
+  if (now - last) < MONEY_PUSH_MIN_MS then
+    return false
+  end
+  lastMoneyPush[src] = now
+  return true
+end
+
+local function sendMoneyToClient(playerId, force)
   local src = resolveSourceId(playerId)
   if not src then return end
+
+  if not force and not canPushMoney(src) then
+    if Config.Debug then dprint("sendMoneyToClient throttled for src", src) end
+    return
+  end
 
   local did = getDiscordID(src)
   local charID = activeCharacters[src]
@@ -415,7 +440,7 @@ local function addMoney_export(...)
   withMoney(src, function(dID, cID, data)
     data.cash = (tonumber(data.cash) or 0) + amount
     UpdateMoney(dID, cID, data, function()
-      sendMoneyToClient(src)
+      sendMoneyToClient(src, false)
       if amount >= 1e6 then logLargeTransaction("addMoney", src, amount, "addMoney() export") end
     end)
   end)
@@ -441,7 +466,7 @@ local function deductMoney_export(...)
   withMoney(src, function(dID, cID, data)
     data.cash = math.max(0, (tonumber(data.cash) or 0) - amount)
     UpdateMoney(dID, cID, data, function()
-      sendMoneyToClient(src)
+      sendMoneyToClient(src, false)
       if amount >= 1e6 then logLargeTransaction("deductMoney", src, amount, "deductMoney() export") end
     end)
   end)
@@ -483,7 +508,7 @@ local function depositMoney_export(...)
           data.cash = (tonumber(data.cash) or 0) - amount
           data.bank = newBalance
           UpdateMoney(dID, cID, data, function()
-            sendMoneyToClient(src)
+            sendMoneyToClient(src, false)
             if amount >= 1e6 then logLargeTransaction("depositMoney", src, amount, "depositMoney() export") end
           end)
         end
@@ -529,7 +554,7 @@ local function withdrawMoney_export(...)
           data.bank = newBalance
           data.cash = (tonumber(data.cash) or 0) + amount
           UpdateMoney(dID, cID, data, function()
-            sendMoneyToClient(src)
+            sendMoneyToClient(src, false)
             if amount >= 1e6 then logLargeTransaction("withdrawMoney", src, amount, "withdrawMoney() export") end
           end)
         end)
@@ -545,12 +570,10 @@ local function transferMoney_export(...)
   local src, target, amount
 
   if c == nil then
-
     src = resolveSourceId(nil)
     target = resolveSourceId(a)
     amount = b
   else
-
     src = resolveSourceId(a)
     target = resolveSourceId(b)
     amount = c
@@ -578,10 +601,10 @@ local function transferMoney_export(...)
       tData.cash = (tonumber(tData.cash) or 0) + amount
 
       UpdateMoney(senderID, senderChar, sData, function()
-        sendMoneyToClient(src)
+        sendMoneyToClient(src, false)
       end)
       UpdateMoney(targetID, targetChar, tData, function()
-        sendMoneyToClient(target)
+        sendMoneyToClient(target, false)
       end)
 
       if amount >= 1e6 then
@@ -619,7 +642,7 @@ local function claimDailyReward_export(...)
     data.last_daily = now
 
     UpdateMoney(dID, cID, data, function()
-      sendMoneyToClient(src)
+      sendMoneyToClient(src, false)
       if reward >= 1e6 then logLargeTransaction("claimDailyReward", src, reward, "Daily reward") end
     end)
   end)
@@ -633,12 +656,12 @@ local function GetPlayerCharacter_export(...)
   if not id then return nil end
   return activeCharacters[id] or nil
 end
+
 local function GetPlayerCharacterName_export(...)
   local a, b = stripSelf(...)
   local src, cb
 
   if type(a) == "function" and b == nil then
-
     src = resolveSourceId(nil)
     cb = a
   else
@@ -647,26 +670,20 @@ local function GetPlayerCharacterName_export(...)
   end
 
   if type(cb) ~= "function" then return end
-
-  if not src then
-    return safeCb(cb, "invalid_source", nil)
-  end
+  if not src then return safeCb(cb, "invalid_source", nil) end
 
   local did = getDiscordID(src)
   local cid = activeCharacters[src]
-
   if did == "" or not cid then
     return safeCb(cb, "no_character", nil)
   end
 
-  local ok, perr = pcall(function()
+  local ok = pcall(function()
     oxScalar(
       "SELECT name FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
       { did, cid },
       function(name)
-        if not name then
-          return safeCb(cb, "not_found", nil)
-        end
+        if not name then return safeCb(cb, "not_found", nil) end
         return safeCb(cb, nil, name)
       end
     )
@@ -784,6 +801,72 @@ local function getPlayerJob_export(...)
   return Citizen.Await(p)
 end
 
+local DEPT_REQ_MIN_MS = 4000
+local lastDeptReq = {}
+
+RegisterNetEvent("hud:requestDepartment", function()
+  local src = source
+  local now = GetGameTimer()
+  local last = lastDeptReq[src] or 0
+  if (now - last) < DEPT_REQ_MIN_MS then
+    if Config.Debug then dprint("hud:requestDepartment throttled for src", src) end
+    return
+  end
+  lastDeptReq[src] = now
+
+  local did = getDiscordID(src)
+  local cid = activeCharacters[src]
+  if did == "" or not cid then
+    TriggerClientEvent("hud:setDepartment", src, "")
+    return
+  end
+
+  oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+    { did, cid },
+    function(job)
+      TriggerClientEvent("hud:setDepartment", src, job or "")
+    end
+  )
+end)
+
+local DEPT_SET_MIN_MS = 4000
+local lastDeptSet = {}
+local lastDeptValue = {}
+
+RegisterNetEvent("az-fw-departments:setActive", function(job)
+  local src = source
+  local now = GetGameTimer()
+
+  job = tostring(job or ""):lower()
+
+  local last = lastDeptSet[src] or 0
+  if (now - last) < DEPT_SET_MIN_MS then
+    if Config.Debug then dprint("setActive throttled src", src, "job", job) end
+    return
+  end
+
+  if lastDeptValue[src] == job then
+    if Config.Debug then dprint("setActive ignored (same job) src", src, "job", job) end
+    return
+  end
+
+  local did = getDiscordID(src)
+  local cid = activeCharacters[src]
+  if did == "" or not cid then return end
+
+  lastDeptSet[src] = now
+  lastDeptValue[src] = job
+
+  oxExecute(
+    "UPDATE user_characters SET active_department=? WHERE discordid=? AND charid=?",
+    { job, did, cid },
+    function()
+
+      TriggerClientEvent("hud:setDepartment", src, job)
+    end
+  )
+end)
+
 RegisterCommand("addmoney", function(src, args)
   if src == 0 then return end
   isAdmin_export(src, function(ok)
@@ -869,9 +952,11 @@ RegisterCommand("selectchar", function(src, args)
 
     activeCharacters[src] = chosen
     activeCharByDiscord[did] = chosen
-    sendMoneyToClient(src)
+
+    sendMoneyToClient(src, true)
 
     oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, chosen }, function(active_dept)
+      lastDeptValue[src] = tostring(active_dept or ""):lower()
       TriggerClientEvent("hud:setDepartment", src, active_dept or "")
     end)
 
@@ -903,9 +988,12 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
         function()
           activeCharacters[src] = charID
           activeCharByDiscord[did] = charID
+          lastDeptValue[src] = ""
+
           TriggerClientEvent("az-fw-money:characterRegistered", src, charID)
-          sendMoneyToClient(src)
+          sendMoneyToClient(src, true)
           TriggerClientEvent("hud:setDepartment", src, "")
+
           TriggerClientEvent("chat:addMessage", src, { args={"^2SYSTEM", ("Character '%s' registered (ID %s)."):format(trim(fullName), charID)} })
         end
       )
@@ -914,7 +1002,8 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
 end)
 
 RegisterNetEvent("az-fw-money:requestMoney", function()
-  sendMoneyToClient(source)
+
+  sendMoneyToClient(source, false)
 end)
 
 RegisterNetEvent("az-fw-money:selectCharacter", function(charID)
@@ -926,9 +1015,11 @@ RegisterNetEvent("az-fw-money:selectCharacter", function(charID)
     if rows and #rows > 0 then
       activeCharacters[src] = charID
       activeCharByDiscord[did] = charID
-      sendMoneyToClient(src)
+
+      sendMoneyToClient(src, true)
 
       oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, charID }, function(active_dept)
+        lastDeptValue[src] = tostring(active_dept or ""):lower()
         TriggerClientEvent("hud:setDepartment", src, active_dept or "")
       end)
 
@@ -945,10 +1036,16 @@ end)
 AddEventHandler("playerDropped", function()
   local src = source
   local did = getDiscordID(src)
+
   if did ~= "" and activeCharByDiscord[did] == activeCharacters[src] then
     activeCharByDiscord[did] = nil
   end
+
   activeCharacters[src] = nil
+  lastMoneyPush[src] = nil
+  lastDeptReq[src] = nil
+  lastDeptSet[src] = nil
+  lastDeptValue[src] = nil
 end)
 
 CreateThread(function()
@@ -1041,7 +1138,7 @@ exports("claimDailyReward", claimDailyReward_export)
 
 exports("GetMoney", GetMoney)
 exports("UpdateMoney", UpdateMoney)
-exports("sendMoneyToClient", function(...) local src = stripSelf(...) return sendMoneyToClient(src) end)
+exports("sendMoneyToClient", function(...) local src = stripSelf(...) return sendMoneyToClient(src, true) end)
 
 exports("getDiscordID", function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end)
 exports("isAdmin", isAdmin_export)

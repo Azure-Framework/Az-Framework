@@ -2,9 +2,9 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-author 'Azure'
+author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '2.1'
+version '2.3.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -57,4 +57,3 @@ exports {
     "GetPlayerMoney",
     "logAdminCommand"
 }
-

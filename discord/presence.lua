@@ -26,7 +26,6 @@ local function invokeNativeSafe(hash, ...)
   return false, tostring(res)
 end
 
-
 local function nativeAvailable(name)
   return type(_G[name]) == "function"
 end
@@ -35,14 +34,12 @@ local HASH_SET_DISCORD_APP_ID = 0x6A02254D
 local HASH_SET_RICH_PRESENCE = 0x7BDCBD45
 local HASH_SET_DISCORD_RICH_PRESENCE_ASSET = 0x53DFD530
 
-
 local function trySetAppId(id)
   if not id or id == "" then
     dbg("No DISCORD_APP_ID provided; skipping SetDiscordAppId.")
     return false
   end
 
-  
   if nativeAvailable("SetDiscordAppId") then
     local ok, err = pcall(SetDiscordAppId, tostring(id))
     if ok then
@@ -53,7 +50,6 @@ local function trySetAppId(id)
     end
   end
 
-  
   local succ, info = invokeNativeSafe(HASH_SET_DISCORD_APP_ID, tostring(id))
   if succ then
     dbg("SetDiscordAppId via InvokeNative called (%s)", tostring(id))
@@ -70,21 +66,18 @@ local function trySetPresence(str)
     return false
   end
 
-  
   if nativeAvailable("SetDiscordRichPresence") then
     local ok, err = pcall(SetDiscordRichPresence, tostring(str))
     if ok then dbg("SetDiscordRichPresence called."); return true
     else dbg("SetDiscordRichPresence error:", tostring(err)) end
   end
 
-  
   if nativeAvailable("SetRichPresence") then
     local ok, err = pcall(SetRichPresence, tostring(str))
     if ok then dbg("SetRichPresence called."); return true
     else dbg("SetRichPresence error:", tostring(err)) end
   end
 
-  
   local succ, info = invokeNativeSafe(HASH_SET_RICH_PRESENCE, tostring(str))
   if succ then dbg("SetRichPresence via InvokeNative called."); return true end
 
@@ -104,7 +97,6 @@ local function trySetPresenceAsset(assetName)
     else dbg("SetDiscordRichPresenceAsset error:", tostring(err)) end
   end
 
-  
   local succ, info = invokeNativeSafe(HASH_SET_DISCORD_RICH_PRESENCE_ASSET, tostring(assetName))
   if succ then dbg("SetDiscordRichPresenceAsset via InvokeNative called: " .. tostring(assetName)); return true end
 
@@ -122,7 +114,7 @@ local function trySetPresenceAssetSmall(assetName)
     if ok then dbg("SetDiscordRichPresenceAssetSmall called: " .. tostring(assetName)); return true
     else dbg("SetDiscordRichPresenceAssetSmall error:", tostring(err)) end
   end
-  
+
   dbg("SetDiscordRichPresenceAssetSmall native not exposed; skipping.")
   return false
 end
@@ -150,9 +142,6 @@ local function trySetPresenceAssetText(text)
   dbg("SetDiscordRichPresenceAssetText native not exposed; skipping.")
   return false
 end
-
-
-
 
 local function safeGetCoords()
   local ok, x, y, z = pcall(function()
@@ -189,8 +178,6 @@ local function getStreetAndZone()
   return street, label
 end
 
-
-
 local function getMovementAndVehicleInfo()
   local ped = PlayerPedId()
   if not ped or ped == 0 then return "Idle", false, 0, false end
@@ -198,7 +185,6 @@ local function getMovementAndVehicleInfo()
   if IsPedInAnyVehicle(ped, false) then
     local veh = GetVehiclePedIsIn(ped, false)
 
-    
     local speedMs = 0
     do
       local ok, s = pcall(GetEntitySpeed, veh)
@@ -206,14 +192,12 @@ local function getMovementAndVehicleInfo()
     end
     local speedMph = math.floor(speedMs * 2.236936 + 0.5)
 
-    
     local siren = false
     do
       local ok, v = pcall(IsVehicleSirenOn, veh)
       if ok and type(v) == "boolean" then siren = v end
     end
 
-    
     local emergencyLights = false
     do
       local ok, lightsState = pcall(GetVehicleLightsState, veh)
@@ -222,7 +206,6 @@ local function getMovementAndVehicleInfo()
       end
     end
 
-    
     local isEmergencyClass = false
     do
       local ok, cls = pcall(GetVehicleClass, veh)
@@ -231,7 +214,6 @@ local function getMovementAndVehicleInfo()
       end
     end
 
-    
     local lightsOn = false
     if isEmergencyClass and (siren or emergencyLights) then
       lightsOn = true
@@ -239,7 +221,7 @@ local function getMovementAndVehicleInfo()
 
     return "Driving", true, speedMph, lightsOn
   else
-    
+
     local speedMs = 0
     do
       local ok, s = pcall(GetEntitySpeed, ped)
@@ -252,7 +234,6 @@ local function getMovementAndVehicleInfo()
     return state, false, 0, false
   end
 end
-
 
 local _lastPresence = nil
 local _externalPresence = nil
@@ -285,7 +266,6 @@ local function buildPresence()
   if #combined > 120 then combined = combined:sub(1, 120) end
   return combined
 end
-
 
 function RefreshDiscordPresence()
   local ok, text = pcall(buildPresence)
@@ -332,7 +312,6 @@ exports("SetDiscordJob", SetDiscordJob)
 RegisterNetEvent("presence:setJob")
 AddEventHandler("presence:setJob", function(jobLabel) SetDiscordJob(jobLabel) end)
 
-
 local function trySetupAssets()
   if not Config then return end
   if Config.ASSET_LARGE then trySetPresenceAsset(Config.ASSET_LARGE) end
@@ -341,16 +320,12 @@ local function trySetupAssets()
   if Config.ASSET_TEXT then trySetPresenceAssetText(Config.ASSET_TEXT) end
 end
 
-
 RegisterCommand("presence_status", function()
   local ok, text = pcall(buildPresence)
   if ok and text then print("[presence] current presence: " .. tostring(text)) else print("[presence] buildPresence failed or returned nil") end
 end, false)
 
 RegisterCommand("presence_forceupdate", function() RefreshDiscordPresence() end, false)
-
-
-
 
 Citizen.CreateThread(function()
   if type(PlayerPedId) ~= "function" then
@@ -361,11 +336,9 @@ Citizen.CreateThread(function()
   if type(Config) == "table" and Config.DEBUG == false then DEBUG = false end
   dbg("Presence script starting. DEBUG=" .. tostring(DEBUG))
 
-  
   local appOk = trySetAppId(Config and Config.DISCORD_APP_ID)
   if not appOk then dbg("App ID not set via native; presence may not display without a valid app id.") end
 
-  
   trySetupAssets()
 
   local interval = (Config and tonumber(Config.UPDATE_INTERVAL)) or 5

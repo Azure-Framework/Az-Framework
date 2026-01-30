@@ -18,7 +18,7 @@ if Config.Parking then
         end
         return nil
     end
-   
+
     local function scalarOrFirst(v)
         if type(v) == 'table' then
             return v[1] or 0
@@ -26,8 +26,8 @@ if Config.Parking then
         return v or 0
     end
 
-    local parkedWorldByNet = {} 
-    local parkedWorldByKey = {} 
+    local parkedWorldByNet = {}
+    local parkedWorldByKey = {}
 
     local function makeKey(discordid, plate)
         return tostring(discordid or '') .. "::" .. tostring(plate or '')
@@ -66,6 +66,7 @@ if Config.Parking then
 
         parkedWorldByNet[netId] = nil
     end
+
     RegisterNetEvent('raptor:registerParkedWorldVehicle', function(netId, plate)
         local src = source
         local discordID = getDiscordID(src)
@@ -91,7 +92,6 @@ if Config.Parking then
         removeParkedWorld(netId)
     end)
 
-    
     exports('RegisterParkedWorldVehicle', function(discordID, netId, plate)
         addParkedWorld(netId, discordID, plate)
     end)
@@ -99,7 +99,7 @@ if Config.Parking then
     exports('UnregisterParkedWorldVehicle', function(netId)
         removeParkedWorld(netId)
     end)
-    
+
     CreateThread(function()
         while true do
             Wait(5000)
@@ -108,7 +108,6 @@ if Config.Parking then
                 goto continue
             end
 
-            
             MySQL.Async.fetchAll([[
                 SELECT discordid, plate
                 FROM user_vehicles
@@ -128,14 +127,11 @@ if Config.Parking then
                     checked = checked + 1
                     local key = makeKey(info.discordid, info.plate)
 
-                    
                     if not dbSet[key] then
                         debugPrint(("DB missing -> deleting parked-world copy netId=%s key=%s"):format(netId, key))
 
-                        
                         TriggerClientEvent('raptor:deleteNetVehicle', -1, netId)
 
-                        
                         removeParkedWorld(netId)
                         deleted = deleted + 1
                     end
@@ -187,7 +183,7 @@ if Config.Parking then
             end
         end)
     end
-    
+
     RegisterNetEvent('raptor:toggleParkVehicle')
     AddEventHandler('raptor:toggleParkVehicle', function(props)
         local src = source
@@ -217,7 +213,7 @@ if Config.Parking then
             ['@plate']     = plate
         }, function(rows)
             if #rows == 0 then
-                
+
                 local azParking = props.azParking or {}
                 local px, py, pz, ph = azParking.x or 0.0, azParking.y or 0.0, azParking.z or 0.0, azParking.h or 0.0
 
@@ -269,7 +265,7 @@ if Config.Parking then
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = true })
                 end)
             else
-                
+
                 debugPrint(('UNPARK -> DELETE %s for %s'):format(plate, discordID))
                 MySQL.Async.execute([[
                     DELETE FROM user_vehicles WHERE discordid=@discordid AND plate=@plate
@@ -279,7 +275,6 @@ if Config.Parking then
                 }, function()
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = false })
 
-                    
                     local key = makeKey(discordID, plate)
                     local bucket = parkedWorldByKey[key]
                     if bucket then
@@ -309,7 +304,7 @@ if Config.Parking then
             TriggerClientEvent('raptor:vehiclesLoaded', src, results)
         end)
     end)
-    
+
     local function dbgCaller(prefix, ...)
         local inv = GetInvokingResource() or "UNKNOWN"
         local argStrs = {}
