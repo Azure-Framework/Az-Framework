@@ -1,3 +1,4 @@
+// html/config.js
 // Debuggable config for the HUD. If this file loads, you'll see the console message below in F8.
 console.log('[HUD][config.js] loaded');
 

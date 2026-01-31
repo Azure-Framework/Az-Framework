@@ -29,10 +29,10 @@ end
 local function nativeAvailable(name)
   return type(_G[name]) == "function"
 end
-
 local HASH_SET_DISCORD_APP_ID = 0x6A02254D
 local HASH_SET_RICH_PRESENCE = 0x7BDCBD45
 local HASH_SET_DISCORD_RICH_PRESENCE_ASSET = 0x53DFD530
+
 
 local function trySetAppId(id)
   if not id or id == "" then
@@ -178,6 +178,8 @@ local function getStreetAndZone()
   return street, label
 end
 
+
+
 local function getMovementAndVehicleInfo()
   local ped = PlayerPedId()
   if not ped or ped == 0 then return "Idle", false, 0, false end
@@ -197,6 +199,7 @@ local function getMovementAndVehicleInfo()
       local ok, v = pcall(IsVehicleSirenOn, veh)
       if ok and type(v) == "boolean" then siren = v end
     end
+
 
     local emergencyLights = false
     do
@@ -336,9 +339,11 @@ Citizen.CreateThread(function()
   if type(Config) == "table" and Config.DEBUG == false then DEBUG = false end
   dbg("Presence script starting. DEBUG=" .. tostring(DEBUG))
 
+  -- Try to set App ID (named native or hash fallback)
   local appOk = trySetAppId(Config and Config.DISCORD_APP_ID)
   if not appOk then dbg("App ID not set via native; presence may not display without a valid app id.") end
 
+  -- Try optional assets (will no-op gracefully if natives not exposed)
   trySetupAssets()
 
   local interval = (Config and tonumber(Config.UPDATE_INTERVAL)) or 5

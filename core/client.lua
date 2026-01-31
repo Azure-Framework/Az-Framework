@@ -23,6 +23,7 @@ local function trim(s)
   return (s and s:gsub("^%s*(.-)%s*$", "%1") or "")
 end
 
+-- small helper to register network events + handler in one line (keeps behavior same)
 local function onNet(eventName, handler)
   RegisterNetEvent(eventName)
   AddEventHandler(eventName, handler)
@@ -59,6 +60,7 @@ else
   registerNuiCallbacks()
 end
 
+-- ==== Net events (HUD updates / job / cash) ====
 onNet("updateCashHUD", function(cash, bank, playerName)
   sendNui({ action = "updateCash", cash = cash, bank = bank, playerName = playerName })
 end)
@@ -89,6 +91,7 @@ local CHAR_MAIN = "char_main_menu"
 local CHAR_LIST = "char_list_menu"
 local EVENT_SHOW_LIST = "az-fw-money:openListMenu"
 
+-- Pre-register the main context (structure kept the same)
 lib.registerContext({
   id = CHAR_MAIN,
   title = "📝 Character Menu",
@@ -212,7 +215,6 @@ end)
 
 local function refreshHUD()
   safePrint("refreshHUD export called; requesting money and department from server.")
-
   TriggerServerEvent("az-fw-money:requestMoney")
   TriggerServerEvent("hud:requestDepartment")
 end

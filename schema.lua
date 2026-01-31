@@ -1,5 +1,3 @@
-// File: decommented-pasted.lua
-
 Config = Config or {}
 
 local AZ_VERBOSE = Config.AzSchemaVerbose == true
@@ -58,6 +56,7 @@ local function normalizeDef(s)
     s = s:gsub("%s+", " ")
     return s:lower()
 end
+
 
 local function quoteDefault(val)
     if val == nil then return nil end
@@ -326,9 +325,9 @@ local function ensureSchemaFromCreate(sql)
 end
 
 local function printFinalReport(schemaSqlList)
-    print("
+    print("--------------------------------------------------")
     print("[Az-Schema] Per-table status:")
-    print("
+    print("--------------------------------------------------")
 
     local created, altered, unchanged, errors = 0, 0, 0, 0
 
@@ -346,7 +345,7 @@ local function printFinalReport(schemaSqlList)
         elseif tr.status == "error" then errors = errors + 1 end
     end
 
-    print("
+    print("--------------------------------------------------")
     print(("[Az-Schema] Summary: created=%d altered=%d unchanged=%d errors=%d"):format(created, altered, unchanged, errors))
 
     if errors == 0 then
@@ -356,20 +355,20 @@ local function printFinalReport(schemaSqlList)
     end
 
     if AZ_VERBOSE then
-        print("
+        print("--------------------------------------------------")
         print("[Az-Schema] Verbose details:")
         for _, sql in ipairs(schemaSqlList) do
             local parsed = parseCreate(sql)
             local tbl = parsed and parsed.name or "<unknown>"
             local tr = tableResults[tbl] or { msgs = {} }
-            print(("
+            print(("-- %s --"):format(tbl))
             for _, m in ipairs(tr.msgs or {}) do
                 if AZ_SHOW_OK or not m:match("^%[info%] Column '.-' OK%.") then
                     print("   " .. m)
                 end
             end
         end
-        print("
+        print("--------------------------------------------------")
     end
 end
 
@@ -558,6 +557,9 @@ CREATE TABLE IF NOT EXISTS `azfw_last_locations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
+-- =========================
+-- Blips / Businesses / Guides
+-- =========================
 [[
 CREATE TABLE IF NOT EXISTS `az_blips` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -1150,7 +1152,6 @@ CREATE TABLE IF NOT EXISTS `user_vehicle_claims` (
   KEY `idx_discord` (`discordid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
-
 [[
 CREATE TABLE IF NOT EXISTS `mdt_citizens` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -1346,6 +1347,7 @@ CREATE TABLE IF NOT EXISTS `mdt_warrants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 }
+
 
 local function ensureSchemas()
     tableResults = {}

@@ -68,6 +68,7 @@ if Config.Parking then
         EndTextCommandDisplayText(_x, _y)
     end
 
+    -- Draw owner tag above the vehicle
     local function drawOwnerTagForVehicle(vehicle, ownerName)
         if not vehicle or not DoesEntityExist(vehicle) then return end
         ownerName = ownerName or 'Unknown Owner'
@@ -82,6 +83,7 @@ if Config.Parking then
         DrawText3D(coords.x, coords.y, coords.z, label)
     end
 
+    -- Build a full properties table from ox_lib and attach parking coords/heading
     local function buildParkProps(veh)
         if not veh or veh == 0 then return nil end
 
@@ -95,9 +97,11 @@ if Config.Parking then
             h = GetEntityHeading(veh)
         }
 
+        -- Ensure plate/model are always present in props we send to the server
         props.plate = GetVehicleNumberPlateText(veh) or props.plate or ''
         props.model = props.model or GetEntityModel(veh)
 
+        -- Store owner name so we can show it next time the vehicle is loaded
         props.ownerName = props.ownerName or GetPlayerName(PlayerId())
 
         debugPrint(('buildParkProps %s model=%s owner=%s'):format(
@@ -109,6 +113,7 @@ if Config.Parking then
         return props
     end
 
+    -- Make sure we don't end up with multiple vehicles with the same plate nearby.
     local function cleanupNearbyPlateClones(plate, keepVeh)
         if not plate or plate == '' or not keepVeh or keepVeh == 0 then return end
 
@@ -130,6 +135,7 @@ if Config.Parking then
         end
     end
 
+    -- ✅ helper to register a spawned parked vehicle to server cleanup tracker
     local function registerParkedWorldVehicle(veh, plate)
         if not veh or veh == 0 or not DoesEntityExist(veh) then return end
         plate = tostring(plate or GetVehicleNumberPlateText(veh) or '')
@@ -138,6 +144,7 @@ if Config.Parking then
         local netId = NetworkGetNetworkIdFromEntity(veh)
         if not netId or netId <= 0 then return end
 
+        -- Make sure it is networked
         SetNetworkIdExistsOnAllMachines(netId, true)
 
         debugPrint(('Register parked-world netId=%s plate=%s'):format(netId, plate))
@@ -153,6 +160,7 @@ if Config.Parking then
         TriggerServerEvent('raptor:unregisterParkedWorldVehicle', netId)
     end
 
+    -- Handle parking/unparking keybind (SHIFT + F: 21 + 23)
     CreateThread(function()
         while true do
             Wait(0)
@@ -160,7 +168,7 @@ if Config.Parking then
 
             if IsControlPressed(0, 21) and IsControlJustReleased(0, 23) then
                 if IsPedInAnyVehicle(ped, false) then
-
+                    -- PARK the current vehicle
                     local veh = GetVehiclePedIsIn(ped, false)
                     local props = buildParkProps(veh)
                     if props and props.plate ~= '' then
@@ -170,7 +178,7 @@ if Config.Parking then
                         debugPrint('Failed to build vehicle props for parking')
                     end
                 else
-
+                    -- UNPARK nearest parked vehicle within 5m
                     local px, py, pz = table.unpack(GetEntityCoords(ped))
                     local minDist, found = 5.0, nil
 
@@ -188,6 +196,7 @@ if Config.Parking then
                         debugPrint(('Requesting UNPARK for %s'):format(found.plate))
                         TriggerServerEvent('raptor:toggleParkVehicle', { plate = found.plate })
 
+                        -- ✅ also unregister this parked-world entity immediately
                         if found.netId then
                             unregisterParkedWorldVehicle(found.netId)
                         end
@@ -199,12 +208,14 @@ if Config.Parking then
         end
     end)
 
+    -- Load saved vehicles on resource start
     AddEventHandler('onClientResourceStart', function(resName)
         if GetCurrentResourceName() ~= resName then return end
         debugPrint('Resource started, loading saved vehicles')
         TriggerServerEvent('raptor:loadVehicles')
     end)
 
+    -- Spawn and apply ALL properties for loaded vehicles
     RegisterNetEvent('raptor:vehiclesLoaded')
     AddEventHandler('raptor:vehiclesLoaded', function(vehicles)
         debugPrint(('Loading %d vehicle(s) from DB'):format(#vehicles))
@@ -239,19 +250,21 @@ if Config.Parking then
 
             local veh = CreateVehicle(modelHash, px, py, pz + 0.5, ph, true, false)
             if veh and DoesEntityExist(veh) then
-
+                -- Apply ALL customization using ox_lib
                 local ok = lib.setVehicleProperties(veh, props)
                 debugPrint(('setVehicleProperties for %s -> %s'):format(
                     tostring(v.plate),
                     ok and 'success' or 'failed (not owner?)')
                 )
 
+                -- Final positioning / lock / freeze
                 SetEntityCoordsNoOffset(veh, px, py, pz, false, false, false)
                 SetEntityHeading(veh, ph)
                 FreezeEntityPosition(veh, true)
                 SetVehicleOnGroundProperly(veh)
                 SetVehicleDoorsLocked(veh, 2)
 
+                -- ✅ Register parked-world copy so server can delete it when DB row disappears
                 local plate = v.plate or props.plate or ''
                 local netId = registerParkedWorldVehicle(veh, plate)
 
@@ -279,6 +292,7 @@ if Config.Parking then
         end
     end)
 
+
     RegisterNetEvent('raptor:vehicleParkToggled')
     AddEventHandler('raptor:vehicleParkToggled', function(data)
         local plate = data.plate
@@ -286,7 +300,7 @@ if Config.Parking then
         local ped   = PlayerPedId()
 
         if park and IsPedInAnyVehicle(ped, false) then
-
+            -- Just parked THIS vehicle
             local veh = GetVehiclePedIsIn(ped, false)
             SetVehicleDoorsLocked(veh, 2)
             FreezeEntityPosition(veh, true)
@@ -306,16 +320,16 @@ if Config.Parking then
 
             debugPrint('vehicleParkToggled -> PARK for ' .. plate)
         elseif not park then
-
+            -- Just unparked: unlock + unfreeze and ensure no clones
             for i, entry in ipairs(parkedVehicles) do
                 if entry.plate == plate and entry.handle and DoesEntityExist(entry.handle) then
                     SetVehicleDoorsLocked(entry.handle, 1)
                     FreezeEntityPosition(entry.handle, false)
-
                     if entry.netId then
                         unregisterParkedWorldVehicle(entry.netId)
                     end
 
+                    -- make sure we don't have a second locked clone with same plate
                     cleanupNearbyPlateClones(plate, entry.handle)
 
                     TriggerEvent('chat:addMessage', {
@@ -329,7 +343,6 @@ if Config.Parking then
             end
         end
     end)
-
     CreateThread(function()
         while true do
             Wait(0)

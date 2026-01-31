@@ -19,6 +19,7 @@ if Config.Parking then
         return nil
     end
 
+    -- helper to safely turn number[] into a single number for old columns
     local function scalarOrFirst(v)
         if type(v) == 'table' then
             return v[1] or 0
@@ -26,8 +27,8 @@ if Config.Parking then
         return v or 0
     end
 
-    local parkedWorldByNet = {}
-    local parkedWorldByKey = {}
+    local parkedWorldByNet = {} -- [netId] = { discordid=string, plate=string, added=os.time() }
+    local parkedWorldByKey = {} -- [discordid.."::"..plate] = { [netId]=true, ... }
 
     local function makeKey(discordid, plate)
         return tostring(discordid or '') .. "::" .. tostring(plate or '')
@@ -127,11 +128,14 @@ if Config.Parking then
                     checked = checked + 1
                     local key = makeKey(info.discordid, info.plate)
 
+                    -- If row no longer exists, it is "unparked" -> delete parked-world copy
                     if not dbSet[key] then
                         debugPrint(("DB missing -> deleting parked-world copy netId=%s key=%s"):format(netId, key))
 
+                        -- Tell ALL clients to delete this network entity (whoever has control will delete)
                         TriggerClientEvent('raptor:deleteNetVehicle', -1, netId)
 
+                        -- Remove from registry so we stop trying
                         removeParkedWorld(netId)
                         deleted = deleted + 1
                     end
@@ -145,7 +149,6 @@ if Config.Parking then
             ::continue::
         end
     end)
-
     local function fetchVehiclesForDiscord(discordID, cb)
         if not discordID or discordID == '' then
             if cb then
@@ -183,7 +186,6 @@ if Config.Parking then
             end
         end)
     end
-
     RegisterNetEvent('raptor:toggleParkVehicle')
     AddEventHandler('raptor:toggleParkVehicle', function(props)
         local src = source
@@ -213,7 +215,7 @@ if Config.Parking then
             ['@plate']     = plate
         }, function(rows)
             if #rows == 0 then
-
+                -- PARK -> INSERT / UPDATE
                 local azParking = props.azParking or {}
                 local px, py, pz, ph = azParking.x or 0.0, azParking.y or 0.0, azParking.z or 0.0, azParking.h or 0.0
 
@@ -265,7 +267,7 @@ if Config.Parking then
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = true })
                 end)
             else
-
+                -- UNPARK -> DELETE
                 debugPrint(('UNPARK -> DELETE %s for %s'):format(plate, discordID))
                 MySQL.Async.execute([[
                     DELETE FROM user_vehicles WHERE discordid=@discordid AND plate=@plate
@@ -275,6 +277,7 @@ if Config.Parking then
                 }, function()
                     TriggerClientEvent('raptor:vehicleParkToggled', src, { plate = plate, park = false })
 
+                    -- Immediately nuke any parked-world copies we already know about for this key
                     local key = makeKey(discordID, plate)
                     local bucket = parkedWorldByKey[key]
                     if bucket then

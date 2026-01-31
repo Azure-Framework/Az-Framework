@@ -5,23 +5,27 @@ Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
 Config.PaycheckIntervalMinutes = tonumber(Config.PaycheckIntervalMinutes) or 60
 
+-- Discord config can come from convars
 Config.Discord.BotToken   = Config.Discord.BotToken   or GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = Config.Discord.WebhookURL or GetConvar("DISCORD_WEBHOOK_URL", "")
 Config.Discord.GuildId    = Config.Discord.GuildId    or GetConvar("DISCORD_GUILD_ID", "")
 
+-- Admin config
 Config.AdminRoleId        = tostring(Config.AdminRoleId or GetConvar("AZFW_ADMIN_ROLE_ID", "") or "")
 Config.AdminAcePermission = Config.AdminAcePermission or "adminmenu.use"
 
+-- Economy tables
 local T = {
   money = "econ_user_money",
   accts = "econ_accounts",
   dept  = "econ_departments",
 }
 
-local SAVINGS_APR = 0.05
+local SAVINGS_APR = 0.05 -- kept (not used here)
 
-local activeCharacters = {}
-local activeCharByDiscord = {}
+-- Active characters mapped by server source
+local activeCharacters = {}        -- [src] = charid
+local activeCharByDiscord = {}     -- [discordid] = last active charid
 
 local function dprint(...)
   if not Config.Debug then return end
@@ -136,9 +140,9 @@ local function getDiscordID(src)
   return ""
 end
 
-local roleCache = {}
-local roleInFlight = {}
-local ROLE_TTL_MS = 5 * 60 * 1000
+local roleCache = {}     -- [discordId] = { roles=table, exp=ms }
+local roleInFlight = {}  -- [discordId] = { cbs={...} }
+local ROLE_TTL_MS = 5 * 60 * 1000 -- (was 60s) reduce HTTP spam hard
 
 local function getDiscordRoleList(src, cb)
   if type(cb) ~= "function" then return end
@@ -151,11 +155,13 @@ local function getDiscordRoleList(src, cb)
 
   local now = GetGameTimer()
 
+  -- cache hit
   local c = roleCache[discordID]
   if c and c.exp and c.exp > now and type(c.roles) == "table" then
     return cb(nil, c.roles)
   end
 
+  -- coalesce concurrent requests for same discordID
   if roleInFlight[discordID] then
     table.insert(roleInFlight[discordID].cbs, cb)
     return
@@ -206,12 +212,14 @@ local function isAdmin_impl(playerSrc, cb)
     return safeCb(cb, true, "console")
   end
 
+  -- Fast ACE fallback (always checked)
   local acePerm = Config.AdminAcePermission or "adminmenu.use"
   local aceAllowed = IsPlayerAceAllowed(playerSrc, acePerm)
   if aceAllowed then
     return safeCb(cb, true, "ace")
   end
 
+  -- If no role configured, deny (but ACE already handled)
   local wanted = tostring(Config.AdminRoleId or "")
   if wanted == "" or wanted == "nil" then
     return safeCb(cb, false, "no_role_config")
@@ -233,6 +241,7 @@ end
 local function isAdmin_export(...)
   local src, cb = stripSelf(...)
 
+  -- pattern: isAdmin(src, cb) OR isAdmin(cb) (implicit) OR isAdmin(src) OR isAdmin() (implicit)
   if type(src) == "function" then
     cb = src
     src = resolveSourceId(nil)
@@ -246,6 +255,7 @@ local function isAdmin_export(...)
     return isAdmin_impl(src, cb)
   end
 
+  -- sync return (await with timeout)
   local p = promise.new()
   local done = false
   isAdmin_impl(src, function(ok)
@@ -308,6 +318,7 @@ local function GetMoney(discordID, charID, callback)
         return callback(rows[1])
       end
 
+      -- create missing row
       oxScalar("SELECT name FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
         { discordID, charID },
         function(fullName)
@@ -346,6 +357,7 @@ local function ensureChecking(discordID, charID, cb)
         return cb(rows[1].id, tonumber(rows[1].balance) or 0)
       end
 
+      -- create checking + savings
       oxInsert(("INSERT INTO `%s` (discordid,charid,type,balance) VALUES (?,?,?,?),(?,?,?,?)"):format(T.accts),
         { discordID, charID, "checking", 0, discordID, charID, "savings", 0 },
         function()
@@ -372,7 +384,7 @@ local function getFullName(charID, fallbackSrc, cb)
 end
 
 local MONEY_PUSH_MIN_MS = 2500
-local lastMoneyPush = {}
+local lastMoneyPush = {} -- [src]=ms
 
 local function canPushMoney(src)
   local now = GetGameTimer()
@@ -779,6 +791,7 @@ local function GetPlayerJob_async(src, cb)
   )
 end
 
+-- Exported sync getter: exports['Az-Framework']:getPlayerJob(src)
 local function getPlayerJob_export(...)
   local src = stripSelf(...)
   src = resolveSourceId(src)
@@ -802,7 +815,7 @@ local function getPlayerJob_export(...)
 end
 
 local DEPT_REQ_MIN_MS = 4000
-local lastDeptReq = {}
+local lastDeptReq = {} -- [src]=ms
 
 RegisterNetEvent("hud:requestDepartment", function()
   local src = source
@@ -830,8 +843,8 @@ RegisterNetEvent("hud:requestDepartment", function()
 end)
 
 local DEPT_SET_MIN_MS = 4000
-local lastDeptSet = {}
-local lastDeptValue = {}
+local lastDeptSet = {}      -- [src]=ms
+local lastDeptValue = {}    -- [src]=job
 
 RegisterNetEvent("az-fw-departments:setActive", function(job)
   local src = source
@@ -839,12 +852,14 @@ RegisterNetEvent("az-fw-departments:setActive", function(job)
 
   job = tostring(job or ""):lower()
 
+  -- throttle spam (this is what stops “every 10 mins” / loop)
   local last = lastDeptSet[src] or 0
   if (now - last) < DEPT_SET_MIN_MS then
     if Config.Debug then dprint("setActive throttled src", src, "job", job) end
     return
   end
 
+  -- ignore same value (prevents echo loops)
   if lastDeptValue[src] == job then
     if Config.Debug then dprint("setActive ignored (same job) src", src, "job", job) end
     return
@@ -861,7 +876,7 @@ RegisterNetEvent("az-fw-departments:setActive", function(job)
     "UPDATE user_characters SET active_department=? WHERE discordid=? AND charid=?",
     { job, did, cid },
     function()
-
+      -- server authoritative notify to client (no bounce)
       TriggerClientEvent("hud:setDepartment", src, job)
     end
   )
@@ -953,6 +968,7 @@ RegisterCommand("selectchar", function(src, args)
     activeCharacters[src] = chosen
     activeCharByDiscord[did] = chosen
 
+    -- push money + dept (FORCED once on select)
     sendMoneyToClient(src, true)
 
     oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, chosen }, function(active_dept)
@@ -1002,7 +1018,6 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
 end)
 
 RegisterNetEvent("az-fw-money:requestMoney", function()
-
   sendMoneyToClient(source, false)
 end)
 
@@ -1148,5 +1163,6 @@ exports("GetPlayerCharacterName", GetPlayerCharacterName_export)
 exports("GetPlayerMoney", GetPlayerMoney_export)
 
 exports("logAdminCommand", function(...) local a,b,c,d = stripSelf(...) return logAdminCommand(a,b,c,d) end)
+
 
 exports("getPlayerJob", getPlayerJob_export)

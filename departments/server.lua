@@ -23,11 +23,12 @@ local function toCharId(ret)
 end
 
 local function getDiscordUserId(src)
-
+    -- Prefer framework export (consistent with the rest of your stack)
     local did = exports["Az-Framework"]:getDiscordID(src)
     did = tostring(did or "")
     if did ~= "" and did ~= "nil" then return did end
 
+    -- Fallback to identifier scan
     for _, id in ipairs(GetPlayerIdentifiers(src)) do
         local discordId = id:match('^discord:(%d+)$')
         if discordId then return discordId end
@@ -63,7 +64,6 @@ local function fetchDiscordRoles(discordId, cb)
         ['Content-Type']  = 'application/json'
     })
 end
-
 local deptSchemaCache = nil
 
 local function detectDeptSchema(cb)
@@ -127,7 +127,6 @@ local function addUnique(list, seen, v)
         list[#list+1] = v
     end
 end
-
 RegisterServerEvent('az-fw-departments:requestDeptList')
 AddEventHandler('az-fw-departments:requestDeptList', function()
     local src = source
@@ -139,13 +138,14 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
         :format(src, tostring(discordUserId), tostring(charId)))
 
     detectDeptSchema(function(schema)
-
+        -- If dept column missing we can't do anything
         if not schema or not schema.deptCol then
             dprint("[Debug] requestDeptList: econ_departments missing department column. Returning empty list.")
             TriggerClientEvent('az-fw-departments:openJobsDialog', src, {})
             return
         end
 
+        -- Merge: live roles + stored roles (econ_user_roles) + charId + discordId
         local function finalizeQuery(roleIdsMerged)
             roleIdsMerged = roleIdsMerged or {}
 
@@ -206,6 +206,7 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
             fetchDiscordRoles(discordUserId, function(liveRoles)
                 liveRoles = liveRoles or {}
 
+                -- stored roles table (optional)
                 MySQL.Async.fetchAll(
                     'SELECT roleid FROM econ_user_roles WHERE discordid = @id',
                     { ['@id'] = discordUserId },
@@ -266,9 +267,11 @@ RegisterNetEvent("az-fw-departments:setJob", function(job)
         function(affected)
             dprint(("[setJob] updated rows=%s"):format(tostring(affected)))
 
+            -- Push to HUD / NUI listeners
             TriggerClientEvent("az-fw-departments:refreshJob", src, { job = job })
             TriggerClientEvent("hud:setDepartment", src, job)
 
+            -- Optional statebags for other scripts
             if Player and Player(src) and Player(src).state then
                 Player(src).state:set("job", job, true)
                 Player(src).state:set("department", job, true)
