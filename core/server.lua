@@ -27,6 +27,9 @@ local SAVINGS_APR = 0.05 -- kept (not used here)
 local activeCharacters = {}        -- [src] = charid
 local activeCharByDiscord = {}     -- [discordid] = last active charid
 
+-- ------------------------------------------------------------
+-- Logging / helpers
+-- ------------------------------------------------------------
 local function dprint(...)
   if not Config.Debug then return end
   local args = { ... }
@@ -45,6 +48,9 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+-- Resolves player source:
+--  - number/numeric string uses that
+--  - nil uses current global `source` (event/command context)
 local function resolveSourceId(arg)
   local s = tonumber(arg)
   if s and s > 0 then return s end
@@ -53,6 +59,8 @@ local function resolveSourceId(arg)
   return nil
 end
 
+-- Normalize export args to support both colon and dot calls.
+-- If first arg is an exports "self", strip it (can be table OR userdata).
 local function stripSelf(...)
   local a = { ... }
   local t = type(a[1])
@@ -62,6 +70,9 @@ local function stripSelf(...)
   return table.unpack(a)
 end
 
+-- ------------------------------------------------------------
+-- oxmysql wrappers + MySQL.Async compatibility
+-- ------------------------------------------------------------
 local function hasOx()
   return exports.oxmysql ~= nil
 end
@@ -110,6 +121,7 @@ local function oxScalar(query, params, cb)
   end)
 end
 
+-- Provide MySQL.Async if missing (lots of resources rely on it)
 if MySQL == nil then MySQL = {} end
 if MySQL.Async == nil then MySQL.Async = {} end
 if type(MySQL.Async.fetchAll) ~= "function" then
@@ -125,6 +137,9 @@ if type(MySQL.Async.scalar) ~= "function" then
   MySQL.Async.scalar = function(query, params, cb) oxScalar(query, params, cb) end
 end
 
+-- ------------------------------------------------------------
+-- Discord helpers + admin check (cached + in-flight coalesce)
+-- ------------------------------------------------------------
 local function getDiscordID(src)
   src = tonumber(src or 0) or 0
   if src <= 0 then return "" end
@@ -202,6 +217,9 @@ local function getDiscordRoleList(src, cb)
   })
 end
 
+-- isAdmin export:
+--   fw:isAdmin(src, cb) -> async callback
+--   fw:isAdmin(src)     -> returns boolean (await-ish with timeout)
 local function isAdmin_impl(playerSrc, cb)
   playerSrc = resolveSourceId(playerSrc)
   if not playerSrc then
@@ -278,6 +296,9 @@ local function isAdmin_export(...)
   return Citizen.Await(p)
 end
 
+-- ------------------------------------------------------------
+-- Discord webhook logging
+-- ------------------------------------------------------------
 local function sendWebhookLog(message)
   local url = Config.Discord.WebhookURL or ""
   if url == "" then return end
@@ -308,6 +329,9 @@ local function logLargeTransaction(txType, src, amount, reason)
   sendWebhookLog(msg)
 end
 
+-- ------------------------------------------------------------
+-- Economy core (same behavior)
+-- ------------------------------------------------------------
 local function GetMoney(discordID, charID, callback)
   if type(callback) ~= "function" then return end
 
@@ -383,6 +407,9 @@ local function getFullName(charID, fallbackSrc, cb)
   end)
 end
 
+-- ------------------------------------------------------------
+-- HARD FIX: server-side push throttles so HUD doesn’t “go off”
+-- ------------------------------------------------------------
 local MONEY_PUSH_MIN_MS = 2500
 local lastMoneyPush = {} -- [src]=ms
 
@@ -434,6 +461,9 @@ local function withMoney(src, fn)
   end)
 end
 
+-- ------------------------------------------------------------
+-- Money ops (export-safe: dot/colon + implicit source)
+-- ------------------------------------------------------------
 local function addMoney_export(...)
   local a, b = stripSelf(...)
   local src, amount
@@ -662,6 +692,9 @@ local function claimDailyReward_export(...)
   return true
 end
 
+-- ------------------------------------------------------------
+-- Character + job helpers (exports kept)
+-- ------------------------------------------------------------
 local function GetPlayerCharacter_export(...)
   local playerId = stripSelf(...)
   local id = resolveSourceId(playerId)
@@ -814,6 +847,9 @@ local function getPlayerJob_export(...)
   return Citizen.Await(p)
 end
 
+-- ------------------------------------------------------------
+-- FIX: Department request + setActive handlers (debounced, no loop)
+-- ------------------------------------------------------------
 local DEPT_REQ_MIN_MS = 4000
 local lastDeptReq = {} -- [src]=ms
 
@@ -882,6 +918,9 @@ RegisterNetEvent("az-fw-departments:setActive", function(job)
   )
 end)
 
+-- ------------------------------------------------------------
+-- Commands (kept)
+-- ------------------------------------------------------------
 RegisterCommand("addmoney", function(src, args)
   if src == 0 then return end
   isAdmin_export(src, function(ok)
@@ -980,6 +1019,9 @@ RegisterCommand("selectchar", function(src, args)
   end)
 end, false)
 
+-- ------------------------------------------------------------
+-- Net events (kept names)
+-- ------------------------------------------------------------
 RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
   local src = source
   local did = getDiscordID(src)
@@ -1018,6 +1060,7 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
 end)
 
 RegisterNetEvent("az-fw-money:requestMoney", function()
+  -- not forced (throttled)
   sendMoneyToClient(source, false)
 end)
 
@@ -1063,6 +1106,9 @@ AddEventHandler("playerDropped", function()
   lastDeptValue[src] = nil
 end)
 
+-- ------------------------------------------------------------
+-- Paycheck thread (kept, but won’t spam HUD thanks to throttles)
+-- ------------------------------------------------------------
 CreateThread(function()
   local interval = (tonumber(Config.PaycheckIntervalMinutes) or 60) * 60 * 1000
   print(("[Az-Framework] Paycheck thread started. Interval=%s minutes."):format(tostring(Config.PaycheckIntervalMinutes or 60)))
@@ -1110,6 +1156,9 @@ CreateThread(function()
   end
 end)
 
+-- ------------------------------------------------------------
+-- ox_lib callbacks (kept names + MySQL.Async compatibility)
+-- ------------------------------------------------------------
 lib = lib or {}
 if lib.callback and lib.callback.register then
   lib.callback.register("az-fw-money:fetchCharacters", function(source)
@@ -1144,6 +1193,9 @@ if lib.callback and lib.callback.register then
   end)
 end
 
+-- ------------------------------------------------------------
+-- Exports (same names, safe for colon/dot)
+-- ------------------------------------------------------------
 exports("addMoney", addMoney_export)
 exports("deductMoney", deductMoney_export)
 exports("depositMoney", depositMoney_export)
@@ -1164,5 +1216,15 @@ exports("GetPlayerMoney", GetPlayerMoney_export)
 
 exports("logAdminCommand", function(...) local a,b,c,d = stripSelf(...) return logAdminCommand(a,b,c,d) end)
 
-
+-- this is the export your other scripts use:
+--   local job = exports['Az-Framework']:getPlayerJob(source)
 exports("getPlayerJob", getPlayerJob_export)
+
+-- compatibility aliases (capitalized names for simpler framework usage)
+exports("AddMoney", addMoney_export)
+exports("DeductMoney", deductMoney_export)
+exports("DepositMoney", depositMoney_export)
+exports("WithdrawMoney", withdrawMoney_export)
+exports("TransferMoney", transferMoney_export)
+exports("ClaimDailyReward", claimDailyReward_export)
+exports("GetDiscordID", function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end)

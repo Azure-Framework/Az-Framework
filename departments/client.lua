@@ -57,6 +57,7 @@ if Config.Departments then
         TriggerEvent("hud:setDepartment", job)
     end)
 
+    -- Optional: if your HUD uses this event too
     RegisterNetEvent("updateCashHUD")
     AddEventHandler("updateCashHUD", function(cash, bank)
         SendNUIMessage({ action = "updateCash", cash = cash, bank = bank })

@@ -22,6 +22,7 @@ if Config.Parking then
 
         debugPrint(('deleteNetVehicle: attempting delete netId=%s veh=%s'):format(netId, veh))
 
+        -- Try to gain control (whoever has control will delete)
         NetworkRequestControlOfEntity(veh)
         local t = GetGameTimer() + 1500
         while not NetworkHasControlOfEntity(veh) and GetGameTimer() < t do
@@ -37,6 +38,7 @@ if Config.Parking then
             debugPrint(('deleteNetVehicle: no control netId=%s'):format(netId))
         end
 
+        -- Also remove from local list so tag loop stops
         for i = #parkedVehicles, 1, -1 do
             local entry = parkedVehicles[i]
             if entry and entry.netId and tonumber(entry.netId) == netId then
@@ -45,6 +47,9 @@ if Config.Parking then
         end
     end)
 
+    -- =========================
+    -- 3D TEXT (NO RECT)
+    -- =========================
     local function DrawText3D(x, y, z, text)
         local onScreen, _x, _y = World3dToScreen2d(x, y, z)
         if not onScreen then return end
@@ -82,6 +87,10 @@ if Config.Parking then
 
         DrawText3D(coords.x, coords.y, coords.z, label)
     end
+
+    -- =========================
+    -- HELPERS
+    -- =========================
 
     -- Build a full properties table from ox_lib and attach parking coords/heading
     local function buildParkProps(veh)
@@ -160,6 +169,10 @@ if Config.Parking then
         TriggerServerEvent('raptor:unregisterParkedWorldVehicle', netId)
     end
 
+    -- =========================
+    -- PARK / UNPARK KEYBIND
+    -- =========================
+
     -- Handle parking/unparking keybind (SHIFT + F: 21 + 23)
     CreateThread(function()
         while true do
@@ -207,6 +220,10 @@ if Config.Parking then
             end
         end
     end)
+
+    -- =========================
+    -- LOAD PARKED VEHICLES
+    -- =========================
 
     -- Load saved vehicles on resource start
     AddEventHandler('onClientResourceStart', function(resName)
@@ -292,6 +309,9 @@ if Config.Parking then
         end
     end)
 
+    -- =========================
+    -- PARK/UNPARK RESULT HANDLER
+    -- =========================
 
     RegisterNetEvent('raptor:vehicleParkToggled')
     AddEventHandler('raptor:vehicleParkToggled', function(data)
@@ -305,6 +325,7 @@ if Config.Parking then
             SetVehicleDoorsLocked(veh, 2)
             FreezeEntityPosition(veh, true)
 
+            -- ✅ register so cleanup can find it
             local netId = registerParkedWorldVehicle(veh, plate)
 
             table.insert(parkedVehicles, {
@@ -325,6 +346,8 @@ if Config.Parking then
                 if entry.plate == plate and entry.handle and DoesEntityExist(entry.handle) then
                     SetVehicleDoorsLocked(entry.handle, 1)
                     FreezeEntityPosition(entry.handle, false)
+
+                    -- ✅ unregister from server cleanup tracker
                     if entry.netId then
                         unregisterParkedWorldVehicle(entry.netId)
                     end
@@ -343,6 +366,10 @@ if Config.Parking then
             end
         end
     end)
+
+    -- =========================
+    -- OWNER TAG DRAW LOOP
+    -- =========================
     CreateThread(function()
         while true do
             Wait(0)

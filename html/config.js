@@ -1,19 +1,18 @@
 // html/config.js
-// Debuggable config for the HUD. If this file loads, you'll see the console message below in F8.
 console.log('[HUD][config.js] loaded');
 
 window.hudConfig = {
-  // GTA 6–style neon palette to match State of Los Santos branding
-  accentColor:   '#ff4da6',                         // neon magenta (primary)
-  accent2:       '#42e0ff',                         // neon cyan (secondary)
-  textPrimary:   '#fdf7ff',                         // soft off-white
-  textSecondary: '#9aa8d6',                         // muted blue/violet
+  // Kentucky diner / robbery poster palette
+  accentColor:   '#ff5c1f',                         // diner neon orange
+  accent2:       '#ffb21f',                         // warm roleplay gold
+  textPrimary:   '#f5efe6',                         // warm off-white
+  textSecondary: '#b8b0a5',                         // dusty muted tan/gray
 
   hudGap: '12px',
   hudPadding: '10px 14px',
   hudRadius: '12px',
-  hudShadow: '0 8px 30px rgba(5,8,20,0.85)',        // deeper navy shadow
+  hudShadow: '0 8px 30px rgba(0,0,0,0.78)',         // deep cinematic shadow
 
-  discordInvite: 'https://discord.gg/UCNE5H58Pt',
-  serverLogoURL: 'https://imgimp.xyz/images/Stoic-2025-11-27_20-20-42-6928b29a61ed6.png'
+  discordInvite: 'https://discord.gg/QWWWV6Zyaa',
+  serverLogoURL: 'https://impimg.com/images/Stoic-2026-03-24_04-58-46-69c21a0691b9e8.73930861.png'
 };

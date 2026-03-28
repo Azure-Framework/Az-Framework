@@ -68,6 +68,7 @@ if Config.Parking then
         parkedWorldByNet[netId] = nil
     end
 
+    -- Client registers a spawned parked vehicle so we can clean it up if DB row disappears
     RegisterNetEvent('raptor:registerParkedWorldVehicle', function(netId, plate)
         local src = source
         local discordID = getDiscordID(src)
@@ -93,6 +94,7 @@ if Config.Parking then
         removeParkedWorld(netId)
     end)
 
+    -- Optional server export so OTHER scripts can register parked vehicles too
     exports('RegisterParkedWorldVehicle', function(discordID, netId, plate)
         addParkedWorld(netId, discordID, plate)
     end)
@@ -101,6 +103,9 @@ if Config.Parking then
         removeParkedWorld(netId)
     end)
 
+    ---------------------------------------------------------------------
+    -- 🔁 Every 5 seconds: delete parked-world vehicles whose DB row is gone
+    ---------------------------------------------------------------------
     CreateThread(function()
         while true do
             Wait(5000)
@@ -109,6 +114,7 @@ if Config.Parking then
                 goto continue
             end
 
+            -- Build a set of all currently PARKED vehicles still present in DB
             MySQL.Async.fetchAll([[
                 SELECT discordid, plate
                 FROM user_vehicles
@@ -149,6 +155,10 @@ if Config.Parking then
             ::continue::
         end
     end)
+
+    ---------------------------------------------------------------------
+    -- 🔁 Shared DB helper – used by both events AND exports
+    ---------------------------------------------------------------------
     local function fetchVehiclesForDiscord(discordID, cb)
         if not discordID or discordID == '' then
             if cb then
@@ -186,6 +196,10 @@ if Config.Parking then
             end
         end)
     end
+
+    ---------------------------------------------------------------------
+    -- 🚗 Toggle Park / Unpark
+    ---------------------------------------------------------------------
     RegisterNetEvent('raptor:toggleParkVehicle')
     AddEventHandler('raptor:toggleParkVehicle', function(props)
         local src = source
@@ -292,6 +306,9 @@ if Config.Parking then
         end)
     end)
 
+    ---------------------------------------------------------------------
+    -- 🚚 Load parked vehicles (existing event)
+    ---------------------------------------------------------------------
     RegisterNetEvent('raptor:loadVehicles')
     AddEventHandler('raptor:loadVehicles', function()
         local src = source
@@ -308,6 +325,9 @@ if Config.Parking then
         end)
     end)
 
+    ---------------------------------------------------------------------
+    -- 📦 EXPORTS for Az-Insurance & other Az-Framework modules
+    ---------------------------------------------------------------------
     local function dbgCaller(prefix, ...)
         local inv = GetInvokingResource() or "UNKNOWN"
         local argStrs = {}

@@ -6,6 +6,7 @@ if IsDuplicityVersion() then
   return
 end
 
+-- ==== Utilities & Constants ====
 local function safePrint(msg)
   print("[az-fw-hud] " .. tostring(msg))
 end
@@ -29,6 +30,7 @@ local function onNet(eventName, handler)
   AddEventHandler(eventName, handler)
 end
 
+-- ==== NUI callbacks ====
 if type(RegisterNUICallback) ~= "function" then
   safePrint("WARNING: RegisterNUICallback not available; NUI callbacks won't be registered.")
 else
@@ -74,6 +76,7 @@ onNet("hud:setDepartment", function(job)
   sendNui({ action = "updateJob", job = job })
 end)
 
+-- ==== First spawn department request ====
 local firstSpawn = true
 AddEventHandler("playerSpawned", function()
   if firstSpawn then
@@ -82,14 +85,17 @@ AddEventHandler("playerSpawned", function()
   end
 end)
 
+-- ==== Commands ====
 RegisterCommand("movehud", function()
   SetNuiFocus(true, true)
   sendNui({ action = "toggleMove" })
 end, false)
 
+-- ==== Character menu & context helpers ====
 local CHAR_MAIN = "char_main_menu"
 local CHAR_LIST = "char_list_menu"
 local EVENT_SHOW_LIST = "az-fw-money:openListMenu"
+-- lib.registerContext is used later to register contexts
 
 -- Pre-register the main context (structure kept the same)
 lib.registerContext({
@@ -112,6 +118,7 @@ lib.registerContext({
   }
 })
 
+-- ==== Register dialog for new characters ====
 onNet("az-fw-money:openRegisterDialog", function()
   local title = "Register Character"
   local fields = {
@@ -165,6 +172,7 @@ onNet("az-fw-money:openRegisterDialog", function()
   end
 end)
 
+-- ==== Show list / select character ====
 onNet(EVENT_SHOW_LIST, function()
   lib.callback("az-fw-money:fetchCharacters", {}, function(rows)
     local opts = {}
@@ -195,6 +203,7 @@ onNet(EVENT_SHOW_LIST, function()
   end)
 end)
 
+-- ==== Character notifications (registered / selected) ====
 onNet("az-fw-money:characterRegistered", function(charid)
   lib.notify({
     title = "Character Registered",
@@ -213,12 +222,17 @@ onNet("az-fw-money:characterSelected", function(charid)
   TriggerServerEvent("az-fw-money:requestMoney")
 end)
 
+-- ==== Client export: refresh / update HUD ====
 local function refreshHUD()
   safePrint("refreshHUD export called; requesting money and department from server.")
+  -- Ask server to resend money + job/department info, which will in turn hit the NUI events above
   TriggerServerEvent("az-fw-money:requestMoney")
   TriggerServerEvent("hud:requestDepartment")
 end
 
+-- Exports usable from other client scripts:
+--   exports['az-fw-hud']:refreshHUD()
+--   exports['az-fw-hud']:updateHUD()
 exports('refreshHUD', refreshHUD)
 exports('updateHUD', refreshHUD)
 

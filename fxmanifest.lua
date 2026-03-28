@@ -4,7 +4,7 @@ lua54 'yes'
 
 author 'Azure(TheStoicBear)'
 description 'Azure Framework'
-version '2.3'
+version '1.5.5'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -14,7 +14,7 @@ shared_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
-    'init.lua',        -- <--- add this
+    'init.lua',
     'schema.lua',
     'core/server.lua',
     'parking/server.lua',
@@ -39,7 +39,16 @@ files {
 
 ui_page 'html/index.html'
 
-exports {
+client_exports {
+    "refreshHUD",
+    "updateHUD",
+    "RefreshDiscordPresence",
+    "SetDiscordPresenceOverride",
+    "SetDiscordJob"
+}
+
+server_exports {
+    -- preferred camelCase exports
     "addMoney",
     "deductMoney",
     "depositMoney",
@@ -50,11 +59,20 @@ exports {
     "sendMoneyToClient",
     "claimDailyReward",
     "getDiscordID",
+    "GetDiscordID",
     "isAdmin",
     "GetPlayerCharacter",
-    "GetDiscordID",
     "GetPlayerCharacterName",
+    "GetPlayerCharacterNameSync",
     "GetPlayerMoney",
-    "logAdminCommand"
-}
+    "logAdminCommand",
+    "getPlayerJob",
 
+    -- compatibility aliases for resources expecting capitalized names
+    "AddMoney",
+    "DeductMoney",
+    "DepositMoney",
+    "WithdrawMoney",
+    "TransferMoney",
+    "ClaimDailyReward"
+}

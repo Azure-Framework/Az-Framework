@@ -4,6 +4,9 @@ local function dprint(msg)
     print(("[az-fw-departments] %s"):format(tostring(msg)))
 end
 
+-- ------------------------------------------------------------
+-- Framework helpers
+-- ------------------------------------------------------------
 local function GetPlayerCharacter(src)
     return exports['Az-Framework']:GetPlayerCharacter(src)
 end
@@ -36,6 +39,9 @@ local function getDiscordUserId(src)
     return nil
 end
 
+-- ------------------------------------------------------------
+-- Discord role fetch (live)
+-- ------------------------------------------------------------
 local DISCORD_BOT_TOKEN = GetConvar("DISCORD_BOT_TOKEN", "")
 local DISCORD_GUILD_ID  = GetConvar("DISCORD_GUILD_ID", "")
 
@@ -64,6 +70,10 @@ local function fetchDiscordRoles(discordId, cb)
         ['Content-Type']  = 'application/json'
     })
 end
+
+-- ------------------------------------------------------------
+-- Schema detection for econ_departments
+-- ------------------------------------------------------------
 local deptSchemaCache = nil
 
 local function detectDeptSchema(cb)
@@ -110,6 +120,9 @@ local function detectDeptSchema(cb)
     end)
 end
 
+-- ------------------------------------------------------------
+-- Utility helpers
+-- ------------------------------------------------------------
 local function buildInParams(values, prefix)
     local ph, params = {}, {}
     for i, v in ipairs(values) do
@@ -127,6 +140,10 @@ local function addUnique(list, seen, v)
         list[#list+1] = v
     end
 end
+
+-- ------------------------------------------------------------
+-- Request department list (jobs menu)
+-- ------------------------------------------------------------
 RegisterServerEvent('az-fw-departments:requestDeptList')
 AddEventHandler('az-fw-departments:requestDeptList', function()
     local src = source
@@ -232,6 +249,9 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
     end)
 end)
 
+-- ------------------------------------------------------------
+-- Set Job (THIS was missing, so nothing updated)
+-- ------------------------------------------------------------
 RegisterNetEvent("az-fw-departments:setJob", function(job)
     local src = source
     job = tostring(job or "")
@@ -286,10 +306,15 @@ RegisterNetEvent("az-fw-departments:setJob", function(job)
     )
 end)
 
+-- Alias used by your HUD client (you had setActive being called)
 RegisterNetEvent("az-fw-departments:setActive", function(job)
     TriggerEvent("az-fw-departments:setJob", job)
 end)
 
+-- ------------------------------------------------------------
+-- HUD asks server for current department on spawn / refresh
+-- (Fixes your TriggerServerEvent('hud:requestDepartment') doing nothing)
+-- ------------------------------------------------------------
 RegisterNetEvent("hud:requestDepartment", function()
     local src = source
     local did = getDiscordUserId(src)
