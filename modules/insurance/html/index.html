@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mors Mutual — Insurance</title>
+
+  <style>
+    :root{
+      --glass: rgba(12, 14, 22, .86);
+      --stroke: rgba(255,255,255,.10);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.58);
+      --blue: #2fb7ff;
+      --blue2:#0aa0ff;
+      --shadow: 0 28px 80px rgba(0,0,0,.55);
+      --radius: 18px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:var(--text); }
+    body{ background:transparent; overflow:hidden; }
+    .hidden{ display:none !important; }
+
+    #insurance-root{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      pointer-events:none;
+    }
+    #insurance-root.show{
+      display:flex;
+      pointer-events:auto;
+    }
+
+    .backdrop{
+      position:absolute; inset:0;
+      background:
+        radial-gradient(900px 520px at 30% 25%, rgba(47,183,255,.18), transparent 60%),
+        radial-gradient(900px 520px at 70% 75%, rgba(100,214,255,.12), transparent 60%),
+        rgba(0,0,0,.55);
+      backdrop-filter: blur(7px);
+      z-index: 1;
+    }
+
+    .window{
+      position:relative;
+      width:min(1220px, 95vw);
+      height:min(820px, 90vh);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 22%), var(--glass);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      z-index:2;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .chrome{
+      height:46px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:0 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.10));
+    }
+    .dots{ display:flex; gap:8px; }
+    .dot{ width:10px; height:10px; border-radius:99px; opacity:.9; }
+    .dot.red{ background:#ff5f57; }
+    .dot.yellow{ background:#febc2e; }
+    .dot.green{ background:#28c840; }
+
+    .url{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      font-size:13px;
+      color: rgba(255,255,255,.72);
+      letter-spacing:.35px;
+      user-select:none;
+    }
+    .url span{
+      padding:8px 14px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      box-shadow: 0 8px 24px rgba(0,0,0,.25) inset;
+    }
+
+    .iconbtn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      border-radius:12px;
+      width:40px; height:34px;
+      cursor:pointer;
+      display:flex;
+      align-items:center; justify-content:center;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .iconbtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.45);
+      background: rgba(47,183,255,.10);
+    }
+
+    .hero{
+      position:relative;
+      padding:18px 18px 16px 18px;
+      background:
+        radial-gradient(900px 320px at 25% 20%, rgba(47,183,255,.20), transparent 60%),
+        radial-gradient(900px 320px at 80% 70%, rgba(100,214,255,.12), transparent 62%),
+        rgba(0,0,0,.28);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .hero::before{
+      content:"";
+      position:absolute; inset:-80px;
+      background:
+        radial-gradient(circle at 10% 30%, rgba(255,255,255,.10) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 30% 60%, rgba(255,255,255,.08) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 70% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 85% 70%, rgba(255,255,255,.10) 0 2px, transparent 2px 100%);
+      background-size: 120px 120px;
+      opacity:.22;
+      pointer-events:none;
+    }
+
+    .heroInner{
+      position:relative;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .brand{
+      display:flex; flex-direction:column; gap:2px;
+      user-select:none;
+    }
+    .brand .big{
+      font-size:34px;
+      letter-spacing:1.2px;
+      font-weight:900;
+      text-transform:uppercase;
+    }
+    .brand .small{
+      font-size:13px;
+      letter-spacing:2.8px;
+      font-weight:800;
+      color: rgba(47,183,255,.85);
+      text-transform:uppercase;
+    }
+
+    .pitch{
+      text-align:right;
+      padding-top:6px;
+      max-width: 560px;
+      user-select:none;
+    }
+    .pitch .h{
+      font-weight:900;
+      letter-spacing:.6px;
+      font-size:20px;
+      text-transform:uppercase;
+    }
+    .pitch .p{
+      color: rgba(255,255,255,.70);
+      margin-top:4px;
+      font-size:13px;
+    }
+
+    .controls{
+      padding:12px 16px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background: rgba(0,0,0,.16);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .tabs{ display:flex; gap:10px; flex-wrap:wrap; }
+    .tab{
+      font-size:13px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .tab:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.40);
+      background: rgba(47,183,255,.10);
+    }
+    .tab.active{
+      border-color: rgba(47,183,255,.55);
+      background: rgba(47,183,255,.18);
+      color: rgba(255,255,255,.92);
+    }
+    .spacer{ flex:1; }
+
+    .searchWrap{
+      display:flex; align-items:center; gap:10px;
+      min-width: 360px;
+      max-width: 520px;
+      flex: 1;
+      justify-content:flex-end;
+    }
+    .search{
+      width:min(420px, 100%);
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      box-shadow: inset 0 10px 30px rgba(0,0,0,.18);
+    }
+    .search svg{ opacity:.7; flex-shrink:0; }
+    #search{
+      width:100%;
+      border:0;
+      outline:none;
+      background:transparent;
+      color:var(--text);
+      font-size:13px;
+    }
+    #search::placeholder{ color: rgba(255,255,255,.45); }
+
+    .pill{
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: rgba(255,255,255,.72);
+      font-size:12px;
+      user-select:none;
+      white-space:nowrap;
+      min-width: 160px;
+      text-align:center;
+    }
+
+    .content{
+      flex:1;
+      min-height:0;
+      display:flex;
+      background: linear-gradient(180deg, rgba(0,0,0,.14), rgba(0,0,0,.22));
+    }
+    .left{
+      flex: 2.1;
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      border-right: 1px solid rgba(255,255,255,.08);
+    }
+    .right{
+      flex: 1.0;
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      background: rgba(0,0,0,.14);
+    }
+
+    .sectionHeader{
+      padding: 12px 16px 10px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .sectionHeader .t{
+      font-weight:900;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      font-size:13px;
+      color: rgba(255,255,255,.85);
+    }
+    .sectionHeader .s{
+      font-size:12px;
+      color: rgba(255,255,255,.58);
+      margin-top:4px;
+    }
+    .kpis{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .kpi{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 14px;
+      padding:8px 10px;
+      min-width: 130px;
+      box-shadow: inset 0 10px 26px rgba(0,0,0,.18);
+    }
+    .kpi .l{
+      font-size:10px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      color: rgba(255,255,255,.55);
+    }
+    .kpi .v{
+      margin-top:2px;
+      font-weight:900;
+      font-size:14px;
+      color: rgba(255,255,255,.92);
+    }
+
+    .list{
+      flex:1;
+      overflow:auto;
+      padding: 10px 0;
+    }
+
+    .row{
+      position:relative;
+      display:grid;
+      grid-template-columns: minmax(0, 1.3fr) auto;
+      gap: 12px;
+      align-items:center;
+      padding: 10px 16px;
+      margin: 0 12px 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.20);
+      transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
+      overflow:hidden;
+    }
+    .row:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.55);
+      box-shadow: 0 18px 46px rgba(0,0,0,.35);
+    }
+    .row.disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:saturate(.85);
+    }
+    .row.disabled:hover{
+      transform:none;
+      box-shadow:none;
+      border-color: rgba(255,255,255,.10);
+    }
+    .row::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(420px 160px at 20% 50%, rgba(47,183,255,.10), transparent 60%),
+        radial-gradient(420px 160px at 85% 25%, rgba(100,214,255,.08), transparent 60%);
+      pointer-events:none;
+      opacity:.95;
+    }
+
+    .rowMain{
+      position:relative;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .thumb{
+      width: 96px;
+      height: 56px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background:
+        radial-gradient(240px 120px at 70% 35%, rgba(47,183,255,.20), transparent 62%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));
+      overflow:hidden;
+      flex-shrink:0;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .thumb img{
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      opacity:.90;
+      transform: scale(1.02);
+      filter: saturate(1.08) contrast(1.05);
+      display:block;
+    }
+    .thumb::after{
+      content:"";
+      position:absolute; inset:0;
+      background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.10) 60%, rgba(0,0,0,.45));
+      pointer-events:none;
+    }
+
+    .meta{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+    }
+    .model{
+      font-weight:900;
+      font-size:14px;
+      letter-spacing:.2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 52ch;
+    }
+    .sub{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:12px;
+      color: rgba(255,255,255,.62);
+      letter-spacing:.25px;
+      align-items:center;
+    }
+    .plate{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      color: rgba(255,255,255,.70);
+      letter-spacing:.6px;
+    }
+
+    .status{
+      font-size:11px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .status.on{ border-color: rgba(80,200,255,.35); background: rgba(47,183,255,.12); color: rgba(210,245,255,.92); }
+    .status.off{ border-color: rgba(255,185,80,.35); background: rgba(255,185,80,.10); color: rgba(255,235,205,.92); }
+
+    .rowActions{
+      position:relative;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.90);
+      padding:10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size:12px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      white-space:nowrap;
+    }
+    .btn.primary{ background: rgba(47,183,255,.16); }
+    .btn.danger{ background: rgba(255,106,77,.18); border-color: rgba(255,255,255,.14); }
+    .btn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.55);
+      background: rgba(47,183,255,.22);
+    }
+    .btn.danger:hover{
+      border-color: rgba(255,106,77,.65);
+      background: rgba(255,106,77,.26);
+    }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+    .claims{
+      flex:1;
+      overflow:auto;
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .claimCard{
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      padding: 10px 12px;
+      box-shadow: inset 0 10px 26px rgba(0,0,0,.18);
+    }
+    .claimTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .claimPlate{
+      font-weight:900;
+      letter-spacing:.12em;
+      font-size:12px;
+      text-transform:uppercase;
+      color: rgba(255,255,255,.88);
+    }
+    .claimStatus{
+      font-size:10px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color: rgba(140, 255, 200, .95);
+      opacity:.9;
+    }
+    .claimMeta{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:6px;
+      font-size:12px;
+      color: rgba(255,255,255,.60);
+    }
+
+    .modal{
+      position:absolute; inset:0;
+      display:flex;
+      align-items:center; justify-content:center;
+      background: rgba(0,0,0,.72);
+      z-index:10;
+    }
+    .modalInner{
+      width: 440px;
+      max-width: 92vw;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(12,14,22,.92);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modalHead{
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background:
+        radial-gradient(700px 220px at 20% 30%, rgba(47,183,255,.18), transparent 60%),
+        rgba(0,0,0,.22);
+    }
+    .modalHead .mh{
+      font-weight:900;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      font-size:14px;
+    }
+    .modalHead .ms{
+      margin-top:4px;
+      font-size:12px;
+      color: rgba(255,255,255,.60);
+    }
+    .modalBody{
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .opt{
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      padding: 10px 12px;
+      cursor:pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .opt:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.55);
+      background: rgba(47,183,255,.10);
+    }
+    .opt .ol{
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+      min-width:0;
+    }
+    .opt .name{
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .opt .desc{
+      font-size:12px;
+      color: rgba(255,255,255,.62);
+    }
+    .price{
+      font-weight:900;
+      font-size:12px;
+      color: rgba(255,255,255,.92);
+      white-space:nowrap;
+    }
+    .modalActions{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      padding-top:8px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+
+    .list::-webkit-scrollbar, .claims::-webkit-scrollbar{ width: 10px; }
+    .list::-webkit-scrollbar-track, .claims::-webkit-scrollbar-track{
+      background: rgba(255,255,255,.03);
+      border-radius: 999px;
+    }
+    .list::-webkit-scrollbar-thumb, .claims::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,.12);
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,.20);
+    }
+    .list::-webkit-scrollbar-thumb:hover, .claims::-webkit-scrollbar-thumb:hover{
+      background: rgba(47,183,255,.22);
+    }
+
+    @media (max-width: 1100px){
+      .content{ flex-direction:column; }
+      .left{ border-right:none; border-bottom: 1px solid rgba(255,255,255,.08); }
+      .searchWrap{ min-width: 240px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="insurance-root" aria-hidden="true">
+    <div class="window" role="dialog" aria-modal="true">
+
+      <div class="chrome">
+        <div class="dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+
+        <div class="url"><span>www.morsmutual.net</span></div>
+
+        <button id="btn-close" class="iconbtn" title="Close">✕</button>
+      </div>
+
+      <div class="hero">
+        <div class="heroInner">
+          <div class="brand">
+            <div class="big">Mors Mutual</div>
+            <div class="small">Insurance</div>
+          </div>
+
+          <div class="pitch">
+            <div class="h">Coverage &amp; Claims</div>
+            <div class="p">Insure parked vehicles and file claims if they go missing.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-tab="all">All</div>
+          <div class="tab" data-tab="insured">Insured</div>
+          <div class="tab" data-tab="uninsured">Uninsured</div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="searchWrap">
+          <div class="search" title="Search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="rgba(255,255,255,.75)" stroke-width="2"/>
+              <path d="M16.5 16.5 21 21" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="search" type="text" placeholder="Search model / plate..." />
+          </div>
+
+          <div id="pill-interval" class="pill">Premium: 10 min</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="left">
+          <div class="sectionHeader">
+            <div>
+              <div class="t">Vehicles</div>
+              <div class="s">Select a vehicle to choose coverage or file a claim.</div>
+            </div>
+
+            <div class="kpis">
+              <div class="kpi"><div class="l">Insured</div><div id="stat-insured" class="v">0</div></div>
+              <div class="kpi"><div class="l">Parked</div><div id="stat-parked" class="v">0</div></div>
+              <div class="kpi"><div class="l">Total</div><div id="stat-total" class="v">0</div></div>
+            </div>
+          </div>
+
+          <div id="vehicle-list" class="list"></div>
+        </div>
+
+        <div class="right">
+          <div class="sectionHeader">
+            <div>
+              <div class="t">Claims History</div>
+              <div class="s">Recent claims filed with Mors Mutual.</div>
+            </div>
+          </div>
+          <div id="claims-list" class="claims"></div>
+        </div>
+      </div>
+
+      <div id="coverage-modal" class="modal hidden" aria-hidden="true">
+        <div class="modalInner">
+          <div class="modalHead">
+            <div class="mh">Select Coverage Plan</div>
+            <div id="coverage-modal-plate" class="ms">—</div>
+          </div>
+
+          <div class="modalBody">
+            <div id="coverage-options"></div>
+
+            <div class="modalActions">
+              <button id="coverage-modal-cancel" class="btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="backdrop"></div>
+  </div>
+
+  <script>
+    const root = document.getElementById("insurance-root");
+    const vehicleList = document.getElementById("vehicle-list");
+    const claimsList = document.getElementById("claims-list");
+
+    const statInsured = document.getElementById("stat-insured");
+    const statParked = document.getElementById("stat-parked");
+    const statTotal  = document.getElementById("stat-total");
+    const pillInterval = document.getElementById("pill-interval");
+
+    const btnClose = document.getElementById("btn-close");
+    const tabs = document.getElementById("tabs");
+    const search = document.getElementById("search");
+
+    const coverageModal = document.getElementById("coverage-modal");
+    const coverageOptions = document.getElementById("coverage-options");
+    const coverageModalPlate = document.getElementById("coverage-modal-plate");
+    const coverageModalCancel = document.getElementById("coverage-modal-cancel");
+
+    let snapshot = {
+      vehicles: [],
+      claims: [],
+      premiumIntervalMinutes: 10,
+      serverTime: 0,
+      policyTypes: {},
+    };
+
+    let activeTab = "all";
+    let currentCoveragePlate = null;
+
+    
+    function getResourceName() {
+      try {
+        if (window.__azFrameworkResource) return window.__azFrameworkResource;
+        if (typeof GetParentResourceName === "function") return GetParentResourceName();
+      } catch (e) {}
+
+      const host = String(window.location.hostname || "");
+      if (host.startsWith("cfx-nui-")) return host.slice("cfx-nui-".length);
+      if (host) return host;
+      return "az_insurance"; 
+    }
+
+    function postNui(action, data) {
+      const res = getResourceName();
+      fetch(`https://${res}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify(data || {}),
+      }).catch(() => {});
+    }
+
+    function setVisible(v) {
+      if (v) {
+        root.classList.add("show");
+        root.setAttribute("aria-hidden","false");
+        setTimeout(() => search?.focus(), 0);
+      } else {
+        root.classList.remove("show");
+        root.setAttribute("aria-hidden","true");
+        closeCoverageModal();
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function formatCurrency(value) {
+      value = Number(value) || 0;
+      return "$" + value.toLocaleString();
+    }
+
+    function isParked(v){
+      if (v.parked === undefined || v.parked === null) return true;
+      return Number(v.parked) === 1 || v.parked === true;
+    }
+
+    function isInsured(v){
+      if (v.insured !== undefined && v.insured !== null) return Number(v.insured) === 1 || v.insured === true;
+      if (v.policyType) return String(v.policyType).toLowerCase() !== "none";
+      return false;
+    }
+
+    
+    function computeModelName(v) {
+      const props = v?.props || {};
+      const cands = [
+        v.displayName,
+        v.modelPretty,
+        v.label,
+        props.displayName,
+        props.modelName,
+        v.modelName,
+        v.name,
+        v.display
+      ];
+
+      for (const c of cands) {
+        if (!c) continue;
+        if (typeof c === "number") continue;
+        const s = String(c).trim();
+        if (!s) continue;
+        if (/^-?\d+$/.test(s)) continue;
+        return s;
+      }
+
+      return "Vehicle";
+    }
+
+    function formatNextPayment(nextPaymentAt, serverTime) {
+      nextPaymentAt = Number(nextPaymentAt) || 0;
+      serverTime = Number(serverTime) || 0;
+      if (!nextPaymentAt || !serverTime) return "N/A";
+      const diffSec = nextPaymentAt - serverTime;
+      if (diffSec <= 0) return "Due now";
+      const minutes = Math.round(diffSec / 60);
+      if (minutes < 1) return "< 1 min";
+      if (minutes < 60) return minutes + " min";
+      return (minutes / 60).toFixed(1) + " h";
+    }
+
+    function rowMatches(v, q) {
+      if (!q) return true;
+      q = q.toLowerCase();
+      return String(computeModelName(v)).toLowerCase().includes(q) ||
+             String(v.plate || "").toLowerCase().includes(q);
+    }
+
+    function getPlanLabel(key){
+      const types = snapshot.policyTypes || {};
+      const plan = types[key];
+      return (plan && plan.label) ? plan.label : (key || "none");
+    }
+
+    
+    
+    
+    const PREVIEW_BASES = [
+      "https://docs.fivem.net/vehicles/"
+    ];
+    const PREVIEW_EXTS = ["webp","png","jpg","jpeg"];
+
+    const thumbCache = new Map(); 
+
+    function normalizeSpawnCandidate(v) {
+      if (!v) return "";
+
+      let s = String(v).trim();
+      s = s.replace(/`/g, "");
+
+      // ignore numeric hashes
+      if (/^-?\d+$/.test(s)) return "";
+
+      s = s.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (!s || /^\d+$/.test(s)) return "";
+
+      return s;
+    }
+
+    function getSpawnCandidates(vehicle) {
+      const props = vehicle?.props || {};
+      const rawParking = vehicle?.rawParking || {};
+      const rawPolicy  = vehicle?.rawPolicy || {};
+
+      const raw = [
+        vehicle.previewUrl,          // allow explicit per-vehicle url
+        props.previewUrl,
+
+        // IMPORTANT: your DB uses `model` varchar(50)
+        vehicle.model,
+        rawParking.model,
+
+        vehicle.spawnName,
+        vehicle.spawn,
+        vehicle.modelName,
+        vehicle.modelHash,
+
+        props.modelName,
+        props.model,
+        props.modelHash,
+        props.hash,
+
+        vehicle.displayName,
+        props.displayName,
+        vehicle.name,
+        vehicle.display,
+
+        // in case server attached policy/parking objects
+        rawPolicy.model,
+        rawPolicy.spawnName,
+      ];
+
+      const out = [];
+      const seen = new Set();
+
+      for (const item of raw) {
+        if (!item) continue;
+
+        const str = String(item);
+        if (str.startsWith("http://") || str.startsWith("https://")) {
+          if (!seen.has(str)) {
+            out.push({ type: "url", value: str });
+            seen.add(str);
+          }
+          continue;
+        }
+
+        const cand = normalizeSpawnCandidate(item);
+        if (!cand) continue;
+
+        if (!seen.has(cand)) {
+          out.push({ type: "spawn", value: cand });
+          seen.add(cand);
+        }
+      }
+
+      return out;
+    }
+
+    function candidatesToUrls(cands) {
+      const urls = [];
+      for (const c of cands) {
+        if (c.type === "url") {
+          urls.push(c.value);
+          continue;
+        }
+        for (const base of PREVIEW_BASES) {
+          for (const ext of PREVIEW_EXTS) {
+            urls.push(`${base}${encodeURIComponent(c.value)}.${ext}`);
+          }
+        }
+      }
+      return urls;
+    }
+
+    function fallbackSvgDataUri(label){
+      const txt = (label || "Vehicle").toString().slice(0, 18);
+      const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="192" height="112" viewBox="0 0 192 112">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="rgba(47,183,255,0.35)"/>
+      <stop offset="1" stop-color="rgba(0,0,0,0.10)"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="192" height="112" rx="18" fill="rgba(0,0,0,0.25)"/>
+  <rect x="0" y="0" width="192" height="112" rx="18" fill="url(#g)" opacity="0.65"/>
+  <g fill="rgba(255,255,255,0.85)">
+    <path d="M44 64c0-6 4-10 10-10h6l8-10c2-3 5-4 9-4h38c4 0 7 1 9 4l8 10h6c6 0 10 4 10 10v8c0 3-2 5-5 5h-4a10 10 0 0 1-20 0H73a10 10 0 0 1-20 0h-4c-3 0-5-2-5-5v-8zm21 18a6 6 0 1 0 0.1 0zm62 0a6 6 0 1 0 0.1 0z" opacity="0.9"/>
+  </g>
+  <text x="96" y="28" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial" font-size="12" fill="rgba(255,255,255,0.82)" font-weight="700" letter-spacing="1">
+    PREVIEW
+  </text>
+  <text x="96" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial" font-size="12" fill="rgba(255,255,255,0.78)" font-weight="800">
+    ${txt.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+  </text>
+</svg>`;
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+
+    function setThumbPreview(thumbEl, vehicle) {
+      if (!thumbEl) return;
+
+      const old = thumbEl.querySelector("img");
+      if (old) old.remove();
+
+      const label = computeModelName(vehicle);
+
+      const urls = candidatesToUrls(getSpawnCandidates(vehicle));
+      if (!urls.length) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.src = fallbackSvgDataUri(label);
+        thumbEl.appendChild(img);
+        return;
+      }
+
+      // cache key to avoid hammering docs
+      const cacheKey = urls.join("|");
+      const cached = thumbCache.get(cacheKey);
+      if (cached !== undefined) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.src = cached || fallbackSvgDataUri(label);
+        thumbEl.appendChild(img);
+        return;
+      }
+
+      const img = document.createElement("img");
+      img.alt = "";
+      thumbEl.appendChild(img);
+
+      let i = 0;
+      const tryNext = () => {
+        if (i >= urls.length) {
+          thumbCache.set(cacheKey, ""); // none
+          img.src = fallbackSvgDataUri(label);
+          return;
+        }
+        const url = urls[i++];
+        const finalUrl = url + (url.includes("?") ? "&" : "?") + "v=1";
+        img.onload = () => {
+          thumbCache.set(cacheKey, url);
+        };
+        img.onerror = () => tryNext();
+        img.src = finalUrl;
+      };
+
+      tryNext();
+    }
+
+    function renderStats(){
+      const vs = snapshot.vehicles || [];
+      statInsured.textContent = vs.filter(isInsured).length;
+      statParked.textContent  = vs.filter(isParked).length;
+      statTotal.textContent   = vs.length;
+
+      const pm = Number(snapshot.premiumIntervalMinutes || 10);
+      pillInterval.textContent = `Premium: ${pm} min`;
+    }
+
+    function renderVehicles(){
+      const vs = (snapshot.vehicles || []).slice();
+      const q = (search.value || "").trim();
+
+      let filtered = vs.filter(v => rowMatches(v, q));
+      if (activeTab === "insured") filtered = filtered.filter(isInsured);
+      if (activeTab === "uninsured") filtered = filtered.filter(v => !isInsured(v));
+
+      filtered.sort((a,b)=>{
+        const ap = isParked(a) ? 0 : 1;
+        const bp = isParked(b) ? 0 : 1;
+        if (ap !== bp) return ap - bp;
+        return String(a.plate||"").localeCompare(String(b.plate||""));
+      });
+
+      vehicleList.innerHTML = "";
+
+      if (!filtered.length){
+        const empty = document.createElement("div");
+        empty.className = "row disabled";
+        empty.innerHTML = `
+          <div class="rowMain">
+            <div class="thumb"></div>
+            <div class="meta">
+              <div class="model">No vehicles</div>
+              <div class="sub">Nothing matched your search.</div>
+            </div>
+          </div>
+          <div class="rowActions">
+            <span class="status">—</span>
+          </div>
+        `;
+        vehicleList.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach(v=>{
+        const plate = String(v.plate || "UNKNOWN").toUpperCase();
+        const model = computeModelName(v);
+
+        const parked = isParked(v);
+        const insured = isInsured(v);
+
+        const planKey = (v.policyType || v.plan || "none");
+        const planLabel = getPlanLabel(planKey);
+
+        const premium = formatCurrency(v.premium || 0);
+        const deductible = formatCurrency(v.deductible || 0);
+        const nextDue = formatNextPayment(v.nextPaymentAt ?? v.nextPayment, snapshot.serverTime);
+
+        const cooldownSeconds = Number(v.claimCooldown || 0);
+        const canClaim = insured && !parked && cooldownSeconds <= 0;
+
+        const row = document.createElement("div");
+        row.className = "row";
+
+        row.innerHTML = `
+          <div class="rowMain">
+            <div class="thumb"></div>
+            <div class="meta">
+              <div class="model">${escapeHtml(model)}</div>
+              <div class="sub">
+                <span class="plate">PLATE • ${escapeHtml(plate)}</span>
+                <span class="status ${parked ? "on" : "off"}">${parked ? "Parked" : "Not parked"}</span>
+                <span class="status ${insured ? "on" : "off"}">${insured ? "Insured" : "Uninsured"}</span>
+              </div>
+              <div class="sub" style="color:rgba(255,255,255,.58)">
+                <span>Plan <b style="color:rgba(255,255,255,.90)">${escapeHtml(String(planLabel).toUpperCase())}</b></span>
+                <span>Premium <b style="color:rgba(255,255,255,.90)">${premium}</b></span>
+                <span>Deductible <b style="color:rgba(255,255,255,.90)">${deductible}</b></span>
+                <span>Next due <b style="color:rgba(255,255,255,.90)">${escapeHtml(nextDue)}</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rowActions">
+            <button class="btn primary" data-action="coverage" data-plate="${escapeHtml(plate)}">
+              ${insured ? "Coverage" : "Select Plan"}
+            </button>
+
+            ${canClaim ? `<button class="btn danger" data-action="claim" data-plate="${escapeHtml(plate)}">File Claim</button>` : ``}
+
+            ${insured ? `<button class="btn" data-action="cancel" data-plate="${escapeHtml(plate)}">Cancel</button>` : ``}
+          </div>
+        `;
+
+        setThumbPreview(row.querySelector(".thumb"), v);
+        vehicleList.appendChild(row);
+      });
+    }
+
+    function renderClaims(){
+      const cs = snapshot.claims || [];
+      claimsList.innerHTML = "";
+
+      if (!Array.isArray(cs) || !cs.length) {
+        const card = document.createElement("div");
+        card.className = "claimCard";
+        card.innerHTML = `
+          <div class="claimTop">
+            <div class="claimPlate">No claims yet</div>
+            <div class="claimStatus">—</div>
+          </div>
+          <div class="claimMeta">
+            <span>Waiting for data</span>
+            <span>—</span>
+          </div>
+        `;
+        claimsList.appendChild(card);
+        return;
+      }
+
+      cs.slice(0,25).forEach(c=>{
+        const plate = String(c.plate || "—").toUpperCase();
+        const status = String(c.status || "APPROVED").toUpperCase();
+        const when = c.time || c.created_at || c.filed_at || c.filedAt || "";
+
+        const plan = String(c.policy_type || c.policyType || "").toUpperCase();
+
+        const card = document.createElement("div");
+        card.className = "claimCard";
+        card.innerHTML = `
+          <div class="claimTop">
+            <div class="claimPlate">${escapeHtml(plate)}</div>
+            <div class="claimStatus">${escapeHtml(status)}</div>
+          </div>
+          <div class="claimMeta">
+            <span>${escapeHtml(plan || "CLAIM")}</span>
+            <span>${escapeHtml(String(when))}</span>
+          </div>
+        `;
+        claimsList.appendChild(card);
+      });
+    }
+
+    function render(){
+      snapshot.vehicles = snapshot.vehicles || [];
+      snapshot.claims = snapshot.claims || [];
+      snapshot.policyTypes = snapshot.policyTypes || {};
+      renderStats();
+      renderVehicles();
+      renderClaims();
+    }
+
+    function openCoverageModal(plate, model){
+      currentCoveragePlate = plate;
+      coverageModalPlate.textContent = `PLATE • ${plate} — ${model}`;
+      coverageOptions.innerHTML = "";
+
+      const types = snapshot.policyTypes || {};
+      const entries = Object.entries(types);
+
+      const list = entries.length ? entries.map(([key, p]) => ({
+        key,
+        label: p.label || key,
+        desc: p.description || "",
+        price: p.priceText || (p.premiumMultiplier ? `${Math.round(p.premiumMultiplier*100)}%` : "")
+      })) : [
+        { key:"none",     label:"None",     desc:"No coverage",                     price:"$0" },
+        { key:"basic",    label:"Basic",    desc:"Cheapest with higher deductible", price:""  },
+        { key:"standard", label:"Standard", desc:"Balanced plan",                   price:""  },
+        { key:"full",     label:"Full",     desc:"Best protection",                 price:""  },
+      ];
+
+      list.forEach(p=>{
+        const div = document.createElement("div");
+        div.className = "opt";
+        div.innerHTML = `
+          <div class="ol">
+            <div class="name">${escapeHtml(p.label)}</div>
+            <div class="desc">${escapeHtml(p.desc || "")}</div>
+          </div>
+          <div class="price">${escapeHtml(p.price || "")}</div>
+        `;
+        div.onclick = () => {
+          postNui("insurance_start", { plate: currentCoveragePlate, policyType: p.key });
+          closeCoverageModal();
+        };
+        coverageOptions.appendChild(div);
+      });
+
+      coverageModal.classList.remove("hidden");
+      coverageModal.setAttribute("aria-hidden","false");
+    }
+
+    function closeCoverageModal(){
+      coverageModal.classList.add("hidden");
+      coverageModal.setAttribute("aria-hidden","true");
+      currentCoveragePlate = null;
+    }
+
+    // UI events
+    btnClose.addEventListener("click", () => postNui("insurance_close", {}));
+
+    tabs.addEventListener("click", (e)=>{
+      const t = e.target.closest(".tab");
+      if (!t) return;
+      activeTab = t.dataset.tab || "all";
+      for (const el of tabs.querySelectorAll(".tab")) el.classList.toggle("active", el.dataset.tab === activeTab);
+      renderVehicles();
+    });
+
+    search.addEventListener("input", renderVehicles);
+
+    vehicleList.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const plate = btn.dataset.plate;
+      if (!action || !plate) return;
+
+      if (action === "coverage") {
+        const v = (snapshot.vehicles || []).find(x => String(x.plate||"").toUpperCase() === String(plate).toUpperCase());
+        openCoverageModal(plate, v ? computeModelName(v) : "Vehicle");
+      } else if (action === "cancel") {
+        postNui("insurance_cancel", { plate });
+      } else if (action === "claim") {
+        postNui("insurance_claim", { plate });
+      }
+    });
+
+    coverageModalCancel.addEventListener("click", closeCoverageModal);
+    coverageModal.addEventListener("click", (e)=>{ if (e.target === coverageModal) closeCoverageModal(); });
+
+    window.addEventListener("keydown", (e)=>{
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (!coverageModal.classList.contains("hidden")) closeCoverageModal();
+      else postNui("insurance_close", {});
+    });
+
+    // NUI messages from client.lua
+    window.addEventListener("message", (event)=>{
+      const data = event.data || {};
+      if (data.type === "azfw_set_resource" && data.resource) { window.__azFrameworkResource = data.resource; return; }
+      if (!data.action) return;
+
+      if (data.action === "openInsurance") {
+        snapshot = data.snapshot || snapshot;
+        setVisible(true);
+        render();
+      } else if (data.action === "closeInsurance") {
+        setVisible(false);
+      }
+    });
+
+    setVisible(false);
+  </script>
+</body>
+</html>

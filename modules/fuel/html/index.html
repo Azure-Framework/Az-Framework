@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Az-Fuel UI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Arial", system-ui, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .fuel-root {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease-out;
+    }
+
+    .fuel-root.visible {
+      opacity: 1;
+    }
+
+    .fuel-panel {
+      position: absolute;
+      
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+
+      pointer-events: none;
+      min-width: 260px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.65);
+      border-radius: 4px;
+
+
+      color: #ffffff;
+      backdrop-filter: blur(3px);
+    }
+
+    .fuel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .fuel-label {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .fuel-subtype {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.8;
+      text-transform: uppercase;
+    }
+
+    .fuel-percent {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .fuel-percent span {
+      color: #50c8ff;
+    }
+
+    .fuel-progress-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .fuel-progress-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    .fuel-progress-bar {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      height: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 2px;
+      border-radius: 2px;
+    }
+
+    .fuel-segment {
+      background: rgba(255,255,255,0.15);
+      border-radius: 1px;
+    }
+
+    .fuel-segment.filled {
+      background: #ffffff;
+    }
+
+    .fuel-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 3px;
+    }
+
+    .fuel-row-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    .fuel-row-value {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .fuel-row-value span.currency {
+      color: #50ff8a;
+    }
+
+    .fuel-row-value span.liters {
+      color: #ffffff;
+    }
+
+    .fuel-footer {
+      margin-top: 4px;
+      font-size: 9px;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .fuel-footer span.key {
+      display: inline-block;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.7);
+      padding: 0 3px;
+      margin: 0 2px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+  <div class="fuel-root" id="fuelRoot">
+    <div class="fuel-panel" id="fuelPanel">
+      <div class="fuel-header">
+        <div>
+          <div class="fuel-label" id="fuelModeLabel">FUEL</div>
+          <div class="fuel-subtype" id="fuelSubType">GASOLINE</div>
+        </div>
+        <div class="fuel-percent">
+          <span id="fuelPercent">0</span>%
+        </div>
+      </div>
+
+      <div class="fuel-progress-row">
+        <div class="fuel-progress-label">TANK</div>
+        <div class="fuel-progress-bar" id="fuelSegments">
+          
+        </div>
+      </div>
+
+      <div class="fuel-row">
+        <div class="fuel-row-label">PRICE</div>
+        <div class="fuel-row-value">
+          <span class="currency">$</span><span id="fuelCost">0</span>
+        </div>
+      </div>
+
+      <div class="fuel-row">
+        <div class="fuel-row-label">PUMPED</div>
+        <div class="fuel-row-value">
+          <span class="liters" id="fuelLiters">0.0</span> LITERS
+        </div>
+      </div>
+
+      <div class="fuel-footer">
+        HOLD NEAR PUMP &amp; VEHICLE. PRESS <span class="key">SPACE</span> TO STOP.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var root = document.getElementById('fuelRoot');
+    var panel = document.getElementById('fuelPanel');
+    var segmentsContainer = document.getElementById('fuelSegments');
+    var percentSpan = document.getElementById('fuelPercent');
+    var costSpan = document.getElementById('fuelCost');
+    var litersSpan = document.getElementById('fuelLiters');
+    var modeLabel = document.getElementById('fuelModeLabel');
+    var subTypeSpan = document.getElementById('fuelSubType');
+
+    
+    for (var i = 0; i < 10; i++) {
+      var seg = document.createElement('div');
+      seg.className = 'fuel-segment';
+      segmentsContainer.appendChild(seg);
+    }
+
+    function setVisible(on) {
+      if (on) {
+        root.classList.add('visible');
+      } else {
+        root.classList.remove('visible');
+      }
+    }
+
+    function setPosition(sx, sy) {
+      if (typeof sx === 'number' && typeof sy === 'number') {
+        panel.style.left = (sx * 100) + '%';
+        panel.style.top  = (sy * 100) + '%';
+      }
+    }
+
+    function updateSegments(percent) {
+      var filledCount = Math.round((percent / 100) * 10);
+      var segs = segmentsContainer.children;
+      for (var i = 0; i < segs.length; i++) {
+        if (i < filledCount) {
+          segs[i].classList.add('filled');
+        } else {
+          segs[i].classList.remove('filled');
+        }
+      }
+    }
+
+    window.addEventListener('message', function (event) {
+      var data = event.data || {};
+      if (!data.action) return;
+
+      if (data.action === 'fuel_open') {
+        var pct1 = Math.round(data.fuel || 0);
+        var cost1 = Math.round(data.cost || 0);
+        var liters1 = Number(data.liters || 0).toFixed(1);
+
+        modeLabel.textContent = data.isEV ? 'CHARGE' : 'FUEL';
+        subTypeSpan.textContent = data.isEV ? 'ELECTRIC' : 'GASOLINE';
+
+        percentSpan.textContent = pct1;
+        costSpan.textContent = cost1;
+        litersSpan.textContent = liters1;
+        updateSegments(pct1);
+
+        if (typeof data.sx === 'number' && typeof data.sy === 'number') {
+          setPosition(data.sx, data.sy);
+        }
+
+        setVisible(true);
+      }
+
+      if (data.action === 'fuel_update') {
+        var pct2 = Math.round(data.fuel || 0);
+        var cost2 = Math.round(data.cost || 0);
+        var liters2 = Number(data.liters || 0).toFixed(1);
+
+        percentSpan.textContent = pct2;
+        costSpan.textContent = cost2;
+        litersSpan.textContent = liters2;
+        updateSegments(pct2);
+
+        if (typeof data.sx === 'number' && typeof data.sy === 'number') {
+          setPosition(data.sx, data.sy);
+        }
+      }
+      if (data.action === 'fuel_pos') {
+  if (typeof data.sx === 'number' && typeof data.sy === 'number') {
+    setPosition(data.sx, data.sy);
+  }
+}
+
+
+      if (data.action === 'fuel_close') {
+        setVisible(false);
+      }
+    });
+  </script>
+</body>
+</html>

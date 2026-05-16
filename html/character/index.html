@@ -1,0 +1,2547 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Azure Framework — Character Select (NUI)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+:root{
+  --bg-0:#090e15;
+  --bg-1:#141b24;
+  --text:#f5efe6;
+  --muted:#b8b0a5;
+  --accent:#3970e6;
+  --accent-2:#5bc0ff;
+  --accent-soft:rgba(57,112,230,0.18);
+  --accent-soft-2:rgba(91,192,255,0.18);
+  --border-soft:rgba(57,112,230,0.08);
+  --border-soft-2:rgba(57,112,230,0.12);
+  --panel-top:rgba(255,255,255,0.03);
+  --panel-bottom:rgba(20,27,36,0.96);
+  --panel-solid:rgba(18,22,29,0.78);
+  --panel-border:rgba(57,112,230,0.08);
+  --panel-shadow:0 12px 48px rgba(0,0,0,0.78);
+  --card-top:rgba(255,255,255,0.02);
+  --card-bottom:rgba(255,255,255,0);
+  --card-border:rgba(57,112,230,0.06);
+  --card-hover-border:rgba(57,112,230,0.14);
+  --card-hover-shadow:0 10px 24px rgba(0,0,0,0.28);
+  --selected-outline:rgba(57,112,230,0.28);
+  --selected-shadow:0 14px 34px rgba(91,192,255,0.14);
+  --avatar-border:rgba(57,112,230,0.08);
+  --stat-pill-bg:rgba(255,255,255,0.03);
+  --modal-backdrop-bg:rgba(8,10,14,0.82);
+  --modal-bg-top:rgba(28,34,42,0.97);
+  --modal-bg-bottom:rgba(12,16,23,0.97);
+  --modal-border:rgba(57,112,230,0.24);
+  --modal-shadow:0 24px 60px rgba(0,0,0,0.55);
+  --modal-header:#5bc0ff;
+  --spawn-backdrop-bg:rgba(8,10,14,0.72);
+  --spawn-bg-top:#141b24;
+  --spawn-bg-bottom:#090e15;
+  --spawn-border:rgba(57,112,230,0.08);
+  --spawn-shadow:0 24px 60px rgba(0,0,0,0.55);
+  --spawn-map-top:#202a33;
+  --spawn-map-bottom:#0b1016;
+  --spawn-map-border:rgba(57,112,230,0.06);
+  --spawn-list-bg:rgba(255,255,255,0.02);
+  --spawn-list-border:rgba(57,112,230,0.05);
+  --spawn-selected-bg:rgba(57,112,230,0.10);
+  --spawn-selected-border:var(--accent);
+  --zoom-bg:rgba(0,0,0,0.42);
+  --zoom-border:rgba(57,112,230,0.08);
+  --zoom-hover-bg:rgba(255,255,255,0.02);
+  --zoom-text:var(--muted);
+  --zoom-hover-text:var(--accent-2);
+  --toast-bg:rgba(10,14,20,0.92);
+  --toast-text:var(--text);
+  --toast-border:rgba(57,112,230,0.08);
+  --toast-shadow:0 8px 24px rgba(0,0,0,0.32);
+  --field-bg:rgba(0,0,0,0.25);
+  --field-border:rgba(255,255,255,0.05);
+  --field-text:#eaf6ff;
+  --field-focus:rgba(57,112,230,0.45);
+  --hint-mini:rgba(151,184,217,0.9);
+  --pin-default:#3970e6;
+  --pin-border:#5bc0ff;
+  --pin-core:#ffffff;
+  --pin-shadow:0 6px 18px rgba(0,0,0,0.62);
+  --pin-active-outline:rgba(91,192,255,0.55);
+  --pin-active-halo:rgba(57,112,230,0.12);
+  --pin-min-size:18;
+  --pin-default-size:36;
+  --pin-new-size:40;
+  --radius:14px;
+  --transition:200ms cubic-bezier(.2,.9,.25,1);
+  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --max-ui-width:1200px;
+}
+
+html,body{
+  height:100%;
+  margin:0;
+  color:var(--text);
+  background:transparent;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased
+}
+
+.panel{
+  border-radius:var(--radius);
+  border:1px solid var(--border-soft);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  background:linear-gradient(180deg,var(--panel-top),var(--panel-bottom));
+  box-shadow:var(--panel-shadow);
+}
+
+.logo{
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  color:white;
+  font-size:18px;
+  flex:0 0 56px;
+  min-width:56px;
+}
+
+.brand-text p,
+.muted{
+  color:var(--muted);
+}
+
+.search{
+  flex:0 1 180px;
+  min-width:80px;
+  max-width:260px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--border-soft);
+  background:rgba(0,0,0,0.18);
+  color:inherit;
+}
+
+.btn-ghost{
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--border-soft);
+  color:var(--muted);
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.cards-wrap{
+  background:linear-gradient(180deg,var(--panel-top),rgba(255,255,255,0));
+  border-radius:12px;
+  padding:10px;
+  border:1px solid rgba(57,112,230,0.06);
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+}
+
+.card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px;
+  border-radius:12px;
+  background:linear-gradient(180deg,var(--card-top),var(--card-bottom));
+  border:1px solid rgba(57,112,230,0.06);
+  cursor:pointer;
+  transition:transform var(--transition),background 220ms,border-color 220ms,box-shadow 220ms;
+  min-height:68px;
+}
+
+.card:hover{
+  transform:translateY(-4px);
+  border-color:var(--card-hover-border);
+  box-shadow:var(--card-hover-shadow);
+}
+
+.card.selected{
+  outline:2px solid var(--selected-outline);
+  box-shadow:var(--selected-shadow);
+}
+
+.avatar{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  color:var(--accent);
+  background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));
+  border:1px solid rgba(57,112,230,0.08);
+  font-size:16px;
+  flex:0 0 44px;
+}
+
+.meta p{
+  margin:6px 0 0 0;
+  color:var(--muted);
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.stat-pill{
+  background:rgba(255,255,255,0.03);
+  padding:6px 10px;
+  border-radius:8px;
+  color:var(--muted);
+  font-size:13px;
+  border:1px solid rgba(57,112,230,0.06);
+}
+
+.create-large,
+.btn-primary,
+.btn-save{
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  color:#fff;
+}
+
+.chip{
+  background:var(--zoom-bg);
+  border:1px solid rgba(57,112,230,0.10);
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  color:rgba(245,239,230,0.88);
+  backdrop-filter:blur(6px);
+}
+
+.pill{
+  background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));
+  padding:10px;
+  border-radius:10px;
+  border:1px solid rgba(57,112,230,0.06);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  min-width:96px;
+}
+
+pre#azfw-detailBox{
+  background:rgba(255,255,255,0.02);
+  padding:12px;
+  border-radius:10px;
+  border:1px solid rgba(57,112,230,0.06);
+  min-height:140px;
+  color:var(--muted);
+  white-space:pre-wrap;
+  overflow:auto;
+  max-height:22vh;
+}
+
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:3000;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 180ms ease;
+  backdrop-filter:blur(6px);
+  background:var(--modal-backdrop-bg);
+}
+
+.modal{
+  width:100%;
+  max-width:520px;
+  background:linear-gradient(180deg,var(--modal-bg-top),var(--modal-bg-bottom));
+  border-radius:var(--radius);
+  padding:16px;
+  border:1px solid var(--modal-border);
+  box-shadow:var(--modal-shadow);
+}
+
+.modal h3{
+  margin:0 0 8px 0;
+  color:var(--modal-header);
+}
+
+.modal .hint{
+  color:var(--muted);
+  font-size:13px;
+}
+
+.modal .row input,
+.btn{
+  border:1px solid rgba(57,112,230,0.08);
+  background:rgba(0,0,0,0.18);
+  color:inherit;
+}
+
+.toast{
+  background:var(--toast-bg);
+  padding:10px 14px;
+  border-radius:10px;
+  color:var(--text);
+  border:1px solid rgba(57,112,230,0.08);
+  box-shadow:0 8px 24px rgba(0,0,0,0.32);
+}
+
+.spawn-modal-backdrop{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:var(--spawn-backdrop-bg);
+  z-index:1500;
+  backdrop-filter:blur(4px);
+}
+
+.spawn-modal{
+  width:100%;
+  max-width:1180px;
+  height:82vh;
+  background:linear-gradient(180deg,var(--spawn-bg-top),var(--spawn-bg-bottom));
+  border-radius:12px;
+  padding:14px;
+  border:1px solid rgba(57,112,230,0.08);
+  display:flex;
+  gap:12px;
+  color:var(--text);
+  overflow:hidden;
+  box-shadow:0 30px 90px rgba(0,0,0,0.55);
+}
+
+.spawn-map{
+  flex:1 1 auto;
+  border-radius:10px;
+  overflow:hidden;
+  position:relative;
+  background:linear-gradient(180deg,var(--spawn-map-top),var(--spawn-map-bottom));
+  border:1px solid rgba(57,112,230,0.06);
+  cursor:grab;
+  user-select:none;
+}
+
+.spawn-pin{
+  --pinSize: 28px;
+  --pinColor: #3970e6;
+  --pinStroke: #5bc0ff;
+  --pinStrokeW: 3px;
+  --pinText: rgba(255,255,255,0.94);
+}
+
+.spawn-pin.active .dot{
+  outline:2px solid rgba(91,192,255,0.55);
+  outline-offset:2px;
+  box-shadow:0 0 0 6px rgba(57,112,230,0.12);
+}
+
+.spawn-list{
+  background:rgba(255,255,255,0.02);
+  border-radius:8px;
+  padding:8px;
+  overflow:auto;
+  flex:1 1 auto;
+  border:1px solid rgba(57,112,230,0.05);
+}
+
+.spawn-list .item{
+  padding:8px;
+  border-radius:6px;
+  cursor:pointer;
+  border:1px solid transparent;
+}
+
+.spawn-list .item:hover{
+  border-color:rgba(57,112,230,0.10);
+  background:rgba(255,255,255,0.02);
+}
+
+.spawn-list .item.selected{
+  background:var(--spawn-selected-bg);
+  border-left:3px solid var(--accent);
+  padding-left:6px;
+}
+
+.zoom-btn{
+  background:var(--zoom-bg);
+  border:1px solid rgba(57,112,230,0.08);
+  padding:6px 8px;
+  border-radius:8px;
+  cursor:pointer;
+  color:var(--muted);
+}
+
+.admin-pill{
+  font-size:12px;
+  color:rgba(245,239,230,0.88);
+  border:1px solid rgba(57,112,230,0.10);
+  background:rgba(0,0,0,0.35);
+  padding:6px 10px;
+  border-radius:999px;
+}
+
+.editor-card{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(57,112,230,0.08);
+  border-radius:10px;
+  padding:10px;
+  display:none;
+  gap:10px;
+  flex-direction:column;
+}
+
+.field label,
+.hint-mini{
+  color:var(--muted);
+}
+
+.field input,
+.field select{
+  padding:10px 10px;
+  border-radius:10px;
+  border:1px solid rgba(57,112,230,0.08);
+  background:rgba(0,0,0,0.22);
+  color:var(--text);
+  outline:none;
+}
+
+.field input:focus,
+.field select:focus{
+  border-color:rgba(57,112,230,0.42);
+  box-shadow:0 0 0 3px rgba(57,112,230,0.10);
+}
+
+
+    html,body{height:100%;margin:0;color:var(--field-text);background:transparent;overflow:hidden;-webkit-font-smoothing:antialiased}
+    *{box-sizing:border-box}
+    ::-webkit-scrollbar{width:0;height:0}
+    *{-ms-overflow-style:none;scrollbar-width:none;}
+
+    .bg-container{
+      width:100%;
+      max-width:var(--max-ui-width);
+      display:grid;
+      grid-template-columns: minmax(300px,420px) 1fr;
+      gap:20px;
+      align-items:start;
+      height:calc(100vh - 40px);
+      max-height:100%;
+    }
+
+    .app{
+      width: min(420px, calc(100vw - 36px));
+      height: calc(100vh - 36px);
+      display:flex;
+    }
+
+    .panel{
+      border-radius:var(--radius);
+      border:1px solid rgba(255,255,255,0.05);
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      background:rgba(8, 14, 26, 0.746);
+    }
+    .panel.animated{animation:panel-in 420ms var(--transition) both}
+    @keyframes panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    .left{display:flex;flex-direction:column;gap:12px;min-height:0;}
+    .header{display:flex;align-items:center;gap:12px;width:100%;min-width:0;flex-wrap:wrap;}
+    .logo{
+      width:56px;height:56px;border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;color:white;font-size:18px;
+      flex:0 0 56px;min-width:56px;
+    }
+    .brand-text{display:flex;flex-direction:column;min-width:0;flex: 1 1 220px;margin-right:8px;}
+    .brand-text h1{margin:0;font-size:18px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px;}
+    .brand-text p{margin:0;color:var(--muted);font-size:13px;}
+    .muted{color:var(--muted)}
+    .header-right{display:flex;gap:10px;align-items:center;flex:0 0 auto;margin-left:auto}
+    .search{
+      flex:0 1 180px;min-width:80px;max-width:260px;
+      padding:10px 12px;border-radius:10px;
+      border:1px solid rgba(255,255,255,0.03);
+      background:transparent;color:inherit
+    }
+    .btn-ghost{
+      background:transparent;border:1px solid rgba(255,255,255,0.04);
+      color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer
+    }
+    .btn-ghost[disabled]{opacity:.45;cursor:not-allowed;}
+
+    .cards-wrap{
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+      border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.02);
+      display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
+    }
+    .card-list{display:flex;flex-direction:column;gap:10px;overflow:auto;padding:6px;min-height:0;flex:1 1 auto;}
+    .card{
+      display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+      border:1px solid rgba(255,255,255,0.03);
+      cursor:pointer;
+      transition:transform var(--transition),background 220ms;
+      min-height:68px
+    }
+    .card:hover{transform:translateY(-4px)}
+    .card.selected{outline:2px solid rgba(46,160,255,0.14)}
+
+    .avatar{
+      width:44px;height:44px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;color:var(--accent);
+      background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.03);
+      font-size:16px;flex:0 0 44px;
+    }
+
+    .meta{min-width:0;flex:1 1 auto}
+    .meta h3{margin:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .meta p{margin:6px 0 0 0;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card-right{margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+    .stat-pill{background:rgba(255,255,255,0.01);padding:6px 10px;border-radius:8px;color:var(--muted);font-size:13px}
+
+    .create-large{
+      margin-top:8px;padding:12px;border-radius:28px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#fff;font-weight:700;border:none;cursor:pointer;
+      width:100%;
+      transition:transform var(--transition);
+    }
+    .create-large:hover{transform:translateY(-3px)}
+
+    .chip{
+      background:rgba(0,0,0,0.45);
+      border:1px solid rgba(255,255,255,0.06);
+      padding:6px 10px;border-radius:999px;
+      font-size:12px;color:rgba(234,246,255,0.85);
+      backdrop-filter: blur(6px);
+    }
+    .pill{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);
+      display:flex;justify-content:space-between;align-items:center;min-width:96px
+    }
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn-primary{
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:white;font-weight:700;padding:10px 14px;border-radius:8px;border:none;cursor:pointer
+    }
+    pre#azfw-detailBox{
+      background:rgba(255,255,255,0.01);
+      padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);
+      min-height:140px;color:var(--muted);white-space:pre-wrap;overflow:auto;max-height:22vh
+    }
+
+    .modal-backdrop{
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      z-index:3000;opacity:0;pointer-events:none;transition:opacity 180ms ease;
+      backdrop-filter:blur(6px);background:rgba(10,20,40,0.8);
+    }
+    .modal-backdrop.visible{opacity:1;pointer-events:auto;}
+    .modal{
+      width:100%;max-width:520px;
+      background:linear-gradient(180deg,rgba(15,25,50,0.95),rgba(5,10,20,0.95));
+      border-radius:var(--radius);padding:16px;border:1px solid rgba(50,100,200,0.25);
+    }
+    .modal h3{margin:0 0 8px 0;color:#4da6ff}
+    .modal .hint{color:var(--muted);font-size:13px}
+    .modal .row input{
+      display:inline-block;margin-right:8px;padding:8px;border-radius:8px;
+      border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit
+    }
+    .modal .buttons{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+    .btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted);cursor:pointer}
+    .btn-save{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;border:none}
+    .btn-cancel{background:transparent}
+
+    .toast-wrap{
+      position:fixed;right:18px;bottom:18px;z-index:99999;
+      display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto;
+    }
+    .toast{
+      background:rgba(0,0,0,0.6);
+      padding:10px 14px;border-radius:10px;color:var(--field-text);border:1px solid rgba(255,255,255,0.03);
+    }
+
+    #azfw-bg{display:none}
+    #azfw-bg.azfw-appeared{display:block}
+
+    .spawn-modal-backdrop{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background:rgba(2,8,18,0.6);z-index:1500;backdrop-filter: blur(4px);
+    }
+    .spawn-modal-backdrop.open{display:flex;}
+    .spawn-modal{
+      width:100%;max-width:1180px;height:82vh;
+      background:linear-gradient(180deg,#041225,#03101a);
+      border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03);
+      display:flex;gap:12px;color:var(--field-text);overflow:hidden;
+    }
+    .spawn-left{flex:1 1 0;display:flex;flex-direction:column;gap:8px;min-width:0;}
+    .spawn-map{
+      flex:1 1 auto;border-radius:10px;overflow:hidden;position:relative;
+      background:linear-gradient(180deg,#0b2230,#03101a);
+      border:1px solid rgba(255,255,255,0.03);
+      cursor:grab;user-select:none;
+    }
+    .spawn-map:active{cursor:grabbing;}
+    .spawn-map .map-viewport{position:absolute;inset:0;overflow:hidden;}
+    .map-content{position:relative;transform-origin:0 0;will-change:transform;}
+    .map-content img{display:block;width:2048px;height:2048px;object-fit:cover;user-drag:none;user-select:none;-webkit-user-drag:none;}
+
+    .spawn-pin{
+      position:absolute;
+      transform:translate(-50%,-100%);
+      cursor:pointer;
+      z-index:60;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      pointer-events:auto;
+      padding:4px;
+
+      --pinSize: 28px;
+      --pinColor: #e74c3c;
+      --pinStroke: #ffffff;
+      --pinStrokeW: 3px;
+      --pinText: rgba(255,255,255,0.92);
+    }
+    .spawn-pin:hover{ transform:translate(-50%,-100%) scale(1.06); }
+    .spawn-pin.active{ transform:translate(-50%,-100%) scale(1.14); z-index:4; }
+    .spawn-pin.active .dot{ outline:2px solid var(--pin-active-outline); outline-offset:3px; }
+
+    .spawn-pin .dot{
+      width:var(--pinSize);
+      height:var(--pinSize);
+      background:var(--pinColor);
+      border:var(--pinStrokeW) solid var(--pinStroke);
+      border-radius:999px;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      color:var(--pinText);
+      font-weight:800;
+      font-size: calc(var(--pinSize) * 0.45);
+      line-height:1;
+    }
+    .spawn-pin .dot .icon{
+      pointer-events:none;
+      transform: translateY(-0.5px);
+      display:none;
+    }
+    .spawn-pin.has-icon .dot .icon{ display:block; }
+
+    .spawn-pin[data-shape="square"] .dot{ border-radius:6px; }
+    .spawn-pin[data-shape="diamond"] .dot{ border-radius:6px; transform:rotate(45deg); }
+    .spawn-pin[data-shape="diamond"] .dot .icon{ transform: rotate(-45deg) translateY(-0.5px); }
+
+    .spawn-pin[data-shape="pin"] .dot::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:calc(100% - 2px);
+      transform:translateX(-50%);
+      width:0;height:0;
+      border-left: calc(var(--pinSize) * 0.28) solid transparent;
+      border-right: calc(var(--pinSize) * 0.28) solid transparent;
+      border-top: calc(var(--pinSize) * 0.55) solid var(--pinColor);
+      pointer-events:none;
+    }
+
+    .spawn-right{width:430px;min-width:340px;display:flex;flex-direction:column;gap:12px;}
+    .spawn-list{background:var(--spawn-list-bg);border-radius:10px;padding:10px;overflow:auto;flex:1 1 auto;border:1px solid var(--spawn-list-border);}
+    .spawn-list .item{padding:12px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent;min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+    .spawn-list .item:hover{border-color:var(--card-border);background:var(--zoom-hover-bg)}
+    .spawn-list .item.selected{background:var(--spawn-selected-bg);border-left:3px solid var(--spawn-selected-border);padding-left:8px;}
+
+    .zoom-controls{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:8px;z-index:200;}
+    .zoom-btn{
+      background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.04);
+      padding:6px 8px;border-radius:8px;cursor:pointer;color:var(--muted);
+    }
+
+    .spawn-adminbar{
+      display:flex;gap:8px;align-items:center;justify-content:flex-end;
+    }
+    .admin-pill{
+      font-size:12px;color:rgba(234,246,255,0.86);
+      border:1px solid rgba(255,255,255,0.06);
+      background:rgba(0,0,0,0.35);
+      padding:6px 10px;border-radius:999px;
+    }
+    .editor-card{
+      background:rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.04);
+      border-radius:10px;
+      padding:10px;
+      display:none;
+      gap:10px;
+      flex-direction:column;
+    }
+    .editor-card.open{display:flex;}
+    .field{
+      display:flex;flex-direction:column;gap:6px;
+    }
+    .field label{font-size:12px;color:rgba(151,184,217,0.95)}
+    .field input{
+      padding:10px 10px;border-radius:10px;
+      border:1px solid rgba(255,255,255,0.05);
+      background:rgba(0,0,0,0.25);color:var(--field-text);
+      outline:none;
+    }
+    .field input:focus{border-color:rgba(213,46,255,0.45)}
+
+    .field select{
+      padding:10px 10px;border-radius:10px;
+      border:1px solid rgba(255,255,255,0.05);
+      background:rgba(0,0,0,0.25);color:var(--field-text);
+      outline:none;
+    }
+    .field select:focus{border-color:rgba(213,46,255,0.45)}
+
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .hint-mini{font-size:12px;color:var(--hint-mini);line-height:1.25}
+
+
+.modal h3{color:var(--modal-header)}
+.modal .row input,
+.btn,
+.field input,
+.field select,
+.search{
+  background:var(--field-bg);
+  color:var(--field-text);
+  border-color:var(--field-border);
+}
+.field label{font-size:13px;margin-bottom:6px;color:var(--hint-mini);font-weight:700}
+.field input,
+.field select{padding:12px 12px;border-radius:12px;font-size:14px}
+.field input:focus,
+.field select:focus{border-color:var(--field-focus)}
+.toast{
+  background:var(--toast-bg);
+  color:var(--toast-text);
+  border:1px solid var(--toast-border);
+  box-shadow:var(--toast-shadow);
+}
+.btn:disabled,
+.btn.is-disabled{
+  opacity:.48;
+  cursor:not-allowed;
+  pointer-events:none;
+}
+.spawn-modal-backdrop{background:var(--spawn-backdrop-bg)}
+.spawn-modal{
+  width:min(1540px, 97vw);
+  max-width:none;
+  height:88vh;
+  background:linear-gradient(180deg,var(--spawn-bg-top),var(--spawn-bg-bottom));
+  border:1px solid var(--spawn-border);
+  box-shadow:var(--spawn-shadow);
+  color:var(--field-text);
+}
+.spawn-map{
+  min-height:720px;
+  background:linear-gradient(180deg,var(--spawn-map-top),var(--spawn-map-bottom));
+  border:1px solid var(--spawn-map-border);
+}
+.spawn-right{width:390px;min-width:320px;gap:12px}
+.editor-card{background:var(--spawn-list-bg);border:1px solid var(--card-border);gap:10px}
+.spawn-pin{
+  --pinSize: calc(var(--pin-default-size) * 1px);
+  --pinColor: var(--pin-default);
+  --pinStroke: var(--pin-border);
+  --pinStrokeW: 3px;
+  --pinText: rgba(255,255,255,0.92);
+}
+.spawn-pin .dot{
+  width:var(--pinSize);
+  height:var(--pinSize);
+  box-shadow:var(--pin-shadow);
+  font-size: calc(var(--pinSize) * 0.42);
+}
+.spawn-pin.active{transform:translate(-50%,-100%) scale(1.14);z-index:4}
+.spawn-pin.active .dot{outline:2px solid var(--pin-active-outline);outline-offset:3px}
+.spawn-list{background:var(--spawn-list-bg);border:1px solid var(--spawn-list-border);border-radius:10px;padding:10px}
+.spawn-list .item{padding:12px 10px;border-radius:10px;min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.spawn-list .item:hover{border-color:var(--card-border);background:var(--zoom-hover-bg)}
+.spawn-list .item.selected{background:var(--spawn-selected-bg);border-left:3px solid var(--spawn-selected-border);padding-left:8px}
+.zoom-btn{background:linear-gradient(180deg,var(--zoom-bg),var(--zoom-hover-bg));color:var(--zoom-text);border:1px solid var(--zoom-border)}
+.zoom-btn:hover{color:var(--zoom-hover-text)}
+.style-controls{position:absolute;right:10px;top:10px;display:flex;gap:8px;flex-wrap:wrap;z-index:220;max-width:calc(100% - 120px);justify-content:flex-end}
+.style-btn{min-width:62px;text-align:center;padding:7px 10px;font-weight:700}
+.style-btn.active{color:#fff;border-color:rgba(57,112,230,0.24);background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+.leaflet-map-shell{position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:linear-gradient(180deg,var(--spawn-map-top),var(--spawn-map-bottom));}
+.leaflet-map-shell .leaflet-container{width:100%;height:100%;background:transparent;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.leaflet-map-shell .leaflet-control-attribution{display:none}
+.leaflet-map-shell .leaflet-top.leaflet-right{top:54px;right:10px}
+.leaflet-map-shell .leaflet-control-layers{display:none}
+.leaflet-map-shell .leaflet-pane img{image-rendering:auto}
+.spawn-div-icon{background:transparent;border:none}
+.spawn-marker{position:relative;display:flex;align-items:flex-end;justify-content:center;padding:4px;filter:drop-shadow(0 8px 18px rgba(0,0,0,0.45));transform-origin:50% 100%}
+.spawn-marker.is-active{transform:scale(1.10)}
+.spawn-marker .dot{width:var(--pinSize);height:var(--pinSize);background:var(--pinColor);border:3px solid var(--pinStroke);border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--pinText);font-weight:800;font-size:calc(var(--pinSize) * 0.42);line-height:1;position:relative;box-shadow:var(--pin-shadow)}
+.spawn-marker.is-active .dot{outline:2px solid var(--pin-active-outline);outline-offset:3px;box-shadow:0 0 0 7px var(--pin-active-halo), var(--pin-shadow)}
+.spawn-marker .icon{display:none;transform:translateY(-0.5px);pointer-events:none}
+.spawn-marker.has-icon .icon{display:block}
+.spawn-marker.shape-square .dot{border-radius:8px}
+.spawn-marker.shape-diamond .dot{border-radius:8px;transform:rotate(45deg)}
+.spawn-marker.shape-diamond .icon{transform:rotate(-45deg) translateY(-0.5px)}
+.spawn-marker.shape-pin .dot::after{content:"";position:absolute;left:50%;top:calc(100% - 2px);transform:translateX(-50%);width:0;height:0;border-left:calc(var(--pinSize) * 0.28) solid transparent;border-right:calc(var(--pinSize) * 0.28) solid transparent;border-top:calc(var(--pinSize) * 0.55) solid var(--pinColor);pointer-events:none}
+.spawn-marker.shape-pin .dot{margin-bottom:calc(var(--pinSize) * 0.40)}
+@media (max-width: 1200px){
+  .spawn-modal{width:min(98vw, 1480px);height:90vh;}
+  .spawn-right{width:360px;min-width:300px;}
+}
+@media (max-width: 980px){
+  .spawn-modal{flex-direction:column;height:94vh;}
+  .spawn-map{min-height:46vh;}
+  .spawn-right{width:100%;min-width:0;max-height:40vh;}
+  .style-controls{max-width:calc(100% - 110px)}
+}
+
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="bg-container" id="azfw-bg">
+    <div class="app">
+      <aside class="panel left animated">
+        <div class="header">
+          <div id="ui-logo" class="logo">Azure Framework</div>
+          <div class="brand-text">
+            <h1 id="ui-brandTitle">Azure Framework</h1>
+            <div id="ui-brandSubtitle" class="muted">All characters — choose or create</div>
+          </div>
+          <div class="header-right">
+            <input id="azfw-search" class="search" placeholder="Search characters...">
+            <button id="azfw-sort" class="btn-ghost">Sort</button>
+          </div>
+        </div>
+
+        <div class="cards-wrap">
+          <div class="card-list" id="charGrid"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <small class="muted">Press Enter to confirm selection</small>
+            <small class="muted">Live preview camera</small>
+          </div>
+        </div>
+
+        <div style="border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div style="min-width:0">
+              <div id="azfw-metaName" style="font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">No character selected</div>
+              <div id="azfw-metaDesc" class="muted" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Select a character on the left or create one.</div>
+            </div>
+            <div class="chip" id="azfw-preview-chip">idle</div>
+          </div>
+
+          <div class="pills" style="gap:8px;display:flex;flex-wrap:wrap">
+            <div class="pill" style="flex:1">HP <strong id="azfw-health">—</strong></div>
+            <div class="pill" style="flex:1">Armor <strong id="azfw-armor">—</strong></div>
+            <div class="pill" style="flex:1">Cash <strong id="azfw-cash">—</strong></div>
+          </div>
+
+          <div class="actions">
+            <button id="azfw-start" class="btn-primary" style="flex:1">Start</button>
+            <button id="azfw-edit" class="btn-ghost">Edit</button>
+            <button id="azfw-delete" class="btn-ghost">Delete</button>
+          </div>
+
+          <pre id="azfw-detailBox" style="margin:0;max-height:140px">No selection — click a character to view more</pre>
+        </div>
+
+        <button id="azfw-create" class="create-large">+ Create Character</button>
+      </aside>
+    </div>
+  </div>
+
+  <div id="modal-create" class="modal-backdrop" aria-hidden="true" tabindex="-1">
+    <div class="modal">
+      <h3 id="modal-create-title">Create Character</h3>
+      <div class="hint">Fill out the name fields and save.</div>
+      <div class="row" style="margin-top:12px">
+        <input id="modal-first" type="text" placeholder="First name" autocomplete="off">
+        <input id="modal-last" type="text" placeholder="Last name" autocomplete="off">
+      </div>
+      <div class="buttons">
+        <button id="modal-create-cancel" class="btn btn-cancel">Cancel</button>
+        <button id="modal-create-save" class="btn btn-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-delete" class="modal-backdrop" aria-hidden="true" tabindex="-1">
+    <div class="modal">
+      <h3 id="modal-delete-title">Delete character</h3>
+      <div class="delete-msg" id="modal-delete-msg">Are you sure?</div>
+      <div class="buttons">
+        <button id="modal-delete-cancel" class="btn btn-cancel">Cancel</button>
+        <button id="modal-delete-confirm" class="btn btn-save">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-issue" class="modal-backdrop" aria-hidden="true" tabindex="-1">
+    <div class="modal">
+      <h3 id="modal-issue-title">Character UI Issue</h3>
+      <div class="delete-msg" id="modal-issue-msg">A required identifier is missing.</div>
+      <div class="hint" id="modal-issue-detail" style="margin-top:10px">
+        Please restart Discord and reconnect to the server.
+      </div>
+      <div class="buttons">
+        <button id="modal-issue-ok" class="btn btn-save">Okay</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script>
+  (function(){
+    const cfg = window.AZFW_CONFIG || {};
+    const colors = (cfg && cfg.colors && typeof cfg.colors === 'object') ? cfg.colors : {};
+    const root = document.documentElement;
+
+    function hexToRgb(hex){
+      const raw = String(hex || '').trim().replace('#','');
+      if (!raw) return null;
+      const value = raw.length === 3 ? raw.split('').map(ch => ch + ch).join('') : raw;
+      if (!/^[0-9a-fA-F]{6}$/.test(value)) return null;
+      return { r: parseInt(value.slice(0,2), 16), g: parseInt(value.slice(2,4), 16), b: parseInt(value.slice(4,6), 16) };
+    }
+    function rgbaFromHex(hex, alpha){
+      const rgb = hexToRgb(hex);
+      if (!rgb) return '';
+      return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+    }
+    function setVar(name, value){
+      if (value == null || value === '') return;
+      root.style.setProperty(name, String(value));
+    }
+    function applyThemeVars(){
+      setVar('--bg-0', colors.bg0);
+      setVar('--bg-1', colors.bg1);
+      setVar('--text', colors.text);
+      setVar('--muted', colors.muted);
+      setVar('--accent', colors.accent);
+      setVar('--accent-2', colors.accent2);
+      setVar('--panel-top', colors.panelGradientTop);
+      setVar('--panel-bottom', colors.panelGradientBottom);
+      setVar('--panel-border', colors.panelBorder);
+      setVar('--panel-shadow', colors.panelShadow);
+      setVar('--card-top', colors.cardGradientTop);
+      setVar('--card-bottom', colors.cardGradientBottom);
+      setVar('--card-border', colors.cardBorder);
+      setVar('--card-hover-shadow', colors.cardHoverShadow);
+      setVar('--selected-outline', colors.selectedOutline);
+      setVar('--selected-shadow', colors.selectedShadow);
+      setVar('--avatar-border', colors.avatarBorder);
+      setVar('--stat-pill-bg', colors.statPillBg);
+      setVar('--modal-backdrop-bg', colors.modalBackdropBg);
+      setVar('--modal-bg-top', colors.modalBgTop);
+      setVar('--modal-bg-bottom', colors.modalBgBottom);
+      setVar('--modal-border', colors.modalBorder);
+      setVar('--modal-shadow', colors.modalShadow);
+      setVar('--modal-header', colors.modalHeader);
+      setVar('--spawn-bg-top', colors.spawnBgTop);
+      setVar('--spawn-bg-bottom', colors.spawnBgBottom);
+      setVar('--spawn-border', colors.spawnBorder);
+      setVar('--spawn-shadow', colors.spawnShadow);
+      setVar('--spawn-map-top', colors.spawnMapTop);
+      setVar('--spawn-map-bottom', colors.spawnMapBottom);
+      setVar('--spawn-map-border', colors.spawnMapBorder);
+      setVar('--pin-default', colors.pin);
+      setVar('--pin-border', colors.pinBorder);
+      setVar('--pin-shadow', colors.pinShadow);
+      setVar('--pin-active-halo', colors.pinActiveHalo);
+      setVar('--spawn-list-bg', colors.spawnListBg);
+      setVar('--spawn-selected-bg', colors.spawnSelectedBg);
+      setVar('--spawn-selected-border', colors.spawnSelectedBorder);
+      setVar('--zoom-bg', colors.zoomBg);
+      setVar('--zoom-border', colors.zoomBorder);
+      setVar('--zoom-hover-bg', colors.zoomHoverBg);
+      setVar('--zoom-text', colors.zoomText);
+      setVar('--zoom-hover-text', colors.zoomHoverText);
+      setVar('--toast-bg', colors.toastBg);
+      setVar('--toast-text', colors.toastText);
+      setVar('--toast-border', colors.toastBorder);
+      setVar('--toast-shadow', colors.toastShadow);
+      const accent = colors.accent || getComputedStyle(root).getPropertyValue('--accent').trim();
+      const accent2 = colors.accent2 || getComputedStyle(root).getPropertyValue('--accent-2').trim();
+      setVar('--accent-soft', colors.accentSoft || rgbaFromHex(accent, 0.18));
+      setVar('--accent-soft-2', colors.accentSoft2 || rgbaFromHex(accent2, 0.18));
+      setVar('--field-focus', colors.fieldFocus || rgbaFromHex(accent, 0.45));
+      setVar('--pin-active-outline', colors.pinActiveOutline || rgbaFromHex(accent2 || accent, 0.55));
+      const spawnEditor = (cfg.spawnEditor && typeof cfg.spawnEditor === 'object') ? cfg.spawnEditor : {};
+      const defaultPinSize = Number(spawnEditor.defaultPinSize);
+      const newPinSize = Number(spawnEditor.newSpawnPinSize);
+      const minPinSize = Number(spawnEditor.minPinSize);
+      if (Number.isFinite(defaultPinSize) && defaultPinSize > 0) setVar('--pin-default-size', defaultPinSize);
+      if (Number.isFinite(newPinSize) && newPinSize > 0) setVar('--pin-new-size', newPinSize);
+      if (Number.isFinite(minPinSize) && minPinSize > 0) setVar('--pin-min-size', minPinSize);
+    }
+    function applyBranding(){
+      const logo = document.getElementById('ui-logo');
+      const title = document.getElementById('ui-brandTitle');
+      const subtitle = document.getElementById('ui-brandSubtitle');
+      if (logo && cfg.logoText) logo.textContent = String(cfg.logoText);
+      if (title && cfg.brandTitle) title.textContent = String(cfg.brandTitle);
+      if (subtitle && cfg.brandSubtitle) subtitle.textContent = String(cfg.brandSubtitle);
+      if (cfg.brandTitle) document.title = `${cfg.brandTitle} — Character Select`;
+    }
+    window.AZFW_APPLY_CONFIG = function(){
+      applyThemeVars();
+      applyBranding();
+    };
+    applyThemeVars();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyBranding, { once:true });
+    else applyBranding();
+  })();
+</script>
+
+<script>
+  (function(){
+    if (typeof window.AZFW_APPLY_CONFIG === 'function') window.AZFW_APPLY_CONFIG();
+    const bg = document.getElementById('azfw-bg');
+    const get = (id) => document.getElementById(id);
+
+    let RESOURCE = null;
+    try { if (typeof GetParentResourceName === "function") RESOURCE = GetParentResourceName(); else if (window.parent && typeof window.parent.GetParentResourceName === "function") RESOURCE = window.parent.GetParentResourceName(); } catch(e){}
+
+    const nameEl = get('azfw-metaName');
+    const descEl = get('azfw-metaDesc');
+    const healthEl = get('azfw-health');
+    const armorEl = get('azfw-armor');
+    const cashEl = get('azfw-cash');
+    const detailEl = get('azfw-detailBox');
+    const toastWrap = get('toastWrap');
+    const previewChip = get('azfw-preview-chip');
+
+    const modalCreate = get('modal-create');
+    const modalDelete = get('modal-delete');
+    const modalIssue = get('modal-issue');
+    const modalFirst = get('modal-first');
+    const modalLast = get('modal-last');
+    const createSaveBtn = get('modal-create-save');
+    const createCancelBtn = get('modal-create-cancel');
+    const deleteConfirmBtn = get('modal-delete-confirm');
+    const deleteCancelBtn = get('modal-delete-cancel');
+    const issueOkBtn = get('modal-issue-ok');
+    const issueTitleEl = get('modal-issue-title');
+    const issueMsgEl = get('modal-issue-msg');
+    const issueDetailEl = get('modal-issue-detail');
+    const createBtn = get('azfw-create');
+    const editBtn = get('azfw-edit');
+    const deleteBtn = get('azfw-delete');
+    const startBtn = get('azfw-start');
+
+    let state = { characters: [], selectedId: null };
+    let uiIssue = null;
+    let pendingEditId = null;
+    let pendingDeleteId = null;
+    let createInputGuard = null;
+    let lastCreateInput = null;
+    let searchFocusTimer = null;
+
+    let lastPreviewSentAt = 0;
+
+    postToLua('azfw_nui_ready', {}).catch(()=>{});
+
+    window.addEventListener('message', (ev) => {
+      const d = ev.data || {};
+      if (!d.type) return;
+
+      if (d.type === 'azfw_set_resource') { RESOURCE = d.resource || RESOURCE; return; }
+      if (d.type === 'azfw_open_ui') { showUI(); if (Array.isArray(d.chars)) loadCharacters(d.chars); return; }
+      if (d.type === 'azfw_update_chars') { if (Array.isArray(d.chars)) loadCharacters(d.chars); return; }
+      if (d.type === 'azfw_close_ui') { hideUI(); return; }
+
+      if (d.type === 'spawn_data') { window.dispatchEvent(new CustomEvent("spawn_data", { detail: d })); return; }
+      if (d.type === 'spawn_update') { window.dispatchEvent(new CustomEvent("spawn_update", { detail: d })); return; }
+      if (d.type === 'spawn_admin') { window.dispatchEvent(new CustomEvent("spawn_admin", { detail: d })); return; }
+      if (d.type === 'spawn_force_editor') { window.dispatchEvent(new CustomEvent("spawn_force_editor", { detail: d })); return; }
+      if (d.type === 'saveResult') { window.dispatchEvent(new CustomEvent("spawn_save_result", { detail: d })); return; }
+
+      if (d.type === 'azfw_ui_issue') { showUiIssue(d.issue || d); return; }
+      if (d.type === 'azfw_clear_ui_issue') { clearUiIssue(); return; }
+      if (d.type === 'toast') { showToast(String(d.message||''), Number(d.ttl||2200)); return; }
+    });
+
+    function isModalVisible(m){ return !!(m && m.classList.contains('visible')); }
+    function clearSearchFocusTimer(){
+      if (searchFocusTimer) {
+        clearTimeout(searchFocusTimer);
+        searchFocusTimer = null;
+      }
+    }
+    function scheduleSearchFocus(){
+      clearSearchFocusTimer();
+      searchFocusTimer = setTimeout(()=>{
+        searchFocusTimer = null;
+        const s=get('azfw-search');
+        if (s && !uiIssue && !isModalVisible(modalCreate) && !isModalVisible(modalDelete) && !isModalVisible(modalIssue)) {
+          try { s.focus({ preventScroll: true }); } catch (e) { try { s.focus(); } catch (_) {} }
+        }
+      },60);
+    }
+    function stopCreateInputGuard(){
+      if (createInputGuard) {
+        clearTimeout(createInputGuard);
+        createInputGuard = null;
+      }
+    }
+    function focusCreateInput(target){
+      if (!isModalVisible(modalCreate)) return;
+      const el = target || lastCreateInput || modalFirst;
+      if (!el || typeof el.focus !== 'function') return;
+      try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (_) {} }
+      try {
+        if (typeof el.setSelectionRange === 'function') {
+          const len = String(el.value || '').length;
+          el.setSelectionRange(len, len);
+        }
+      } catch (e) {}
+    }
+    function startCreateInputGuard(target){
+      lastCreateInput = target || lastCreateInput || modalFirst;
+      clearSearchFocusTimer();
+      stopCreateInputGuard();
+      const kick = (ms) => setTimeout(() => {
+        if (isModalVisible(modalCreate)) focusCreateInput(lastCreateInput);
+      }, ms);
+      kick(0);
+      kick(50);
+      kick(140);
+      createInputGuard = setTimeout(() => {
+        createInputGuard = null;
+      }, 260);
+    }
+
+    function showUI(){
+      bg.classList.add('azfw-appeared');
+      setIssueLocked(!!uiIssue);
+      if (uiIssue) openModal(modalIssue);
+      scheduleSearchFocus();
+    }
+    function hideUI(){
+      bg.classList.remove('azfw-appeared');
+      stopCreateInputGuard();
+      clearSearchFocusTimer();
+      closeModal(modalCreate);
+      closeModal(modalDelete);
+      closeModal(modalIssue);
+      pendingEditId = null;
+      pendingDeleteId = null;
+      previewChip.textContent = 'idle';
+    }
+
+    function postToLua(endpoint, payload = {}) {
+      if (!RESOURCE) return Promise.resolve(null);
+      return fetch(`https://${RESOURCE}/${endpoint}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json; charset=UTF-8'},
+        body: JSON.stringify(payload || {})
+      }).then(r=>r.text().then(t=>{
+        try { return t ? JSON.parse(t) : null; } catch(e){ return t || null; }
+      })).catch(()=>null);
+    }
+
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+    function showToast(msg, ttl=2200){
+      if(!msg) return;
+      const t=document.createElement('div');
+      t.className='toast';
+      t.textContent=msg;
+      toastWrap.appendChild(t);
+      setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(6px)';}, Math.max(0, ttl-260));
+      setTimeout(()=>t.remove(), ttl);
+    }
+
+    function openModal(m){ m.classList.add('visible'); m.setAttribute('aria-hidden','false'); }
+    function closeModal(m){ m.classList.remove('visible'); m.setAttribute('aria-hidden','true'); }
+
+    function setIssueLocked(locked){
+      [createBtn, editBtn, deleteBtn, startBtn].forEach(btn => {
+        if(!btn) return;
+        btn.disabled = !!locked;
+        btn.classList.toggle('is-disabled', !!locked);
+      });
+    }
+
+    function showUiIssue(issue = {}){
+      uiIssue = {
+        code: String(issue.code || 'unknown'),
+        title: String(issue.title || 'Character UI Issue'),
+        message: String(issue.message || 'A required identifier is missing.'),
+        detail: String(issue.detail || '')
+      };
+
+      issueTitleEl.textContent = uiIssue.title;
+      issueMsgEl.textContent = uiIssue.message;
+      issueDetailEl.textContent = uiIssue.detail;
+      setIssueLocked(true);
+      openModal(modalIssue);
+    }
+
+    function clearUiIssue(){
+      uiIssue = null;
+      setIssueLocked(false);
+      closeModal(modalIssue);
+      issueTitleEl.textContent = 'Character UI Issue';
+      issueMsgEl.textContent = 'A required identifier is missing.';
+      issueDetailEl.textContent = '';
+    }
+
+    function guardUiIssue(){
+      if(!uiIssue) return false;
+      showUiIssue(uiIssue);
+      return true;
+    }
+
+    function loadCharacters(chars){
+      state.characters = Array.isArray(chars) ? chars.slice() : [];
+      const stillExists = state.selectedId && state.characters.find(c=>String(c.charid)===String(state.selectedId));
+      state.selectedId = stillExists ? String(state.selectedId) : (state.characters[0] ? String(state.characters[0].charid) : null);
+
+      renderGrid(get('azfw-search').value || '');
+
+      if (state.selectedId) selectCharacter(state.selectedId, true);
+      else {
+        nameEl.textContent = 'No character selected';
+        descEl.textContent = 'Select a character on the left or create one.';
+        healthEl.textContent = '—';
+        armorEl.textContent = '—';
+        cashEl.textContent = '—';
+        detailEl.textContent = 'No selection — click a character to view more';
+      }
+    }
+
+    function renderGrid(filter=''){
+      const grid = get('charGrid');
+      grid.innerHTML = '';
+
+      const f = String(filter||'').toLowerCase();
+      const chars = state.characters.filter(c => (String(c.name||'')).toLowerCase().includes(f));
+
+      if (!chars.length){
+        const empty = document.createElement('div');
+        empty.className='card';
+        const emptyMsg = uiIssue ? (uiIssue.message || 'Characters are unavailable right now.') : 'No characters';
+        empty.innerHTML=`<div style="padding:20px;color:var(--muted)">${escapeHtml(emptyMsg)}</div>`;
+        grid.appendChild(empty);
+        return;
+      }
+
+      chars.forEach((c) => {
+        const cid = String(c.charid);
+        const el = document.createElement('div');
+        el.className = 'card' + (String(state.selectedId)===cid?' selected':'');
+        el.tabIndex = 0;
+
+        const avatarLetter = (c.name||'?').charAt(0).toUpperCase();
+        const cashHtml = (c.cash!=null) ? ('$'+escapeHtml(String(c.cash))) : '—';
+
+        el.innerHTML = `
+          <div class="avatar">${escapeHtml(avatarLetter)}</div>
+          <div class="meta">
+            <h3>${escapeHtml(c.name || 'Unknown')}</h3>
+            <p>${escapeHtml(c.gender || '')}</p>
+          </div>
+          <div class="card-right">
+            <div class="stat-pill">${cashHtml}</div>
+          </div>
+        `;
+
+        el.addEventListener('click', ()=>selectCharacter(cid, false));
+        el.addEventListener('keydown', e=>{
+          if(e.key==='Enter'){
+            e.preventDefault();
+            selectCharacter(cid, false);
+          }
+        });
+
+        grid.appendChild(el);
+      });
+    }
+
+    function sendPreviewToLua(charid){
+      const now = Date.now();
+      if (now - lastPreviewSentAt < 200) return;
+      lastPreviewSentAt = now;
+      previewChip.textContent = 'loading';
+      postToLua('azfw_preview_character', { charid: String(charid) }).catch(()=>{});
+      setTimeout(()=>{ previewChip.textContent = 'ready'; }, 240);
+    }
+
+    function selectCharacter(charid, silent){
+      const cid = String(charid);
+      const c = state.characters.find(x=>String(x.charid)===cid);
+      if(!c) return;
+
+      state.selectedId = cid;
+      sendPreviewToLua(cid);
+
+      nameEl.textContent = c.name || 'Unknown';
+      descEl.textContent = (c.gender||'');
+      healthEl.textContent = c.health!=null?c.health:'—';
+      armorEl.textContent = c.armor!=null?c.armor:'—';
+      cashEl.textContent = c.cash!=null?('$'+c.cash):'—';
+
+      detailEl.textContent =
+        `ID: ${c.charid}\nName: ${c.name}\nCash: ${c.cash!=null?('$'+c.cash):'-'}`;
+
+      if (!silent) renderGrid(get('azfw-search').value || '');
+    }
+
+    [modalFirst, modalLast].forEach((input) => {
+      if (!input) return;
+      input.addEventListener('focus', () => { lastCreateInput = input; });
+      input.addEventListener('click', () => { lastCreateInput = input; });
+      input.addEventListener('input', () => { lastCreateInput = input; });
+      input.addEventListener('blur', () => {
+        if (!isModalVisible(modalCreate)) return;
+        setTimeout(() => {
+          const ae = document.activeElement;
+          if (ae === modalFirst || ae === modalLast || ae === createSaveBtn || ae === createCancelBtn) return;
+          focusCreateInput(lastCreateInput || input);
+        }, 0);
+      });
+      ['keydown', 'keypress', 'keyup'].forEach((evtName) => {
+        input.addEventListener(evtName, (e) => {
+          e.stopPropagation();
+          if (evtName === 'keydown' && e.key === 'Enter') {
+            e.preventDefault();
+            createSaveBtn.click();
+          }
+        });
+      });
+    });
+
+    document.addEventListener('focusin', (e) => {
+      if (!isModalVisible(modalCreate)) return;
+      const target = e.target;
+      if (target === modalFirst || target === modalLast) {
+        lastCreateInput = target;
+        return;
+      }
+      if (modalCreate && modalCreate.contains(target)) return;
+      setTimeout(() => {
+        if (isModalVisible(modalCreate)) focusCreateInput(lastCreateInput || modalFirst);
+      }, 0);
+    }, true);
+
+    modalCreate.addEventListener('mousedown', (e) => {
+      if (!isModalVisible(modalCreate)) return;
+      const target = e.target;
+      if (target === modalFirst || target === modalLast) {
+        lastCreateInput = target;
+        return;
+      }
+      if (e.target === modalCreate) {
+        e.preventDefault();
+        focusCreateInput(lastCreateInput || modalFirst);
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      if (isModalVisible(modalCreate)) setTimeout(() => focusCreateInput(lastCreateInput || modalFirst), 0);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && isModalVisible(modalCreate)) {
+        setTimeout(() => focusCreateInput(lastCreateInput || modalFirst), 0);
+      }
+    });
+
+    createBtn.addEventListener('click', ()=>{
+      if(guardUiIssue()) return;
+      pendingEditId=null;
+      get('modal-create-title').textContent='Create Character';
+      modalFirst.value='New';
+      modalLast.value='Citizen';
+      clearSearchFocusTimer();
+      openModal(modalCreate);
+      startCreateInputGuard(modalFirst);
+    });
+
+    editBtn.addEventListener('click', ()=>{
+      if(guardUiIssue()) return;
+      if(!state.selectedId){ showToast('Select a character to edit'); return; }
+      const c=state.characters.find(x=>String(x.charid)===String(state.selectedId));
+      if(!c) return;
+
+      pendingEditId=String(c.charid);
+      get('modal-create-title').textContent='Edit Character';
+      const parts=(c.name||'').split(' ');
+      modalFirst.value=parts[0]||'';
+      modalLast.value=parts.slice(1).join(' ')||'';
+      clearSearchFocusTimer();
+      openModal(modalCreate);
+      startCreateInputGuard(modalFirst);
+    });
+
+    deleteBtn.addEventListener('click', ()=>{
+      if(guardUiIssue()) return;
+      if(!state.selectedId){ showToast('Select a character to delete'); return; }
+      pendingDeleteId=String(state.selectedId);
+      const c=state.characters.find(x=>String(x.charid)===String(state.selectedId));
+      get('modal-delete-msg').textContent = `Delete "${(c&&c.name)||'Unknown'}" — this cannot be undone.`;
+      openModal(modalDelete);
+    });
+
+    createCancelBtn.addEventListener('click', ()=>{ pendingEditId=null; stopCreateInputGuard(); closeModal(modalCreate); scheduleSearchFocus(); });
+    deleteCancelBtn.addEventListener('click', ()=>{ pendingDeleteId=null; closeModal(modalDelete); });
+    issueOkBtn.addEventListener('click', ()=>{ closeModal(modalIssue); });
+
+    createSaveBtn.addEventListener('click', ()=>{
+      if(guardUiIssue()) return;
+      const first=(modalFirst.value||'').trim();
+      const last=(modalLast.value||'').trim();
+      if(!first){ showToast('First name required'); modalFirst.focus(); return; }
+      postToLua('azfw_create_character', { first, last }).then(()=> {
+        showToast('Character saved');
+        pendingEditId=null;
+        stopCreateInputGuard();
+        closeModal(modalCreate);
+        scheduleSearchFocus();
+      }).catch(()=>showToast('Failed to save character'));
+    });
+
+    deleteConfirmBtn.addEventListener('click', ()=>{
+      if(guardUiIssue()) return;
+      if(!pendingDeleteId){ closeModal(modalDelete); return; }
+      postToLua('azfw_delete_character', { charid: pendingDeleteId }).then(()=>{
+        showToast('Character deleted');
+        pendingDeleteId=null;
+        closeModal(modalDelete);
+      }).catch(()=>showToast('Failed to delete character'));
+    });
+
+    get('azfw-search').addEventListener('input', e=>renderGrid(e.target.value));
+
+    get('azfw-sort').addEventListener('click', ()=>{
+      state.characters.sort((a,b)=>(String(b.name||'')).localeCompare(String(a.name||'')));
+      renderGrid(get('azfw-search').value||'');
+    });
+
+    startBtn.addEventListener('click', async ()=>{
+      if(guardUiIssue()) return;
+      if(!state.selectedId){ showToast('Select a character'); return; }
+      await postToLua('azfw_select_character', { charid: state.selectedId }).catch(()=>{});
+    });
+
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape') {
+        if (modalCreate.classList.contains('visible')) { stopCreateInputGuard(); closeModal(modalCreate); scheduleSearchFocus(); return; }
+        if (modalDelete.classList.contains('visible')) { closeModal(modalDelete); return; }
+        if (modalIssue.classList.contains('visible')) { closeModal(modalIssue); return; }
+      }
+
+      if (e.key !== 'Enter') return;
+      if (!bg.classList.contains('azfw-appeared')) return;
+
+      const tag = (e.target && e.target.tagName) ? String(e.target.tagName).toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (modalCreate.classList.contains('visible')) return;
+      if (modalDelete.classList.contains('visible')) return;
+      if (modalIssue.classList.contains('visible')) return;
+      if (guardUiIssue()) return;
+
+      e.preventDefault();
+      startBtn.click();
+    });
+
+    requestAnimationFrame(()=>bg.classList.add('azfw-appeared'));
+  })();
+  </script>
+
+  <div id="spawnModalBackdrop" class="spawn-modal-backdrop" aria-hidden="true">
+    <div class="spawn-modal" role="dialog" aria-modal="true">
+      <div class="spawn-left">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div style="font-weight:800;font-size:16px">Spawn Selector</div>
+          <div class="spawn-adminbar">
+            <div id="adminPill" class="admin-pill" style="display:none">Admin</div>
+            <button id="spawnRefreshBtn" class="btn-ghost">Refresh</button>
+            <button id="spawnEditToggleBtn" class="btn-ghost" style="display:none">Editor: Off</button>
+            <button id="spawnNewBtn" class="btn-ghost" style="display:none">+ New Spawn</button>
+            <button id="spawnSaveBtn" class="btn-ghost" style="display:none">Save</button>
+            <button id="spawnCloseBtnTop" class="btn-ghost">Close</button>
+          </div>
+        </div>
+
+        <div class="spawn-map" id="spawnMap">
+          <div class="zoom-controls">
+            <button id="zoomInBtn" class="zoom-btn">+</button>
+            <button id="zoomOutBtn" class="zoom-btn">−</button>
+            <button id="zoomResetBtn" class="zoom-btn">Fit</button>
+          </div>
+          <div class="style-controls" id="mapStyleControls">
+            <button class="zoom-btn style-btn active" data-style="atlas">Atlas</button>
+            <button class="zoom-btn style-btn" data-style="grid">Grid</button>
+            <button class="zoom-btn style-btn" data-style="satellite">Sat</button>
+                      </div>
+          <div id="spawnLeafletMap" class="leaflet-map-shell" aria-label="Spawn Map"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <div style="flex:1;color:var(--muted);font-size:13px" id="spawnHint">Select a spawn, then Spawn.</div>
+          <div><button id="spawnSelectBtn" class="btn-primary">Spawn</button></div>
+        </div>
+
+        <div class="hint-mini" id="editorHint" style="display:none;margin-top:4px">
+          <b>Editor:</b> Drag a pin to move the <b>MAP</b> location. Use <b>+ New Spawn</b> or <b>Shift+Click</b> on the map to add a spawn. Scroll to zoom.
+        </div>
+      </div>
+
+      <div class="spawn-right">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">Spawns</div>
+          <button id="spawnDeleteBtn" class="btn-ghost" style="display:none">Delete</button>
+        </div>
+
+        <div class="spawn-list" id="spawnList"></div>
+
+        <div id="editorCard" class="editor-card">
+          <div class="field">
+            <label>Name</label>
+            <input id="edName" placeholder="Spawn name">
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <input id="edDesc" placeholder="Optional description">
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>Heading (Spawn H)</label>
+              <input id="edHeading" placeholder="0.0">
+            </div>
+            <div class="field">
+              <label>ID</label>
+              <input id="edId" placeholder="spawn_id">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button id="btnUseCurrent" class="btn-ghost" type="button" style="flex:1">Use Current Location → Spawn XYZH</button>
+            <button id="btnMapFromSpawn" class="btn-ghost" type="button" style="flex:1">Set Map XYZH = Spawn XYZH</button>
+          </div>
+
+          <div class="hint-mini" style="opacity:.95"><b>MAP XYZH</b> = pin location on the spawn menu map (only changes by dragging / editing MAP fields / clicking the button above)</div>
+          <div class="row2">
+            <div class="field">
+              <label>Map X</label>
+              <input id="edMapX" placeholder="0.0">
+            </div>
+            <div class="field">
+              <label>Map Y</label>
+              <input id="edMapY" placeholder="0.0">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Map Z</label>
+              <input id="edMapZ" placeholder="0.0">
+            </div>
+            <div class="field">
+              <label>Map H</label>
+              <input id="edMapH" placeholder="0.0">
+            </div>
+          </div>
+
+          <div class="hint-mini" style="opacity:.95"><b>SPAWN XYZH</b> = where the player actually spawns</div>
+          <div class="row2">
+            <div class="field">
+              <label>Spawn X</label>
+              <input id="edSpawnX" placeholder="0.0">
+            </div>
+            <div class="field">
+              <label>Spawn Y</label>
+              <input id="edSpawnY" placeholder="0.0">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Spawn Z</label>
+              <input id="edSpawnZ" placeholder="0.0">
+            </div>
+            <div class="field">
+              <label>Spawn H</label>
+              <input id="edSpawnH" placeholder="0.0">
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>Blip Size (px)</label>
+              <input id="edPinSize" placeholder="28">
+            </div>
+            <div class="field">
+              <label>Blip Color</label>
+              <input id="edPinColor" placeholder="#e74c3c">
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>Blip Shape</label>
+              <select id="edPinShape">
+                <option value="circle">Circle</option>
+                <option value="pin">Pin</option>
+                <option value="square">Square</option>
+                <option value="diamond">Diamond</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Blip Icon (text/emoji)</label>
+              <input id="edPinIcon" placeholder="★">
+            </div>
+          </div>
+
+          <div class="hint-mini" id="edCoords">Coords: —</div>
+          <div class="hint-mini" id="edSaveState" style="opacity:.9">Save: —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    let RESOURCE = null;
+    try { if (typeof GetParentResourceName === "function") RESOURCE = GetParentResourceName(); else if (window.parent && typeof window.parent.GetParentResourceName === "function") RESOURCE = window.parent.GetParentResourceName(); } catch(e){}
+
+    const backdrop = document.getElementById('spawnModalBackdrop');
+    const spawnMap = document.getElementById('spawnMap');
+    const spawnList = document.getElementById('spawnList');
+    const spawnSelectBtn = document.getElementById('spawnSelectBtn');
+    const spawnCloseBtnTop = document.getElementById('spawnCloseBtnTop');
+    const spawnRefreshBtn = document.getElementById('spawnRefreshBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    const spawnHint = document.getElementById('spawnHint');
+    const mapStyleControls = document.getElementById('mapStyleControls');
+    const mapStyleButtons = Array.from(document.querySelectorAll('#mapStyleControls [data-style]'));
+
+    const adminPill = document.getElementById('adminPill');
+    const editToggleBtn = document.getElementById('spawnEditToggleBtn');
+    const spawnNewBtn = document.getElementById('spawnNewBtn');
+    const saveBtn = document.getElementById('spawnSaveBtn');
+    const delBtn = document.getElementById('spawnDeleteBtn');
+    const editorCard = document.getElementById('editorCard');
+    const editorHint = document.getElementById('editorHint');
+
+    const edName = document.getElementById('edName');
+    const edDesc = document.getElementById('edDesc');
+    const edHeading = document.getElementById('edHeading');
+    const edId = document.getElementById('edId');
+    const edCoords = document.getElementById('edCoords');
+    const edSaveState = document.getElementById('edSaveState');
+
+    const edMapX = document.getElementById('edMapX');
+    const edMapY = document.getElementById('edMapY');
+    const edMapZ = document.getElementById('edMapZ');
+    const edMapH = document.getElementById('edMapH');
+
+    const edSpawnX = document.getElementById('edSpawnX');
+    const edSpawnY = document.getElementById('edSpawnY');
+    const edSpawnZ = document.getElementById('edSpawnZ');
+    const edSpawnH = document.getElementById('edSpawnH');
+
+    const btnUseCurrent = document.getElementById('btnUseCurrent');
+    const btnMapFromSpawn = document.getElementById('btnMapFromSpawn');
+
+    const edPinSize = document.getElementById('edPinSize');
+    const edPinColor = document.getElementById('edPinColor');
+    const edPinShape = document.getElementById('edPinShape');
+    const edPinIcon = document.getElementById('edPinIcon');
+
+    const toastWrap = document.getElementById('toastWrap');
+
+    let SPAWNS = [];
+    let MAP_BOUNDS = { minX:-3000, maxX:3000, minY:-6300, maxY:7000 };
+    let selectedId = null;
+    let isAdmin = false;
+    let editMode = false;
+    let dirty = false;
+    let lastServerSnapshot = "";
+
+    let leafletMap = null;
+    let activeStyleLayer = null;
+    let activeStyleKey = 'atlas';
+    let markerLayer = null;
+    let markerRefs = new Map();
+    let tileErrorBurst = 0;
+    let tileErrorTimer = null;
+
+    const TILE_URLS = {
+      atlas: 'https://cdn.jsdelivr.net/gh/Trusted-Studios/mapStyles@main/styleAtlas/{z}/{x}/{y}.jpg',
+      grid: 'https://cdn.jsdelivr.net/gh/Trusted-Studios/mapStyles@main/styleGrid/{z}/{x}/{y}.png',
+      satellite: 'https://cdn.jsdelivr.net/gh/Trusted-Studios/mapStyles@main/styleSatelite/{z}/{x}/{y}.jpg'
+    };
+
+    const center_x = 117.3;
+    const center_y = 172.8;
+    const scale_x = 0.02072;
+    const scale_y = 0.0205;
+    const CUSTOM_CRS = window.L ? window.L.extend({}, window.L.CRS.Simple, {
+      projection: window.L.Projection.LonLat,
+      scale: function(zoom){ return Math.pow(2, zoom); },
+      zoom: function(sc){ return Math.log(sc) / 0.6931471805599453; },
+      distance: function(pos1, pos2){
+        const dx = pos2.lng - pos1.lng;
+        const dy = pos2.lat - pos1.lat;
+        return Math.sqrt(dx * dx + dy * dy);
+      },
+      transformation: new window.L.Transformation(scale_x, center_x, -scale_y, center_y),
+      infinite: true
+    }) : null;
+
+    function showToast(msg, ttl=2200){
+      if(!msg || !toastWrap) return;
+      const t=document.createElement('div');
+      t.className='toast';
+      t.textContent=msg;
+      toastWrap.appendChild(t);
+      setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(6px)';}, Math.max(0, ttl-260));
+      setTimeout(()=>t.remove(), ttl);
+    }
+
+    function markDirty(on){
+      dirty = !!on;
+      if (edSaveState) edSaveState.textContent = dirty ? 'Save: pending changes' : 'Save: saved';
+    }
+
+    function nui(endpoint, payload={}){
+      if(!RESOURCE) return Promise.resolve(null);
+      return fetch(`https://${RESOURCE}/${endpoint}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json; charset=UTF-8'},
+        body: JSON.stringify(payload || {})
+      }).then(r=>r.text().then(t=>{ try{return t?JSON.parse(t):null;}catch(e){return t||null;} })).catch(()=>null);
+    }
+
+    function openSpawnModal(){
+      backdrop.classList.add('open');
+      ensureLeafletMap();
+      setTimeout(()=>{ if (leafletMap) leafletMap.invalidateSize(false); }, 40);
+      setTimeout(()=>{ if (leafletMap) leafletMap.invalidateSize(false); }, 180);
+    }
+
+    function closeSpawnModal(){
+      backdrop.classList.remove('open');
+      selectedId = null;
+      editMode = false;
+      setAdminUI(false, false);
+      markerRefs.clear();
+      if (markerLayer) markerLayer.clearLayers();
+      spawnList.innerHTML = '';
+      clearEditor();
+      markDirty(false);
+    }
+
+    function setAdminUI(admin, editorOn){
+      isAdmin = !!admin;
+      editMode = !!editorOn;
+
+      adminPill.style.display = isAdmin ? 'inline-flex' : 'none';
+      editToggleBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+      spawnNewBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+      saveBtn.style.display = (isAdmin && editMode) ? 'inline-flex' : 'none';
+      delBtn.style.display = (isAdmin && editMode) ? 'inline-flex' : 'none';
+
+      editorCard.classList.toggle('open', isAdmin && editMode);
+      editorHint.style.display = (isAdmin && editMode) ? 'block' : 'none';
+      editToggleBtn.textContent = editMode ? 'Editor: On' : 'Editor: Off';
+      refreshMarkers();
+    }
+
+    function _num(v, fallback=0){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function escapeHtml(s){
+      return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function worldToLatLng(x, y){
+      return window.L.latLng(_num(y, 0), _num(x, 0));
+    }
+
+    function latLngToWorld(latlng){
+      return { x: _num(latlng && latlng.lng, 0), y: _num(latlng && latlng.lat, 0) };
+    }
+
+    function getWorldBounds(){
+      return window.L.latLngBounds(
+        worldToLatLng(MAP_BOUNDS.minX, MAP_BOUNDS.minY),
+        worldToLatLng(MAP_BOUNDS.maxX, MAP_BOUNDS.maxY)
+      );
+    }
+
+    function normalizeStyle(style){
+      const s = style && typeof style === 'object' ? style : {};
+      const rootStyles = getComputedStyle(document.documentElement);
+      const minPinSize = Math.max(10, Number(rootStyles.getPropertyValue('--pin-min-size')) || 18);
+      const defaultPinSize = Math.max(minPinSize, Number(rootStyles.getPropertyValue('--pin-default-size')) || 36);
+      const size = Math.max(minPinSize, Math.min(96, Number(s.size ?? s.pinSize ?? defaultPinSize) || defaultPinSize));
+      const color = String(s.color ?? s.pinColor ?? '#e74c3c');
+      const shape = String(s.shape ?? s.pinShape ?? 'circle');
+      const icon = String(s.icon ?? s.pinIcon ?? '').slice(0, 4);
+      return { size, color, shape, icon };
+    }
+
+    function normalizeXYZH(raw, fallback){
+      const f = fallback || { x:0,y:0,z:0,h:0 };
+      if (!raw || typeof raw !== 'object') return { x:f.x,y:f.y,z:f.z,h:f.h };
+      return {
+        x: _num(raw.x, f.x),
+        y: _num(raw.y, f.y),
+        z: _num(raw.z, f.z),
+        h: _num(raw.h ?? raw.heading, f.h),
+      };
+    }
+
+    function normalizeSpawnObj(s){
+      s = (s && typeof s === 'object') ? s : {};
+      const id = String(s.id || s.name || ('spawn_' + Math.random().toString(16).slice(2)));
+
+      const style = normalizeStyle(s.style || {
+        size: s.pinSize,
+        color: s.pinColor,
+        shape: s.pinShape,
+        icon: s.pinIcon
+      });
+
+      const legacyCoords = normalizeXYZH(
+        (s.coords && typeof s.coords === 'object') ? { x:s.coords.x, y:s.coords.y, z:s.coords.z, h:(s.heading ?? s.coords.h) } : null,
+        { x:0,y:0,z:0,h:0 }
+      );
+
+      const spawnCoords = normalizeXYZH(
+        (s.spawn && s.spawn.coords) ? { x:s.spawn.coords.x, y:s.spawn.coords.y, z:s.spawn.coords.z, h:(s.spawn.heading ?? s.spawn.coords.h ?? s.heading) } :
+        (s.spawnXYZH ? s.spawnXYZH : null),
+        legacyCoords
+      );
+
+      const mapCoords = normalizeXYZH(
+        (s.map && s.map.coords) ? { x:s.map.coords.x, y:s.map.coords.y, z:s.map.coords.z, h:(s.map.heading ?? s.map.coords.h ?? s.mapHeading) } :
+        (s.mapCoords ? s.mapCoords : (s.mapXYZH ? s.mapXYZH : null)),
+        spawnCoords
+      );
+
+      return {
+        id,
+        name: String(s.name || s.label || id),
+        description: String(s.description || ''),
+        style,
+        map: { coords: { x:mapCoords.x, y:mapCoords.y, z:mapCoords.z }, heading: mapCoords.h },
+        spawn: { coords: { x:spawnCoords.x, y:spawnCoords.y, z:spawnCoords.z }, heading: spawnCoords.h },
+        coords: { x:spawnCoords.x, y:spawnCoords.y, z:spawnCoords.z },
+        heading: spawnCoords.h,
+      };
+    }
+
+    function isLastLocationRaw(r){
+      const idv = String((r && (r.id ?? r.name ?? r.label)) ?? '').toLowerCase().trim();
+      const nm  = String((r && (r.name ?? r.label)) ?? '').toLowerCase().trim();
+      if (r && r.isLastLocation === true) return true;
+      if (idv === 'last_location') return true;
+      if (idv === 'last location') return true;
+      if (nm === 'last location' || nm === 'last_location') return true;
+      if (idv.includes('last_location')) return true;
+      if (nm.includes('last location')) return true;
+      return false;
+    }
+
+    function hasNonZeroCoordsRaw(r){
+      try{
+        const sc = r && r.spawn && r.spawn.coords ? r.spawn.coords : null;
+        const lc = r && r.coords ? r.coords : null;
+        const mc = r && r.map && r.map.coords ? r.map.coords : null;
+        const c = sc || lc || mc;
+        if (!c) return false;
+        const x = Number(c.x)||0, y=Number(c.y)||0, z=Number(c.z)||0;
+        return Math.abs(x)>0.001 || Math.abs(y)>0.001 || Math.abs(z)>0.001;
+      }catch(e){ return false; }
+    }
+
+    function sanitizeRawSpawns(raw){
+      const arr = Array.isArray(raw) ? raw.slice() : [];
+      const lastCandidates = [];
+      const others = [];
+      for (const r of arr){
+        if (isLastLocationRaw(r)) lastCandidates.push(r);
+        else others.push(r);
+      }
+      let keepLast = null;
+      if (lastCandidates.length){
+        keepLast = lastCandidates.find(x => String((x && (x.id ?? x.name ?? x.label))||'').toLowerCase().trim() === 'last_location')
+          || lastCandidates.find(hasNonZeroCoordsRaw)
+          || lastCandidates[0];
+        if (keepLast && typeof keepLast === 'object'){
+          keepLast.id = 'last_location';
+          if (!keepLast.name && keepLast.label) keepLast.name = keepLast.label;
+          if (!keepLast.name) keepLast.name = 'Last Location';
+        }
+      }
+      const seen = new Set();
+      const out = [];
+      for (let i=0;i<others.length;i++){
+        const r = others[i];
+        const key = String((r && (r.id ?? r.name ?? r.label)) ?? ('spawn_' + i)).trim() || ('spawn_' + i);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(r);
+      }
+      if (keepLast) out.unshift(keepLast);
+      return out;
+    }
+
+    function toSaveObj(s){
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        style: s.style,
+        map: s.map,
+        spawn: s.spawn
+      };
+    }
+
+    function snapshotForCompare(){
+      try { return JSON.stringify(SPAWNS.map(s=>toSaveObj(s))); } catch(e){ return ''; }
+    }
+
+    function refreshDirtyFromServerSnapshot(){
+      markDirty(snapshotForCompare() !== lastServerSnapshot);
+    }
+
+    function findSpawn(id){
+      return SPAWNS.find(s=>s.id===id) || null;
+    }
+
+    function clearEditor(){
+      edName.value = '';
+      edDesc.value = '';
+      edHeading.value = '';
+      edId.value = '';
+      edMapX.value = '';
+      edMapY.value = '';
+      edMapZ.value = '';
+      edMapH.value = '';
+      edSpawnX.value = '';
+      edSpawnY.value = '';
+      edSpawnZ.value = '';
+      edSpawnH.value = '';
+      edPinSize.value = '';
+      edPinColor.value = '';
+      edPinShape.value = 'circle';
+      edPinIcon.value = '';
+      edCoords.textContent = 'Coords: —';
+    }
+
+    function fmtXYZH(obj){
+      const c = obj && obj.coords ? obj.coords : {x:0,y:0,z:0};
+      const h = _num(obj && obj.heading, 0);
+      return `${_num(c.x,0).toFixed(2)}, ${_num(c.y,0).toFixed(2)}, ${_num(c.z,0).toFixed(2)}, h=${h.toFixed(2)}`;
+    }
+
+    function fillEditorFromSpawn(s){
+      if (!s) return clearEditor();
+      edName.value = s.name || '';
+      edDesc.value = s.description || '';
+      edId.value = s.id || '';
+      edHeading.value = String(_num(s.spawn?.heading ?? s.heading, 0));
+      edMapX.value = String(_num(s.map?.coords?.x, 0));
+      edMapY.value = String(_num(s.map?.coords?.y, 0));
+      edMapZ.value = String(_num(s.map?.coords?.z, 0));
+      edMapH.value = String(_num(s.map?.heading, 0));
+      edSpawnX.value = String(_num(s.spawn?.coords?.x, 0));
+      edSpawnY.value = String(_num(s.spawn?.coords?.y, 0));
+      edSpawnZ.value = String(_num(s.spawn?.coords?.z, 0));
+      edSpawnH.value = String(_num(s.spawn?.heading ?? s.heading, 0));
+      const st = normalizeStyle(s.style);
+      edPinSize.value = String(st.size);
+      edPinColor.value = st.color;
+      edPinShape.value = st.shape;
+      edPinIcon.value = st.icon;
+      edCoords.textContent = `Coords: Spawn(${fmtXYZH(s.spawn)}) | Map(${fmtXYZH(s.map)})`;
+    }
+
+    function updateSelectedSpawn(mutFn){
+      if (!selectedId) return null;
+      const idx = SPAWNS.findIndex(s=>s.id===selectedId);
+      if (idx === -1) return null;
+      mutFn(SPAWNS[idx], idx);
+      markDirty(true);
+      return SPAWNS[idx];
+    }
+
+    function buildMarkerHtml(spawnNorm, active){
+      const st = normalizeStyle(spawnNorm.style);
+      const classes = [
+        'spawn-marker',
+        active ? 'is-active' : '',
+        st.icon ? 'has-icon' : '',
+        `shape-${st.shape}`
+      ].filter(Boolean).join(' ');
+      return `<div class="${classes}" style="--pinSize:${st.size}px;--pinColor:${escapeHtml(st.color)};--pinStroke:var(--pin-border);--pinText:rgba(255,255,255,0.95)"><div class="dot"><span class="icon">${escapeHtml(st.icon || '')}</span></div></div>`;
+    }
+
+    function makeMarkerIcon(spawnNorm, active){
+      const st = normalizeStyle(spawnNorm.style);
+      const width = Math.max(36, st.size + 18);
+      const height = Math.max(46, st.size + (st.shape === 'pin' ? Math.round(st.size * 0.9) : 18));
+      return window.L.divIcon({
+        className: 'spawn-div-icon',
+        html: buildMarkerHtml(spawnNorm, active),
+        iconSize: [width, height],
+        iconAnchor: [Math.round(width / 2), height - 4],
+        popupAnchor: [0, -Math.round(height / 2)]
+      });
+    }
+
+    function ensureLeafletMap(){
+      if (leafletMap || !window.L || !CUSTOM_CRS) return;
+      leafletMap = window.L.map('spawnLeafletMap', {
+        crs: CUSTOM_CRS,
+        zoomControl: false,
+        attributionControl: false,
+        preferCanvas: true,
+        minZoom: 1,
+        maxZoom: 5,
+        maxNativeZoom: 5,
+        zoomSnap: 0.25,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 100,
+        center: [0, 0],
+        zoom: 3,
+        doubleClickZoom: false
+      });
+
+
+      markerLayer = window.L.layerGroup().addTo(leafletMap);
+      applyStyleLayer(activeStyleKey, true);
+      leafletMap.setMaxBounds(getWorldBounds().pad(0.18));
+      fitMapView(false);
+
+      leafletMap.on('click', (e) => {
+        if (!(isAdmin && editMode)) return;
+        if (!e.originalEvent || !e.originalEvent.shiftKey) return;
+        const world = latLngToWorld(e.latlng);
+        createNewSpawn({ x: world.x, y: world.y, z: 0, h: 0 });
+      });
+
+      window.addEventListener('resize', () => {
+        if (leafletMap) leafletMap.invalidateSize(false);
+      });
+    }
+
+    function onTileLayerError(){
+      tileErrorBurst += 1;
+      clearTimeout(tileErrorTimer);
+      tileErrorTimer = setTimeout(()=>{ tileErrorBurst = 0; }, 1200);
+      if (tileErrorBurst >= 6){
+        showToast('Map tiles unavailable right now.');
+        tileErrorBurst = 0;
+      }
+    }
+
+    function createRemoteStyleLayer(key){
+      if (!window.L || !TILE_URLS[key]) return null;
+      const layer = window.L.tileLayer(TILE_URLS[key], {
+        minZoom: 0,
+        maxZoom: key === 'satellite' ? 8 : 5,
+        maxNativeZoom: key === 'satellite' ? 8 : 5,
+        noWrap: true,
+        continuousWorld: false,
+        crossOrigin: true,
+        updateWhenIdle: true,
+        keepBuffer: 3,
+        opacity: 0.98
+      });
+      layer.on('tileerror', onTileLayerError);
+      return layer;
+    }
+
+    function applyStyleButtonState(styleKey){
+      mapStyleButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.style === styleKey);
+      });
+    }
+
+    function applyStyleLayer(styleKey, silent){
+      ensureLeafletMap();
+      if (!leafletMap) return;
+      const next = String(styleKey || 'atlas');
+      if (activeStyleLayer){
+        leafletMap.removeLayer(activeStyleLayer);
+        activeStyleLayer = null;
+      }
+      activeStyleKey = next;
+      if (next !== 'image'){
+        activeStyleLayer = createRemoteStyleLayer(next);
+        if (activeStyleLayer) activeStyleLayer.addTo(leafletMap);
+      }
+      applyStyleButtonState(activeStyleKey);
+      if (!silent){
+        showToast(`Map style: ${activeStyleKey === 'satellite' ? 'Satellite' : activeStyleKey.charAt(0).toUpperCase() + activeStyleKey.slice(1)}`);
+      }
+    }
+
+    function fitMapView(animate=true){
+      ensureLeafletMap();
+      if (!leafletMap) return;
+      const coords = SPAWNS.map(s => {
+        const m = (s.map && s.map.coords) ? s.map.coords : s.coords;
+        return worldToLatLng(_num(m?.x, 0), _num(m?.y, 0));
+      }).filter(Boolean);
+      if (!coords.length){
+        leafletMap.fitBounds(getWorldBounds(), { padding: [28, 28], animate });
+        return;
+      }
+      const bounds = window.L.latLngBounds(coords);
+      leafletMap.fitBounds(bounds.pad(0.18), { padding: [28, 28], maxZoom: 4.5, animate });
+    }
+
+    function focusSpawn(id){
+      ensureLeafletMap();
+      if (!leafletMap) return;
+      const s = findSpawn(id);
+      if (!s) return;
+      const m = (s.map && s.map.coords) ? s.map.coords : s.coords;
+      const target = worldToLatLng(_num(m?.x, 0), _num(m?.y, 0));
+      const nextZoom = Math.max(leafletMap.getZoom(), 4);
+      leafletMap.flyTo(target, Math.min(4.75, nextZoom), { duration: 0.35, animate: true });
+    }
+
+    function refreshMarkers(){
+      ensureLeafletMap();
+      if (!markerLayer) return;
+      markerLayer.clearLayers();
+      markerRefs = new Map();
+      for (const s of SPAWNS){
+        const m = (s.map && s.map.coords) ? s.map.coords : s.coords;
+        const ll = worldToLatLng(_num(m?.x, 0), _num(m?.y, 0));
+        const marker = window.L.marker(ll, {
+          icon: makeMarkerIcon(s, selectedId === s.id),
+          draggable: !!(isAdmin && editMode),
+          riseOnHover: true,
+          keyboard: false,
+          autoPan: true,
+          title: s.name || s.id
+        });
+        marker.__spawnId = s.id;
+        marker.on('click', () => selectSpawn(s.id, true));
+        marker.on('dragstart', () => {
+          if (!marker.__spawnId) return;
+          const sp = findSpawn(marker.__spawnId);
+          if (!sp) return;
+          selectedId = sp.id;
+          renderList();
+          spawnHint.textContent = `Selected: ${sp.name}`;
+          if (isAdmin && editMode) fillEditorFromSpawn(sp);
+          // Do not refreshMarkers() here — recreating the marker on dragstart
+          // cancels the active drag in FiveM NUI.
+        });
+        marker.on('dragend', () => {
+          const ll2 = marker.getLatLng();
+          const world = latLngToWorld(ll2);
+          const sp = findSpawn(marker.__spawnId);
+          if (!sp) return;
+          sp.map = sp.map || { coords:{x:0,y:0,z:0}, heading:0 };
+          sp.map.coords.x = _num(world.x, sp.map.coords.x || 0);
+          sp.map.coords.y = _num(world.y, sp.map.coords.y || 0);
+          markDirty(true);
+          fillEditorFromSpawn(sp);
+          refreshMarkers();
+          refreshDirtyFromServerSnapshot();
+        });
+        marker.addTo(markerLayer);
+        markerRefs.set(s.id, marker);
+      }
+    }
+
+    function renderList(){
+      spawnList.innerHTML = '';
+      for (const s of SPAWNS){
+        const item = document.createElement('div');
+        item.className = 'item' + (selectedId === s.id ? ' selected' : '');
+        item.innerHTML = `<div style="font-weight:700">${escapeHtml(s.name)}</div><div class="muted" style="font-size:12px">${escapeHtml(s.description||'')}</div>`;
+        item.addEventListener('click', ()=>selectSpawn(s.id, true));
+        spawnList.appendChild(item);
+      }
+    }
+
+    function selectSpawn(id, fromUI){
+      const s = findSpawn(id);
+      if (!s) return;
+      selectedId = s.id;
+      renderList();
+      refreshMarkers();
+      spawnHint.textContent = `Selected: ${s.name}`;
+      if (isAdmin && editMode) fillEditorFromSpawn(s);
+      if (fromUI) focusSpawn(s.id);
+    }
+
+    function createNewSpawn(opts={}){
+      if (!isAdmin) return;
+      if (!editMode){
+        editMode = true;
+        setAdminUI(isAdmin, true);
+      }
+      ensureLeafletMap();
+      const rootStyles = getComputedStyle(document.documentElement);
+      const defaultNewSize = Math.max(18, Number(rootStyles.getPropertyValue('--pin-new-size')) || 40);
+      const defaultPinColor = rootStyles.getPropertyValue('--pin-default').trim() || '#3970e6';
+      const baseWorld = opts.world || (leafletMap ? latLngToWorld(leafletMap.getCenter()) : { x:0, y:0 });
+      const coords = {
+        x: _num(opts.x, _num(baseWorld.x, 0)),
+        y: _num(opts.y, _num(baseWorld.y, 0)),
+        z: _num(opts.z, 0),
+        h: _num(opts.h, 0)
+      };
+      const nid = 'spawn_' + Math.random().toString(16).slice(2);
+      const s = normalizeSpawnObj({
+        id: nid,
+        name: 'New Spawn',
+        description: 'New spawn location',
+        map: { coords: { x:coords.x, y:coords.y, z:coords.z }, heading: coords.h },
+        spawn: { coords: { x:coords.x, y:coords.y, z:coords.z }, heading: coords.h },
+        style: { size: defaultNewSize, color: defaultPinColor, shape: 'pin', icon: '' }
+      });
+      if (opts.color) s.style.color = String(opts.color);
+      if (opts.shape) s.style.shape = String(opts.shape);
+      if (opts.icon) s.style.icon = String(opts.icon).slice(0, 4);
+      SPAWNS.push(s);
+      selectedId = s.id;
+      renderList();
+      refreshMarkers();
+      fillEditorFromSpawn(s);
+      focusSpawn(s.id);
+      markDirty(true);
+      refreshDirtyFromServerSnapshot();
+      showToast('New spawn created');
+      return s;
+    }
+
+    function bindInput(el, cb){
+      el.addEventListener('input', ()=>cb());
+      el.addEventListener('change', ()=>cb());
+    }
+
+    mapStyleControls.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-style]');
+      if (!btn) return;
+      applyStyleLayer(btn.dataset.style);
+    });
+
+    zoomInBtn.addEventListener('click', ()=>{ ensureLeafletMap(); if (leafletMap) leafletMap.zoomIn(0.5); });
+    zoomOutBtn.addEventListener('click', ()=>{ ensureLeafletMap(); if (leafletMap) leafletMap.zoomOut(0.5); });
+    zoomResetBtn.addEventListener('click', ()=> fitMapView(true));
+
+    spawnCloseBtnTop.addEventListener('click', ()=>{ nui('closeSpawnMenu', {}).then(()=>{}); closeSpawnModal(); });
+    spawnRefreshBtn.addEventListener('click', ()=>{ nui('request_spawns', {}).then(()=>showToast('Refreshing...')); });
+
+    editToggleBtn.addEventListener('click', ()=>{
+      if (!isAdmin) return;
+      editMode = !editMode;
+      setAdminUI(isAdmin, editMode);
+      if (editMode){
+        nui('request_edit_permission', {});
+        if (selectedId) fillEditorFromSpawn(findSpawn(selectedId));
+      } else {
+        clearEditor();
+      }
+    });
+
+    spawnNewBtn.addEventListener('click', ()=>{
+      if (!isAdmin) return;
+      nui('request_player_coords', {}).then((pos)=>{
+        if (pos && pos.x != null){
+          createNewSpawn({ x: pos.x, y: pos.y, z: pos.z, h: pos.h });
+          return;
+        }
+        createNewSpawn();
+      });
+    });
+
+    saveBtn.addEventListener('click', ()=>{
+      if (!isAdmin || !editMode) return;
+      const payload = SPAWNS.map(s=>toSaveObj(s));
+      nui('saveSpawns', { spawns: payload }).then(()=>{});
+    });
+
+    delBtn.addEventListener('click', ()=>{
+      if (!isAdmin || !editMode || !selectedId) return;
+      const s = findSpawn(selectedId);
+      if (!s) return;
+      if (String(s.id) === 'last_location'){
+        showToast('Cannot delete Last Location');
+        return;
+      }
+      SPAWNS = SPAWNS.filter(x=>x.id !== selectedId);
+      selectedId = SPAWNS[0] ? SPAWNS[0].id : null;
+      renderList();
+      refreshMarkers();
+      if (selectedId && editMode) fillEditorFromSpawn(findSpawn(selectedId));
+      else clearEditor();
+      markDirty(true);
+      refreshDirtyFromServerSnapshot();
+    });
+
+    spawnSelectBtn.addEventListener('click', ()=>{
+      if (!selectedId){ showToast('Select a spawn'); return; }
+      const s = findSpawn(selectedId);
+      if (!s) return;
+      nui('selectSpawn', { spawn: toSaveObj(s) }).then(()=>{});
+      closeSpawnModal();
+    });
+
+    bindInput(edName, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.name = edName.value; });
+      if (!s) return;
+      renderList();
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edDesc, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.description = edDesc.value; });
+      if (!s) return;
+      renderList();
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edId, ()=>{
+      const s = updateSelectedSpawn(sp=>{
+        if (sp.id === 'last_location') return;
+        const oldId = sp.id;
+        const nextId = (edId.value || sp.id).trim() || sp.id;
+        sp.id = nextId;
+        if (selectedId === oldId) selectedId = nextId;
+      });
+      if (!s) return;
+      renderList();
+      refreshMarkers();
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edHeading, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.spawn.heading = _num(edHeading.value, sp.spawn.heading||0); sp.heading = sp.spawn.heading; });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edMapX, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.map.coords.x = _num(edMapX.value, sp.map.coords.x); });
+      if (!s) return;
+      refreshMarkers();
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edMapY, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.map.coords.y = _num(edMapY.value, sp.map.coords.y); });
+      if (!s) return;
+      refreshMarkers();
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edMapZ, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.map.coords.z = _num(edMapZ.value, sp.map.coords.z); });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edMapH, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.map.heading = _num(edMapH.value, sp.map.heading||0); });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edSpawnX, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.spawn.coords.x = _num(edSpawnX.value, sp.spawn.coords.x); sp.coords.x = sp.spawn.coords.x; });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edSpawnY, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.spawn.coords.y = _num(edSpawnY.value, sp.spawn.coords.y); sp.coords.y = sp.spawn.coords.y; });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edSpawnZ, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.spawn.coords.z = _num(edSpawnZ.value, sp.spawn.coords.z); sp.coords.z = sp.spawn.coords.z; });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edSpawnH, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.spawn.heading = _num(edSpawnH.value, sp.spawn.heading||0); sp.heading = sp.spawn.heading; });
+      if (!s) return;
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+
+    bindInput(edPinSize, ()=>{
+      const s = updateSelectedSpawn(sp=>{
+        const minPinSize = Math.max(10, Number(getComputedStyle(document.documentElement).getPropertyValue('--pin-min-size')) || 18);
+        sp.style.size = Math.max(minPinSize, Math.min(96, _num(edPinSize.value, sp.style.size || minPinSize)));
+      });
+      if (!s) return;
+      refreshMarkers();
+      fillEditorFromSpawn(s);
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edPinColor, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.style.color = String(edPinColor.value||sp.style.color||'#e74c3c'); });
+      if (!s) return;
+      refreshMarkers();
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edPinShape, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.style.shape = String(edPinShape.value||sp.style.shape||'circle'); });
+      if (!s) return;
+      refreshMarkers();
+      refreshDirtyFromServerSnapshot();
+    });
+    bindInput(edPinIcon, ()=>{
+      const s = updateSelectedSpawn(sp=>{ sp.style.icon = String(edPinIcon.value||'').slice(0,4); });
+      if (!s) return;
+      refreshMarkers();
+      refreshDirtyFromServerSnapshot();
+    });
+
+    btnUseCurrent.addEventListener('click', ()=>{
+      if (!isAdmin || !editMode) return;
+      nui('request_player_coords', {}).then((pos)=>{
+        if (!pos || pos.x==null) { showToast('Failed to get coords'); return; }
+        const s = updateSelectedSpawn(sp=>{
+          sp.spawn.coords.x = _num(pos.x, sp.spawn.coords.x);
+          sp.spawn.coords.y = _num(pos.y, sp.spawn.coords.y);
+          sp.spawn.coords.z = _num(pos.z, sp.spawn.coords.z);
+          sp.spawn.heading  = _num(pos.h, sp.spawn.heading||0);
+          sp.coords = { x: sp.spawn.coords.x, y: sp.spawn.coords.y, z: sp.spawn.coords.z };
+          sp.heading = sp.spawn.heading;
+        });
+        if (!s) return;
+        fillEditorFromSpawn(s);
+        refreshDirtyFromServerSnapshot();
+        showToast('Updated Spawn XYZH (MAP unchanged)');
+      });
+    });
+
+    btnMapFromSpawn.addEventListener('click', ()=>{
+      if (!isAdmin || !editMode) return;
+      const s = updateSelectedSpawn(sp=>{
+        sp.map.coords.x = sp.spawn.coords.x;
+        sp.map.coords.y = sp.spawn.coords.y;
+        sp.map.coords.z = sp.spawn.coords.z;
+        sp.map.heading  = sp.spawn.heading;
+      });
+      if (!s) return;
+      refreshMarkers();
+      fillEditorFromSpawn(s);
+      focusSpawn(s.id);
+      refreshDirtyFromServerSnapshot();
+      showToast('Map XYZH set from Spawn XYZH');
+    });
+
+    window.addEventListener('spawn_data', (ev)=>{
+      const d = (ev.detail||{});
+      openSpawnModal();
+      MAP_BOUNDS = d.mapBounds || MAP_BOUNDS;
+      const rawSpawns = sanitizeRawSpawns(Array.isArray(d.spawns) ? d.spawns : []);
+      SPAWNS = rawSpawns.map(x=>normalizeSpawnObj(x));
+      isAdmin = !!d.isAdmin;
+      editMode = false;
+      setAdminUI(isAdmin, false);
+      selectedId = SPAWNS[0] ? SPAWNS[0].id : null;
+      ensureLeafletMap();
+      requestAnimationFrame(()=> {
+        if (leafletMap) leafletMap.invalidateSize(false);
+        fitMapView(false);
+        renderList();
+        refreshMarkers();
+        if (selectedId) selectSpawn(selectedId, false);
+      });
+      lastServerSnapshot = snapshotForCompare();
+      markDirty(false);
+      if (d.openEditor && isAdmin){
+        editMode = true;
+        setAdminUI(isAdmin, true);
+        if (selectedId) fillEditorFromSpawn(findSpawn(selectedId));
+      }
+    });
+
+    window.addEventListener('spawn_update', (ev)=>{
+      const d = (ev.detail||{});
+      const rawSpawns = sanitizeRawSpawns(Array.isArray(d.spawns) ? d.spawns : []);
+      SPAWNS = rawSpawns.map(x=>normalizeSpawnObj(x));
+      if (!findSpawn(selectedId)) selectedId = SPAWNS[0] ? SPAWNS[0].id : null;
+      renderList();
+      refreshMarkers();
+      if (selectedId) selectSpawn(selectedId, false);
+      lastServerSnapshot = snapshotForCompare();
+      refreshDirtyFromServerSnapshot();
+    });
+
+    window.addEventListener('spawn_admin', (ev)=>{
+      const d = (ev.detail||{});
+      isAdmin = !!d.isAdmin;
+      if (!isAdmin) editMode = false;
+      setAdminUI(isAdmin, editMode);
+    });
+
+    window.addEventListener('spawn_force_editor', (ev)=>{
+      const d = (ev.detail||{});
+      if (!isAdmin) return;
+      editMode = !!d.on;
+      setAdminUI(isAdmin, editMode);
+      if (editMode && selectedId){
+        fillEditorFromSpawn(findSpawn(selectedId));
+      }
+    });
+
+    window.addEventListener('spawn_save_result', (ev)=>{
+      const d = (ev.detail||{});
+      if (d.ok){
+        showToast('Saved');
+        lastServerSnapshot = snapshotForCompare();
+        markDirty(false);
+      } else {
+        showToast('Save failed: ' + String(d.err||'unknown'));
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

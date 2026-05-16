@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Az-ID – San Andreas Driver License</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: transparent;
+    }
+
+    .id-root {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, rgba(0,0,0,0.65), rgba(0,0,0,0.9));
+      z-index: 9999;
+    }
+
+    .id-root.hidden {
+      display: none;
+    }
+
+    .id-card {
+      position: relative;
+      width: 640px;
+      height: 390px;
+      background: #f7f4dd;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #2d4f7f;
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.7);
+      padding: 14px 18px;
+      color: #111;
+    }
+
+    .id-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(0, 88, 255, 0.08),
+          rgba(0, 88, 255, 0.08) 2px,
+          transparent 2px,
+          transparent 4px
+        ),
+        radial-gradient(circle at 10% 10%, rgba(255,255,255,0.6), transparent 55%),
+        radial-gradient(circle at 90% 80%, rgba(255,255,190,0.7), transparent 50%);
+      opacity: 0.9;
+      mix-blend-mode: multiply;
+      pointer-events: none;
+    }
+
+    .id-watermark {
+      position: absolute;
+      right: -40px;
+      top: 30px;
+      width: 260px;
+      height: 260px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.9), transparent 55%),
+        radial-gradient(circle at 70% 60%, rgba(252,241,180,0.8), transparent 60%);
+      opacity: 0.75;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .id-header {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+
+    .id-header-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .id-header-title {
+      font-size: 30px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #1c4e9b;
+      text-shadow: 0 1px 0 #fff, 0 0 3px rgba(0,0,0,0.4);
+    }
+
+    .id-header-sub {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2f5c;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: -2px;
+    }
+
+    .id-header-right {
+      font-size: 11px;
+      text-align: right;
+      font-weight: 600;
+      color: #444;
+    }
+
+    .id-header-right span {
+      display: block;
+      line-height: 1.3;
+    }
+
+    .id-main {
+      position: relative;
+      z-index: 2;
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      column-gap: 12px;
+      row-gap: 6px;
+    }
+
+    .id-photo-wrap {
+      position: relative;
+      width: 180px;
+      height: 220px;
+      border: 2px solid rgba(0,0,0,0.3);
+      background: #6fa3d4;
+      overflow: hidden;
+    }
+
+    .id-photo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .id-photo-label {
+      position: absolute;
+      left: 4px;
+      bottom: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 0 3px rgba(0,0,0,0.9);
+    }
+
+    .id-photo-ghost {
+      position: absolute;
+      right: 24px;
+      top: 142px;
+      width: 90px;
+      height: 120px;
+      border: 1px solid rgba(0,0,0,0.4);
+      overflow: hidden;
+      background: rgba(255,255,255,0.6);
+    }
+
+    .id-photo-ghost img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: grayscale(1);
+      opacity: 0.9;
+    }
+
+    .id-dl-row {
+      grid-column: 1 / 3;
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: #b00000;
+      margin-bottom: 4px;
+    }
+
+    .id-dl-row .dl-label {
+      color: #444;
+      font-weight: 700;
+    }
+
+    .id-dl-row span strong {
+      color: #b00000;
+      font-weight: 700;
+    }
+
+    .id-dl-row span {
+      margin-right: 12px;
+    }
+
+    .id-text {
+      font-size: 12px;
+      line-height: 1.35;
+      color: #252525;
+    }
+
+    .id-text .label {
+      font-weight: 700;
+      font-size: 11px;
+      color: #555;
+      margin-right: 4px;
+      text-transform: uppercase;
+    }
+
+    .id-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      margin-top: 4px;
+    }
+
+    .id-section {
+      margin-bottom: 4px;
+    }
+
+    .id-info-row {
+      display: flex;
+      flex-wrap: wrap;
+      font-size: 11px;
+      margin-top: 4px;
+      row-gap: 2px;
+    }
+
+    .id-info-item {
+      margin-right: 16px;
+    }
+
+    .id-info-item .label {
+      font-weight: 700;
+      color: #555;
+      margin-right: 2px;
+    }
+
+    .id-footer {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      z-index: 2;
+      font-size: 10px;
+      color: #333;
+    }
+
+    .id-footer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .id-signature {
+      font-family: "Lucida Handwriting", "Segoe Script", cursive;
+      font-size: 16px;
+      border-top: 1px solid rgba(0,0,0,0.5);
+      padding-top: 2px;
+      width: 210px;
+    }
+
+    .id-footer-codes span {
+      margin-right: 14px;
+    }
+
+    .id-footer-codes .label {
+      font-weight: 700;
+      margin-right: 2px;
+    }
+
+    .id-footer-right {
+      text-align: right;
+      font-size: 10px;
+    }
+
+    .id-footer-right .code {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+
+    .id-modal {
+      position: absolute;
+      inset: auto 50% 16px 50%;
+      transform: translateX(-50%);
+      background: rgba(8, 8, 8, 0.9);
+      border-radius: 10px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      color: #fff;
+      width: 360px;
+      display: none;
+      z-index: 5;
+    }
+
+    .id-modal.visible {
+      display: block;
+    }
+
+    .id-modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .id-modal-text {
+      font-size: 12px;
+      opacity: 0.95;
+      margin-bottom: 8px;
+    }
+
+    .id-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .id-btn {
+      border: none;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .id-btn-yes {
+      background: linear-gradient(135deg, #1b8f3b, #4adf84);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+    }
+
+    .id-btn-no {
+      background: linear-gradient(135deg, #7a1313, #d84343);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+    }
+
+    .id-btn:hover {
+      filter: brightness(1.08);
+    }
+
+    .mono {
+      font-family: "Consolas", "Courier New", monospace;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div id="id-root" class="id-root hidden">
+    <div class="id-card">
+      <div class="id-watermark"></div>
+
+      <div class="id-header">
+        <div class="id-header-left">
+          <div class="id-header-title">SAN ANDREAS</div>
+          <div class="id-header-sub">DRIVER LICENSE</div>
+        </div>
+        <div class="id-header-right">
+          <span>CLASS <strong id="field-class">C</strong></span>
+          <span>END <strong id="field-end">NONE</strong></span>
+        </div>
+      </div>
+
+      <div class="id-dl-row">
+        <span>
+          <span class="dl-label">DL</span>
+          <strong id="field-dl" class="mono">P4847952</strong>
+        </span>
+        <span>
+          <span class="dl-label">EXP</span>
+          <strong id="field-exp">08/06/2023</strong>
+        </span>
+      </div>
+
+      <div class="id-main">
+        <div class="id-photo-wrap">
+          <img id="photo-main" src="" alt="ID Photo" />
+          <div class="id-photo-label">SAN ANDREAS</div>
+        </div>
+
+        <div>
+          <div class="id-section id-text">
+            <div class="id-name">
+              <span id="field-ln">PHILIPS</span>,
+              <span id="field-fn">TREVOR</span>
+            </div>
+          </div>
+
+          <div class="id-section id-text">
+            <span id="field-addr1">186 ZANCUDO AVENUE,</span><br />
+            <span id="field-addr2">SANDY SHORES, BLAINE COUNTY, SA 47229</span>
+          </div>
+
+          <div class="id-section id-info-row">
+            <div class="id-info-item">
+              <span class="label">DOB</span><span id="field-dob">08/06/1969</span>
+            </div>
+            <div class="id-info-item">
+              <span class="label">SEX</span><span id="field-sex">M</span>
+            </div>
+            <div class="id-info-item">
+              <span class="label">HGT</span><span id="field-hgt">6'-01"</span>
+            </div>
+            <div class="id-info-item">
+              <span class="label">WGT</span><span id="field-wgt">206</span>
+            </div>
+          </div>
+
+          <div class="id-section id-info-row">
+            <div class="id-info-item">
+              <span class="label">HAIR</span><span id="field-hair">BRN</span>
+            </div>
+            <div class="id-info-item">
+              <span class="label">EYES</span><span id="field-eyes">BRN</span>
+            </div>
+            <div class="id-info-item">
+              <span class="label">RST</span><span id="field-rst">NONE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="id-photo-ghost">
+        <img id="photo-ghost" src="" alt="Ghost Photo" />
+      </div>
+
+      <div class="id-footer">
+        <div class="id-footer-left">
+          <div class="id-signature" id="field-signature">Trevor Philips</div>
+          <div class="id-footer-codes">
+            <span><span class="label">DD</span><span id="field-dd" class="mono">0103/019699903/0608/69</span></span>
+            <span><span class="label">ISS</span><span id="field-iss">09/17/2013</span></span>
+          </div>
+        </div>
+        <div class="id-footer-right">
+          <div class="label">ID NUMBER</div>
+          <div id="field-idnum" class="code mono">080669</div>
+        </div>
+      </div>
+
+      <div id="id-modal" class="id-modal">
+        <div class="id-modal-title">ID Request</div>
+        <div class="id-modal-text" id="id-modal-text">
+          Someone is asking to see your ID. Do you want to show it?
+        </div>
+        <div class="id-modal-actions">
+          <button class="id-btn id-btn-no" data-response="no">No</button>
+          <button class="id-btn id-btn-yes" data-response="yes">Yes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const root      = document.getElementById("id-root");
+      const modal     = document.getElementById("id-modal");
+      const modalText = document.getElementById("id-modal-text");
+
+      let lastRequester = null;
+
+      const fields = {
+        dl:        document.getElementById("field-dl"),
+        exp:       document.getElementById("field-exp"),
+        class:     document.getElementById("field-class"),
+        end:       document.getElementById("field-end"),
+        ln:        document.getElementById("field-ln"),
+        fn:        document.getElementById("field-fn"),
+        addr1:     document.getElementById("field-addr1"),
+        addr2:     document.getElementById("field-addr2"),
+        dob:       document.getElementById("field-dob"),
+        sex:       document.getElementById("field-sex"),
+        hgt:       document.getElementById("field-hgt"),
+        wgt:       document.getElementById("field-wgt"),
+        hair:      document.getElementById("field-hair"),
+        eyes:      document.getElementById("field-eyes"),
+        rst:       document.getElementById("field-rst"),
+        dd:        document.getElementById("field-dd"),
+        iss:       document.getElementById("field-iss"),
+        idnum:     document.getElementById("field-idnum"),
+        signature: document.getElementById("field-signature")
+      };
+
+      const photoMain  = document.getElementById("photo-main");
+      const photoGhost = document.getElementById("photo-ghost");
+
+      function setCardData(data) {
+        if (!data) return;
+
+        if (data.dl)  fields.dl.textContent  = data.dl;
+        if (data.exp) fields.exp.textContent = data.exp;
+
+        if (data.class) fields.class.textContent = data.class;
+        if (data.end)   fields.end.textContent   = data.end;
+
+        if (data.ln)  fields.ln.textContent  = String(data.ln).toUpperCase();
+        if (data.fn)  fields.fn.textContent  = String(data.fn).toUpperCase();
+        if (data.addr1) fields.addr1.textContent = data.addr1;
+        if (data.addr2) fields.addr2.textContent = data.addr2;
+
+        if (data.dob) fields.dob.textContent = data.dob;
+        if (data.sex) fields.sex.textContent = data.sex;
+        if (data.hgt) fields.hgt.textContent = data.hgt;
+        if (data.wgt) fields.wgt.textContent = data.wgt;
+
+        if (data.hair) fields.hair.textContent = data.hair;
+        if (data.eyes) fields.eyes.textContent = data.eyes;
+        if (data.rst)  fields.rst.textContent  = data.rst;
+
+        if (data.dd)   fields.dd.textContent   = data.dd;
+        if (data.iss)  fields.iss.textContent  = data.iss;
+        if (data.idnum) fields.idnum.textContent = data.idnum;
+        if (data.signature) fields.signature.textContent = data.signature;
+
+        if (data.mugshot) {
+          let b64 = String(data.mugshot);
+          let src;
+          if (b64.startsWith("data:image")) {
+            src = b64;
+          } else {
+            src = "data:image/png;base64," + b64;
+          }
+          photoMain.src  = src;
+          photoGhost.src = src;
+        }
+      }
+
+      function showCard() {
+        root.classList.remove("hidden");
+      }
+
+      function hideCard() {
+        root.classList.add("hidden");
+        hideModal();
+        try {
+          fetch(`https://${GetParentResourceName()}/idClose`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json; charset=UTF-8" },
+            body: JSON.stringify({})
+          });
+        } catch (e) {}
+      }
+
+      function showModal(requesterServerId) {
+        lastRequester = requesterServerId || null;
+        if (lastRequester) {
+          modalText.textContent =
+            "Player " + lastRequester + " is asking to see your ID. Do you want to show it?";
+        } else {
+          modalText.textContent =
+            "Someone is asking to see your ID. Do you want to show it?";
+        }
+        modal.classList.add("visible");
+      }
+
+      function hideModal() {
+        modal.classList.remove("visible");
+      }
+
+      modal.addEventListener("click", function (e) {
+        const btn = e.target.closest("button[data-response]");
+        if (!btn) return;
+        const response = btn.getAttribute("data-response");
+        const accepted = (response === "yes");
+
+        try {
+          fetch(`https://${GetParentResourceName()}/respondRequest`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json; charset=UTF-8" },
+            body: JSON.stringify({
+              requester: lastRequester,
+              accepted:  accepted
+            })
+          });
+        } catch (err) {}
+
+        hideModal();
+        if (!accepted) {
+          hideCard();
+        }
+      });
+
+      window.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          hideCard();
+        }
+      });
+
+      window.addEventListener("message", function (event) {
+        const msg    = event.data || {};
+        const action = msg.action || msg.type;
+
+        switch (action) {
+          case "showId":
+          case "openID":
+            setCardData(msg.data || msg.payload || {});
+            showCard();
+            break;
+
+          case "hideId":
+          case "closeID":
+            hideCard();
+            break;
+
+          case "showRequest":
+          case "askForID":
+            if (msg.data || msg.payload) {
+              setCardData(msg.data || msg.payload);
+            }
+            showCard();
+            showModal(msg.requester);
+            break;
+
+          case "hideRequest":
+            hideModal();
+            break;
+
+          case "updateData":
+            setCardData(msg.data || msg.payload || {});
+            break;
+        }
+      });
+
+      window.AzIDDebug = {
+        openDemo: function () {
+          setCardData({
+            dl: "P4847952",
+            exp: "08/06/2023",
+            class: "C",
+            end: "NONE",
+            ln: "PHILIPS",
+            fn: "TREVOR",
+            addr1: "186 ZANCUDO AVENUE,",
+            addr2: "SANDY SHORES, BLAINE COUNTY, SA 47229",
+            dob: "08/06/1969",
+            sex: "M",
+            hgt: "6'-01\"",
+            wgt: "206 lb",
+            hair: "BRN",
+            eyes: "BRN",
+            rst: "NONE",
+            dd: "0103/019699903/0608/69",
+            iss: "09/17/2013",
+            idnum: "080669",
+            signature: "Trevor Philips"
+          });
+          showCard();
+        },
+        close: hideCard
+      };
+    })();
+  </script>
+</body>
+</html>

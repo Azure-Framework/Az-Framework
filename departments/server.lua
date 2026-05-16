@@ -1,12 +1,15 @@
+Config = Config or {}
+if Config.Modules and Config.Modules.Departments == false then
+    print('[az-fw-departments] Departments module disabled in config; skipping server handlers.')
+    return
+end
+
 local RESOURCE = GetCurrentResourceName()
 
 local function dprint(msg)
     print(("[az-fw-departments] %s"):format(tostring(msg)))
 end
 
--- ------------------------------------------------------------
--- Framework helpers
--- ------------------------------------------------------------
 local function GetPlayerCharacter(src)
     return exports['Az-Framework']:GetPlayerCharacter(src)
 end
@@ -26,12 +29,11 @@ local function toCharId(ret)
 end
 
 local function getDiscordUserId(src)
-    -- Prefer framework export (consistent with the rest of your stack)
+
     local did = exports["Az-Framework"]:getDiscordID(src)
     did = tostring(did or "")
     if did ~= "" and did ~= "nil" then return did end
 
-    -- Fallback to identifier scan
     for _, id in ipairs(GetPlayerIdentifiers(src)) do
         local discordId = id:match('^discord:(%d+)$')
         if discordId then return discordId end
@@ -39,9 +41,6 @@ local function getDiscordUserId(src)
     return nil
 end
 
--- ------------------------------------------------------------
--- Discord role fetch (live)
--- ------------------------------------------------------------
 local DISCORD_BOT_TOKEN = GetConvar("DISCORD_BOT_TOKEN", "")
 local DISCORD_GUILD_ID  = GetConvar("DISCORD_GUILD_ID", "")
 
@@ -71,9 +70,6 @@ local function fetchDiscordRoles(discordId, cb)
     })
 end
 
--- ------------------------------------------------------------
--- Schema detection for econ_departments
--- ------------------------------------------------------------
 local deptSchemaCache = nil
 
 local function detectDeptSchema(cb)
@@ -120,9 +116,6 @@ local function detectDeptSchema(cb)
     end)
 end
 
--- ------------------------------------------------------------
--- Utility helpers
--- ------------------------------------------------------------
 local function buildInParams(values, prefix)
     local ph, params = {}, {}
     for i, v in ipairs(values) do
@@ -141,12 +134,26 @@ local function addUnique(list, seen, v)
     end
 end
 
--- ------------------------------------------------------------
--- Request department list (jobs menu)
--- ------------------------------------------------------------
 RegisterServerEvent('az-fw-departments:requestDeptList')
 AddEventHandler('az-fw-departments:requestDeptList', function()
     local src = source
+
+    local simpleConfig = Config.DepartmentsConfig or {}
+    if simpleConfig.UseSimpleList == true and type(simpleConfig.List) == 'table' and #simpleConfig.List > 0 then
+        local list = {}
+        local seen = {}
+        for _, entry in ipairs(simpleConfig.List) do
+            if type(entry) == 'table' and entry.enabled ~= false then
+                local deptId = tostring(entry.id or entry.name or entry.label or '')
+                if deptId ~= '' and not seen[deptId:lower()] then
+                    seen[deptId:lower()] = true
+                    list[#list+1] = deptId
+                end
+            end
+        end
+        TriggerClientEvent('az-fw-departments:openJobsDialog', src, list)
+        return
+    end
 
     local discordUserId = getDiscordUserId(src)
     local charId = toCharId(GetPlayerCharacter(src))
@@ -155,14 +162,13 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
         :format(src, tostring(discordUserId), tostring(charId)))
 
     detectDeptSchema(function(schema)
-        -- If dept column missing we can't do anything
+
         if not schema or not schema.deptCol then
             dprint("[Debug] requestDeptList: econ_departments missing department column. Returning empty list.")
             TriggerClientEvent('az-fw-departments:openJobsDialog', src, {})
             return
         end
 
-        -- Merge: live roles + stored roles (econ_user_roles) + charId + discordId
         local function finalizeQuery(roleIdsMerged)
             roleIdsMerged = roleIdsMerged or {}
 
@@ -223,7 +229,6 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
             fetchDiscordRoles(discordUserId, function(liveRoles)
                 liveRoles = liveRoles or {}
 
-                -- stored roles table (optional)
                 MySQL.Async.fetchAll(
                     'SELECT roleid FROM econ_user_roles WHERE discordid = @id',
                     { ['@id'] = discordUserId },
@@ -249,9 +254,6 @@ AddEventHandler('az-fw-departments:requestDeptList', function()
     end)
 end)
 
--- ------------------------------------------------------------
--- Set Job (THIS was missing, so nothing updated)
--- ------------------------------------------------------------
 RegisterNetEvent("az-fw-departments:setJob", function(job)
     local src = source
     job = tostring(job or "")
@@ -279,6 +281,29 @@ RegisterNetEvent("az-fw-departments:setJob", function(job)
         return
     end
 
+    local simpleConfig = Config.DepartmentsConfig or {}
+    if simpleConfig.ValidateSelection ~= false and simpleConfig.UseSimpleList == true and type(simpleConfig.List) == 'table' and #simpleConfig.List > 0 then
+        local allowed = false
+        for _, entry in ipairs(simpleConfig.List) do
+            if type(entry) == 'table' and entry.enabled ~= false then
+                local deptId = tostring(entry.id or entry.name or entry.label or '')
+                if deptId ~= '' and deptId:lower() == job:lower() then
+                    allowed = true
+                    job = deptId
+                    break
+                end
+            end
+        end
+        if not allowed then
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Departments',
+                description = 'That department is not enabled in config.',
+                type = 'error'
+            })
+            return
+        end
+    end
+
     dprint(("[setJob] src=%s did=%s cid=%s job=%s"):format(src, did, cid, job))
 
     MySQL.Async.execute(
@@ -287,53 +312,22 @@ RegisterNetEvent("az-fw-departments:setJob", function(job)
         function(affected)
             dprint(("[setJob] updated rows=%s"):format(tostring(affected)))
 
-            -- Push to HUD / NUI listeners
             TriggerClientEvent("az-fw-departments:refreshJob", src, { job = job })
             TriggerClientEvent("hud:setDepartment", src, job)
 
-            -- Optional statebags for other scripts
             if Player and Player(src) and Player(src).state then
                 Player(src).state:set("job", job, true)
                 Player(src).state:set("department", job, true)
             end
+
+            TriggerEvent("Az-Framework:jobChanged", src, job)
+            TriggerClientEvent("Az-Framework:jobChanged", src, job)
 
             TriggerClientEvent("ox_lib:notify", src, {
                 title = "Departments",
                 description = ("On-duty as: %s"):format(job ~= "" and job or "None"),
                 type = "success"
             })
-        end
-    )
-end)
-
--- Alias used by your HUD client (you had setActive being called)
-RegisterNetEvent("az-fw-departments:setActive", function(job)
-    TriggerEvent("az-fw-departments:setJob", job)
-end)
-
--- ------------------------------------------------------------
--- HUD asks server for current department on spawn / refresh
--- (Fixes your TriggerServerEvent('hud:requestDepartment') doing nothing)
--- ------------------------------------------------------------
-RegisterNetEvent("hud:requestDepartment", function()
-    local src = source
-    local did = getDiscordUserId(src)
-    local cid = toCharId(GetPlayerCharacter(src))
-
-    if not did or not cid then
-        TriggerClientEvent("hud:setDepartment", src, "")
-        return
-    end
-
-    MySQL.Async.fetchAll(
-        "SELECT active_department FROM user_characters WHERE discordid = ? AND charid = ? LIMIT 1",
-        { did, cid },
-        function(rows)
-            local job = ""
-            if rows and rows[1] and rows[1].active_department then
-                job = tostring(rows[1].active_department or "")
-            end
-            TriggerClientEvent("hud:setDepartment", src, job)
         end
     )
 end)

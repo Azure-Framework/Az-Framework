@@ -1,0 +1,593 @@
+local Config = (Config and Config.Insurance) or {}
+local Wreck = Config.WreckSystem or {}
+if Config.Enabled == false or Wreck.Enabled == false then return end
+
+local incidents = {}
+local lastVeh = 0
+local lastBodyHealth = 1000.0
+local lastImpactScan = 0
+local collisionWindowUntil = 0
+local lastSpeedMph = 0.0
+
+local colorNames = {
+    [0] = 'black', [1] = 'black', [3] = 'silver', [4] = 'silver', [5] = 'blue', [27] = 'red', [28] = 'red',
+    [38] = 'green', [64] = 'yellow', [111] = 'white', [112] = 'white', [131] = 'white', [135] = 'pink'
+}
+
+local function notify(msg, typ)
+    if exports and exports['Az-Framework'] and exports['Az-Framework'].hudNotify then
+        pcall(function()
+            exports['Az-Framework']:hudNotify({
+                title = 'Insurance',
+                description = tostring(msg or ''),
+                icon = typ == 'bad' and 'bi-exclamation-triangle' or 'bi-car-front',
+                sound = typ == 'bad' and 'cashDown' or 'job'
+            })
+        end)
+        return
+    end
+    if lib and lib.notify then
+        lib.notify({ title = 'Insurance', description = tostring(msg or ''), type = typ == 'bad' and 'error' or 'inform' })
+    end
+end
+
+local function normalizePlate(plate)
+    plate = tostring(plate or '')
+    plate = plate:gsub('^%s+', ''):gsub('%s+$', '')
+    if plate == '' then return nil end
+    return plate:upper()
+end
+
+local function mph(speed)
+    return (tonumber(speed) or 0.0) * 2.236936
+end
+
+local function getDriverVehicle()
+    local ped = PlayerPedId()
+    if not IsPedInAnyVehicle(ped, false) then return nil end
+    local veh = GetVehiclePedIsIn(ped, false)
+    if veh == 0 or GetPedInVehicleSeat(veh, -1) ~= ped then return nil end
+    return veh
+end
+
+local function draw3D(x, y, z, text)
+    local onScreen, sx, sy = World3dToScreen2d(x, y, z)
+    if not onScreen then return end
+    local cam = GetGameplayCamCoords()
+    local dist = #(vector3(x, y, z) - cam)
+    local scale = (1.0 / math.max(dist, 1.0)) * (1.0 / GetGameplayCamFov()) * 100.0
+    SetTextFont(4)
+    SetTextProportional(1)
+    SetTextScale(0.0, 0.35 * scale)
+    SetTextColour(255, 255, 255, 230)
+    SetTextCentre(true)
+    SetTextOutline()
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(sx, sy)
+end
+
+local function getVehicleDisplayName(veh)
+    local model = GetEntityModel(veh)
+    local label = GetDisplayNameFromVehicleModel(model)
+    if not label or label == '' or label == 'CARNOTFOUND' then return 'vehicle' end
+    local pretty = GetLabelText(label)
+    if pretty and pretty ~= '' and pretty ~= 'NULL' then return pretty end
+    return label
+end
+
+local function getVehicleColorName(veh)
+    local primary = select(1, GetVehicleColours(veh))
+    return colorNames[primary] or ('color %s'):format(tostring(primary))
+end
+
+local function buildVehicleDescriptor(veh)
+    return {
+        plate = normalizePlate(GetVehicleNumberPlateText(veh)),
+        model = getVehicleDisplayName(veh),
+        color = getVehicleColorName(veh),
+    }
+end
+
+local function setHazards(vehicle, enabled)
+    if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then return end
+    SetVehicleIndicatorLights(vehicle, 0, enabled == true)
+    SetVehicleIndicatorLights(vehicle, 1, enabled == true)
+end
+
+local function removeTrafficZone(incident)
+    if not incident then return end
+    if incident.trafficZone then
+        pcall(function()
+            RemoveRoadNodeSpeedZone(incident.trafficZone)
+        end)
+        incident.trafficZone = nil
+    end
+end
+
+local function ensureTrafficZone(incident, center)
+    if not incident or not center then return end
+    local radius = tonumber(Wreck.TrafficZoneRadius or 35.0) or 35.0
+    local speed = tonumber(Wreck.TrafficZoneSpeed or 8.0) or 8.0
+    if incident.trafficZoneCenter and #(incident.trafficZoneCenter - center) < 8.0 and incident.trafficZone then
+        return
+    end
+    removeTrafficZone(incident)
+    local ok, zone = pcall(function()
+        return AddRoadNodeSpeedZone(center.x, center.y, center.z, radius, speed, false)
+    end)
+    if ok and zone then
+        incident.trafficZone = zone
+        incident.trafficZoneCenter = center
+    end
+end
+
+local function releaseNpc(incident, driveAway)
+    if not incident then return end
+    incident.readyForExchange = false
+    incident.status = driveAway and 'departing' or 'released'
+    removeTrafficZone(incident)
+
+    local ped = incident.npcPed
+    local veh = incident.npcVeh
+
+    if DoesEntityExist(ped) then
+        FreezeEntityPosition(ped, false)
+        SetBlockingOfNonTemporaryEvents(ped, false)
+        SetPedKeepTask(ped, false)
+        ClearPedTasksImmediately(ped)
+        ClearPedSecondaryTask(ped)
+    end
+
+    if DoesEntityExist(veh) then
+        SetVehicleDoorsLocked(veh, 1)
+        SetVehicleHandbrake(veh, false)
+        SetVehicleUndriveable(veh, false)
+        SetVehicleEngineOn(veh, driveAway == true, true, false)
+        setHazards(veh, false)
+    end
+
+    if driveAway and DoesEntityExist(ped) and DoesEntityExist(veh) then
+        CreateThread(function()
+            local playerPed = PlayerPedId()
+            local driverDoorPos = GetOffsetFromEntityInWorldCoords(veh, -1.0, 0.85, 0.0)
+
+            TaskGoStraightToCoord(ped, driverDoorPos.x, driverDoorPos.y, driverDoorPos.z, 1.0, 2500, GetEntityHeading(veh), 0.05)
+            Wait(900)
+            if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+
+            TaskEnterVehicle(ped, veh, 8000, -1, 1.0, 1, 0)
+            local enterDeadline = GetGameTimer() + 9000
+            while GetGameTimer() < enterDeadline do
+                if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+                if IsPedInVehicle(ped, veh, false) then break end
+                if GetGameTimer() % 1500 < 100 then
+                    TaskEnterVehicle(ped, veh, 3000, -1, 1.0, 1, 0)
+                end
+                Wait(100)
+            end
+
+            if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+
+            if not IsPedInVehicle(ped, veh, false) then
+                local playerDist = #(GetEntityCoords(playerPed) - GetEntityCoords(veh))
+                if playerDist > 35.0 and (not IsEntityOnScreen(ped)) and (not IsEntityOnScreen(veh)) then
+                    SetPedIntoVehicle(ped, veh, -1)
+                    Wait(150)
+                end
+            end
+
+            if not IsPedInVehicle(ped, veh, false) then
+                TaskWanderStandard(ped, 10.0, 10)
+                return
+            end
+
+            SetVehicleEngineOn(veh, true, true, false)
+            SetVehicleHandbrake(veh, false)
+            setHazards(veh, false)
+            SetDriveTaskDrivingStyle(ped, 786603)
+            TaskVehicleDriveWander(ped, veh, 18.0, 786603)
+
+            local moveStart = GetGameTimer()
+            local moved = false
+            while GetGameTimer() - moveStart < 3000 do
+                if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+                if GetEntitySpeed(veh) > 1.5 then
+                    moved = true
+                    break
+                end
+                Wait(150)
+            end
+
+            if not moved and DoesEntityExist(ped) and DoesEntityExist(veh) then
+                local forward = GetOffsetFromEntityInWorldCoords(veh, 0.0, 90.0, 0.0)
+                TaskVehicleDriveToCoordLongrange(ped, veh, forward.x, forward.y, forward.z, 18.0, 786603, 8.0)
+                SetDriveTaskDrivingStyle(ped, 786603)
+            end
+        end)
+    end
+end
+
+local function cleanupIncident(id, driveAway)
+    local incident = incidents[id]
+    if not incident then return end
+    releaseNpc(incident, driveAway == true)
+    incidents[id] = nil
+end
+
+local function stageNpcForExchange(incident)
+    if not incident or not DoesEntityExist(incident.npcVeh) or not DoesEntityExist(incident.npcPed) then return end
+
+    local veh = incident.npcVeh
+    local ped = incident.npcPed
+
+    setHazards(veh, true)
+    SetVehicleDoorsLocked(veh, 1)
+    SetVehicleHandbrake(veh, true)
+    SetVehicleEngineOn(veh, false, true, false)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedKeepTask(ped, true)
+
+    ClearPedTasksImmediately(ped)
+    TaskLeaveVehicle(ped, veh, 256)
+
+    local timeoutAt = GetGameTimer() + 5000
+    while GetGameTimer() < timeoutAt do
+        if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+        if not IsPedInAnyVehicle(ped, false) then break end
+        Wait(50)
+    end
+
+    if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+
+    local standPos = GetOffsetFromEntityInWorldCoords(veh, -1.25, 0.55, 0.0)
+    ClearPedTasksImmediately(ped)
+    TaskGoStraightToCoord(ped, standPos.x, standPos.y, standPos.z, 1.0, 3500, GetEntityHeading(veh), 0.05)
+
+    local moveUntil = GetGameTimer() + 2200
+    while GetGameTimer() < moveUntil do
+        if not DoesEntityExist(ped) then return end
+        if #(GetEntityCoords(ped) - standPos) <= 0.9 then break end
+        Wait(50)
+    end
+
+    if not DoesEntityExist(ped) then return end
+    ClearPedTasksImmediately(ped)
+    SetEntityCoordsNoOffset(ped, standPos.x, standPos.y, standPos.z, false, false, false)
+    SetEntityHeading(ped, GetEntityHeading(veh) + 90.0)
+    FreezeEntityPosition(ped, true)
+    TaskStandStill(ped, -1)
+    incident.readyForExchange = true
+    incident.status = 'exchange_ready'
+end
+
+local function pullOverIncident(incident)
+    if not incident or not DoesEntityExist(incident.npcVeh) or not DoesEntityExist(incident.npcPed) then return end
+
+    incident.status = 'pulling_over'
+    setHazards(incident.npcVeh, true)
+    SetVehicleEngineOn(incident.npcVeh, true, true, false)
+    SetVehicleBrakeLights(incident.npcVeh, true)
+    SetVehicleDoorsLocked(incident.npcVeh, 2)
+
+    local npcCoords = GetEntityCoords(incident.npcVeh)
+    local found, nodePos = GetClosestVehicleNodeWithHeading(npcCoords.x, npcCoords.y, npcCoords.z, 1, 3.0, 0)
+    if found and nodePos then
+        TaskVehicleDriveToCoordLongrange(incident.npcPed, incident.npcVeh, nodePos.x, nodePos.y, nodePos.z, 10.0, 786603, 6.0)
+        SetDriveTaskDrivingStyle(incident.npcPed, 786603)
+    else
+        TaskVehicleTempAction(incident.npcPed, incident.npcVeh, 27, 2500)
+    end
+
+    CreateThread(function()
+        local veh = incident.npcVeh
+        local ped = incident.npcPed
+        Wait(3200)
+        if not DoesEntityExist(ped) or not DoesEntityExist(veh) then return end
+
+        if BringVehicleToHalt then
+            BringVehicleToHalt(veh, 2.0, 2500, false)
+        else
+            TaskVehicleTempAction(ped, veh, 27, 2500)
+        end
+
+        Wait(1200)
+        if DoesEntityExist(veh) then
+            SetVehicleHandbrake(veh, true)
+            SetVehicleEngineOn(veh, false, true, false)
+            setHazards(veh, true)
+        end
+
+        stageNpcForExchange(incident)
+        if DoesEntityExist(veh) then
+            ensureTrafficZone(incident, GetEntityCoords(veh))
+        end
+    end)
+end
+
+
+local function findImmediateNpcCollisionTarget(playerVeh)
+    local radius = math.max(tonumber(Wreck.ImmediateScanRadius or 8.5) or 8.5, 6.0)
+    local pcoords = GetEntityCoords(playerVeh)
+    local bestVeh, bestScore
+
+    for _, veh in ipairs(GetGamePool('CVehicle')) do
+        if veh ~= playerVeh and DoesEntityExist(veh) then
+            local driver = GetPedInVehicleSeat(veh, -1)
+            if driver ~= 0 and DoesEntityExist(driver) and not IsPedAPlayer(driver) then
+                local vcoords = GetEntityCoords(veh)
+                local dist = #(vcoords - pcoords)
+                if dist <= radius then
+                    local touched = (IsEntityTouchingEntity and (IsEntityTouchingEntity(playerVeh, veh) or IsEntityTouchingEntity(veh, playerVeh))) or false
+                    local damaged = HasEntityBeenDamagedByEntity(veh, playerVeh, true) or HasEntityBeenDamagedByEntity(playerVeh, veh, true)
+                    if touched or damaged or dist <= 3.8 then
+                        local score = (touched and 1000 or 0) + (damaged and 600 or 0) + math.max(0.0, 10.0 - dist)
+                        if not bestScore or score > bestScore then
+                            bestVeh, bestScore = veh, score
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestVeh
+end
+
+local function beginIncident(playerVeh, npcVeh)
+    local driver = GetPedInVehicleSeat(npcVeh, -1)
+    if driver == 0 or IsPedAPlayer(driver) then return end
+
+    local netId = NetworkGetNetworkIdFromEntity(npcVeh)
+    local incidentKey = (netId and netId ~= 0) and netId or npcVeh
+    if incidents[incidentKey] then return end
+
+    local sightMin = tonumber(Wreck.SightSecondsMin or 3.0) or 3.0
+    local sightMax = tonumber(Wreck.SightSecondsMax or 5.0) or 5.0
+    local threshold = sightMin
+    if sightMax > sightMin then
+        threshold = sightMin + math.random() * (sightMax - sightMin)
+    end
+
+    local playerInfo = buildVehicleDescriptor(playerVeh)
+    local suspectInfo = buildVehicleDescriptor(npcVeh)
+
+    incidents[incidentKey] = {
+        id = incidentKey,
+        npcVeh = npcVeh,
+        npcPed = driver,
+        startedAt = GetGameTimer(),
+        sightSeconds = 0.0,
+        sightThreshold = threshold,
+        exchanged = false,
+        reported = false,
+        readyForExchange = false,
+        playerPlate = playerInfo.plate,
+        playerModel = playerInfo.model,
+        playerColor = playerInfo.color,
+        suspectPlate = suspectInfo.plate,
+        suspectModel = suspectInfo.model,
+        suspectColor = suspectInfo.color,
+    }
+
+    pullOverIncident(incidents[incidentKey])
+    notify('You hit another vehicle. Pull over now, walk up to the driver, and press E to exchange insurance information.', 'info')
+end
+
+local function findNpcCollisionTarget(playerVeh)
+    local radius = tonumber(Wreck.ScanRadius or 12.0) or 12.0
+    local pcoords = GetEntityCoords(playerVeh)
+    local pforward = GetEntityForwardVector(playerVeh)
+    local bestVeh, bestScore
+
+    for _, veh in ipairs(GetGamePool('CVehicle')) do
+        if veh ~= playerVeh and DoesEntityExist(veh) then
+            local vcoords = GetEntityCoords(veh)
+            local offset = vcoords - pcoords
+            local dist = #offset
+            if dist <= math.max(radius, 16.0) then
+                local driver = GetPedInVehicleSeat(veh, -1)
+                if driver ~= 0 and DoesEntityExist(driver) and not IsPedAPlayer(driver) then
+                    local touched = false
+                    if IsEntityTouchingEntity then
+                        touched = IsEntityTouchingEntity(playerVeh, veh) == true or IsEntityTouchingEntity(veh, playerVeh) == true
+                    end
+                    local damaged = HasEntityBeenDamagedByEntity(veh, playerVeh, true) or HasEntityBeenDamagedByEntity(playerVeh, veh, true) or HasEntityBeenDamagedByAnyVehicle(veh)
+                    local dirDot = 0.0
+                    if dist > 0.01 then
+                        dirDot = ((offset.x / dist) * pforward.x) + ((offset.y / dist) * pforward.y) + ((offset.z / dist) * pforward.z)
+                    end
+                    local speedGap = math.abs(GetEntitySpeed(playerVeh) - GetEntitySpeed(veh))
+                    local plausible = dist <= radius and dirDot > -0.45 and speedGap >= 0.5
+                    if touched or damaged or plausible then
+                        local score = (touched and 1000 or 0) + (damaged and 500 or 0) + math.max(0.0, (20.0 - dist)) + math.max(0.0, dirDot * 10.0)
+                        if not bestScore or score > bestScore then
+                            bestVeh, bestScore = veh, score
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestVeh
+end
+
+RegisterNetEvent('az_insurance:repairVehicle', function(data)
+    data = type(data) == 'table' and data or {}
+    local wantedPlate = normalizePlate(data.plate)
+    local ped = PlayerPedId()
+    local veh = getDriverVehicle()
+
+    if not veh then
+        local pos = GetEntityCoords(ped)
+        for _, candidate in ipairs(GetGamePool('CVehicle')) do
+            if DoesEntityExist(candidate) and #(GetEntityCoords(candidate) - pos) < 8.0 then
+                if normalizePlate(GetVehicleNumberPlateText(candidate)) == wantedPlate then
+                    veh = candidate
+                    break
+                end
+            end
+        end
+    end
+
+    if veh and DoesEntityExist(veh) then
+        SetVehicleFixed(veh)
+        SetVehicleDeformationFixed(veh)
+        SetVehicleBodyHealth(veh, 1000.0)
+        SetVehicleEngineHealth(veh, 1000.0)
+        SetVehiclePetrolTankHealth(veh, 1000.0)
+        SetVehicleDirtLevel(veh, 0.0)
+        notify(('Your insured vehicle %s was repaired.'):format(wantedPlate or 'vehicle'), 'info')
+    end
+end)
+
+CreateThread(function()
+    while true do
+        Wait(100)
+
+        local veh = getDriverVehicle()
+        if not veh or veh == 0 then
+            lastVeh = 0
+            lastBodyHealth = 1000.0
+            lastSpeedMph = 0.0
+            goto continue
+        end
+
+        local body = GetVehicleBodyHealth(veh)
+        local currentSpeedMph = mph(GetEntitySpeed(veh))
+        if veh ~= lastVeh then
+            lastVeh = veh
+            lastBodyHealth = body
+            lastSpeedMph = currentSpeedMph
+            goto continue
+        end
+
+        local bodyDrop = (lastBodyHealth or body) - body
+        local recentSpeed = math.max(currentSpeedMph, lastSpeedMph or 0.0)
+        local impactThreshold = tonumber(Wreck.ImpactSpeedMph or 25.0) or 25.0
+        local bodyThreshold = tonumber(Wreck.BodyHealthDelta or 20.0) or 20.0
+        local hardCollision = HasEntityCollidedWithAnything(veh) and recentSpeed >= math.max(10.0, impactThreshold * 0.65)
+        local damageCollision = bodyDrop >= bodyThreshold or HasEntityBeenDamagedByAnyVehicle(veh)
+
+        if hardCollision or damageCollision then
+            local immediateVeh = findImmediateNpcCollisionTarget(veh)
+            if immediateVeh then
+                lastBodyHealth = body
+                lastSpeedMph = currentSpeedMph
+                collisionWindowUntil = 0
+                beginIncident(veh, immediateVeh)
+                goto continue
+            end
+            collisionWindowUntil = GetGameTimer() + 4000
+        end
+
+        lastBodyHealth = body
+        lastSpeedMph = currentSpeedMph
+
+        local now = GetGameTimer()
+        if collisionWindowUntil > now and now - lastImpactScan > 150 then
+            lastImpactScan = now
+            local npcVeh = findNpcCollisionTarget(veh)
+            if npcVeh then
+                collisionWindowUntil = 0
+                beginIncident(veh, npcVeh)
+            end
+        end
+
+        ::continue::
+    end
+end)
+
+CreateThread(function()
+    while true do
+        Wait(0)
+        local ped = PlayerPedId()
+        local pcoords = GetEntityCoords(ped)
+        local dt = GetFrameTime()
+        local exchangePromptDistance = tonumber(Wreck.ExchangePromptDistance or Wreck.ExchangeDistance or 4.0) or 4.0
+
+        for id, incident in pairs(incidents) do
+            if not DoesEntityExist(incident.npcPed) or not DoesEntityExist(incident.npcVeh) then
+                cleanupIncident(id, false)
+                goto continue
+            end
+
+            local npcPos = GetEntityCoords(incident.npcPed)
+            local dist = #(npcPos - pcoords)
+
+            if incident.trafficZoneCenter and Wreck.TrafficZoneVisible ~= false then
+                local radius = tonumber(Wreck.TrafficZoneRadius or 35.0) or 35.0
+                DrawMarker(1, incident.trafficZoneCenter.x, incident.trafficZoneCenter.y, incident.trafficZoneCenter.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, radius * 2.0, radius * 2.0, 1.2, 255, 180, 0, 50, false, false, 2, false, nil, nil, false)
+            end
+
+            if incident.readyForExchange and not incident.exchanged and not incident.reported and dist <= exchangePromptDistance and not IsPedInAnyVehicle(ped, false) then
+                draw3D(npcPos.x, npcPos.y, npcPos.z + 1.0, '[E] Exchange insurance info')
+                if IsControlJustPressed(0, 38) then
+                    incident.exchanged = true
+                    TriggerServerEvent('az_insurance:wreckExchangeComplete', {
+                        playerPlate = incident.playerPlate,
+                        playerModel = incident.playerModel,
+                        playerColor = incident.playerColor,
+                        suspectPlate = incident.suspectPlate,
+                        suspectModel = incident.suspectModel,
+                        suspectColor = incident.suspectColor,
+                    })
+                    notify(('Insurance exchanged. %s %s / %s %s recorded.'):format(
+                        tostring(incident.playerColor or 'unknown'), tostring(incident.playerModel or 'vehicle'),
+                        tostring(incident.suspectColor or 'unknown'), tostring(incident.suspectModel or 'vehicle')
+                    ), 'info')
+                    releaseNpc(incident, true)
+                    incident.cleanupAt = GetGameTimer() + 6000
+                end
+            end
+
+            if incident.readyForExchange and not incident.exchanged and not incident.reported then
+                local fleeing = IsPedInAnyVehicle(ped, false) or dist > math.max(exchangePromptDistance + 4.0, 8.0)
+                if fleeing and dist < 40.0 and HasEntityClearLosToEntity(incident.npcPed, ped, 17) then
+                    incident.sightSeconds = incident.sightSeconds + dt
+                else
+                    incident.sightSeconds = math.max(0.0, incident.sightSeconds - (dt * 1.0))
+                end
+
+                if incident.sightSeconds >= incident.sightThreshold then
+                    incident.reported = true
+                    local streetHash = GetStreetNameAtCoord(npcPos.x, npcPos.y, npcPos.z)
+                    local location = GetStreetNameFromHashKey(streetHash)
+                    TriggerServerEvent('az_insurance:reportHitAndRun', {
+                        playerPlate = incident.playerPlate,
+                        playerModel = incident.playerModel,
+                        playerColor = incident.playerColor,
+                        suspectPlate = incident.suspectPlate,
+                        suspectModel = incident.suspectModel,
+                        suspectColor = incident.suspectColor,
+                        coords = { x = npcPos.x, y = npcPos.y, z = npcPos.z },
+                        location = location,
+                    })
+                    if DoesEntityExist(incident.npcPed) then
+                        FreezeEntityPosition(incident.npcPed, false)
+                        ClearPedTasks(incident.npcPed)
+                        TaskStartScenarioInPlace(incident.npcPed, 'WORLD_HUMAN_STAND_MOBILE', 0, true)
+                    end
+                    if DoesEntityExist(incident.npcVeh) then
+                        setHazards(incident.npcVeh, true)
+                    end
+                    incident.cleanupAt = GetGameTimer() + 10000
+                end
+            end
+
+            if incident.cleanupAt and GetGameTimer() >= incident.cleanupAt then
+                cleanupIncident(id, false)
+            end
+
+            ::continue::
+        end
+    end
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res ~= GetCurrentResourceName() then return end
+    for id, _ in pairs(incidents) do
+        cleanupIncident(id, false)
+    end
+end)

@@ -42,24 +42,20 @@ local function normalizeDef(s)
     s = s:gsub(",%s*$", "")
     s = s:gsub("`", "")
 
-    -- normalize CURRENT_TIMESTAMP variants
     s = s:gsub("current_timestamp%(%s*%)", "current_timestamp")
     s = s:gsub("%s+on%s+update%s+current_timestamp%(%s*%)", " on update current_timestamp")
     s = s:gsub("%s+on%s+update%s+current_timestamp", " on update current_timestamp")
 
-    -- remove CHECK() and COMMENT (information_schema doesn't include these in your compare)
     s = s:gsub("%s+check%s*%b()", "")
     s = s:gsub("%s+comment%s+'[^']*'", "")
     s = s:gsub('%s+comment%s+"[^"]*"', "")
 
-    -- normalize quoted collations/charsets like: COLLATE 'utf8mb4_general_ci'
     s = s:gsub("%s+collate%s+'([^']+)'", " collate %1")
     s = s:gsub("%s+character%s+set%s+'([^']+)'", " character set %1")
 
     s = s:gsub("%s+", " ")
     return s:lower()
 end
-
 
 local function quoteDefault(val)
     if val == nil then return nil end
@@ -377,9 +373,6 @@ end
 
 local tableSchemas = {
 
--- =========================
--- Real Estate / Web App
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `agents` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -492,9 +485,6 @@ CREATE TABLE IF NOT EXISTS `rentals` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Discord / Roles
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `role_requests` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -531,9 +521,6 @@ CREATE TABLE IF NOT EXISTS `global_bans` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- AzFW Core: appearance / lastpos
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `azfw_appearance` (
   `discordid` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -569,9 +556,6 @@ CREATE TABLE IF NOT EXISTS `azfw_last_locations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Blips / Businesses / Guides
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `az_blips` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -711,9 +695,6 @@ CREATE TABLE IF NOT EXISTS `az_guide_points` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- ID Cards / Vehicles / VIN
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `az_id_cards` (
   `char_id` bigint(20) unsigned NOT NULL,
@@ -764,9 +745,6 @@ CREATE TABLE IF NOT EXISTS `az_vin_plates` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Law / Records (your existing set)
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `arrests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -871,9 +849,6 @@ CREATE TABLE IF NOT EXISTS `warrants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- DMV / Duty / Playtime
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `dmv_progress` (
   `identifier` varchar(64) NOT NULL,
@@ -941,9 +916,6 @@ CREATE TABLE IF NOT EXISTS `user_levels` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Daily Check-in
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `daily_checkin_rewards` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -975,9 +947,6 @@ CREATE TABLE IF NOT EXISTS `daily_checkin_users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Economy (match dump)
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `econ_admins` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -1097,9 +1066,6 @@ CREATE TABLE IF NOT EXISTS `econ_transactions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- Characters / Inventory / Vehicles
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `user_characters` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -1108,6 +1074,7 @@ CREATE TABLE IF NOT EXISTS `user_characters` (
   `name` varchar(100) NOT NULL,
   `active_department` varchar(100) NOT NULL DEFAULT '',
   `license_status` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
+  `hunting_license` tinyint(1) NOT NULL DEFAULT 0,
   `pin_hash` varchar(128) DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `discord_char` (`discordid`,`charid`),
@@ -1183,9 +1150,6 @@ CREATE TABLE IF NOT EXISTS `user_vehicle_claims` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
--- =========================
--- MDT (match dump)
--- =========================
 [[
 CREATE TABLE IF NOT EXISTS `mdt_citizens` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -1381,7 +1345,6 @@ CREATE TABLE IF NOT EXISTS `mdt_warrants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 }
-
 
 local function ensureSchemas()
     tableResults = {}

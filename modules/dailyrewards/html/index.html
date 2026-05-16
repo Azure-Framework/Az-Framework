@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Check-in — Wheel + Slots (Fixed & Downloadable)</title>
+  <style>
+    :root{
+      --bg-1: #03122600;
+      --bg-2: #071a3600;
+      --panel-start: rgba(8,24,48,0.55);
+      --panel-end: rgba(6,16,34,0.55);
+      --accent-grad: linear-gradient(135deg,#3aa0ff 0%, #2f86ff 60%, #1f6bff 100%);
+      --muted: rgba(255,255,255,0.14);
+      --card-radius: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;color:#e7f8ff;background:linear-gradient(180deg,var(--bg-1),var(--bg-2));-webkit-font-smoothing:antialiased}
+
+    
+    #overlay{position:fixed;inset:0;background:rgba(2,6,23,0.55);backdrop-filter:blur(6px);z-index:999;display:none;align-items:center;justify-content:center}
+    .panel{width:920px;max-width:96vw;padding:18px;border-radius:18px;background:linear-gradient(180deg,var(--panel-start),var(--panel-end));box-shadow:0 8px 30px rgba(3,8,20,0.6);border:1px solid rgba(255,255,255,0.03);position:relative}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    header h1{margin:0;font-size:20px}
+    .hdr-actions{display:flex;align-items:center;gap:10px}
+    .keyChip{background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));padding:8px 12px;border-radius:10px;font-weight:700;color:#dff7ff;display:flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,0.03)}
+    .closeBtn{background:transparent;border:none;color:#cfe9ff;font-size:28px;line-height:1;cursor:pointer;padding:4px;border-radius:8px}
+
+    
+    .monthHeader{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+    #monthLabel{font-weight:800;font-size:15px}
+    #streakLabel{font-size:13px;color:var(--muted)}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:12px}
+    .day{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--card-radius);padding:12px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.02);transition:transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .22s, filter .22s}
+    .day:hover{transform:translateY(-6px) rotateX(3deg);box-shadow:0 26px 60px rgba(3,12,30,0.6);filter:brightness(1.02)}
+    .num{font-weight:800;font-size:20px}
+    .reward{font-size:12px;color:#cfe9ff;margin-top:8px}
+    .claimBtn{margin-top:12px;padding:10px 12px;border-radius:12px;border:none;background:var(--accent-grad);color:white;cursor:pointer;font-weight:800}
+    .day.claimed{background:linear-gradient(135deg,#5ee6b8,#27ae60);color:#06311f}
+    .claimBadge{position:absolute;right:10px;top:8px;background:rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px;font-weight:700;display:flex;align-items:center;gap:8px}
+
+    
+    .day.missed { opacity: 0.55; filter: grayscale(0.06); pointer-events: none; }
+    .day.available { cursor: pointer; }
+
+    
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    .spinBtn{padding:10px 14px;border-radius:12px;border:none;background:var(--accent-grad);color:white;cursor:pointer;font-weight:800}
+    .spinBtn:active{transform:translateY(2px)}
+
+    .wheelModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:1100}
+    .wheelCard{width:620px;max-width:94vw;padding:18px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.45));box-shadow:0 30px 80px rgba(1,6,20,0.7);border:1px solid rgba(255,255,255,0.03);position:relative}
+    .wheelContainer{width:420px;height:420px;border-radius:12px;overflow:visible;box-shadow:0 18px 50px rgba(2,8,20,0.6);position:relative;display:flex;align-items:center;justify-content:center}
+    #wheelCanvas{width:420px;height:420px;transition:transform 5s cubic-bezier(.2,.9,.3,1);transform-origin:center center;display:block}
+    .pointer{position:absolute;left:50%;top:6%;transform:translateX(-50%);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid #fff;filter:drop-shadow(0 4px 8px rgba(2,8,20,0.6));z-index:6}
+    .pointer::after{content:'';position:absolute;left:50%;top:18px;transform:translateX(-50%);width:6px;height:6px;background:#021226;border-radius:1px;z-index:7}
+
+    
+    .slotsModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:1110}
+    .slotsCard{width:560px;max-width:96vw;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(6,20,36,0.95), rgba(3,8,18,0.9));box-shadow:0 30px 80px rgba(0,0,0,0.6);color:#e7f8ff}
+    .slotsHeader{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .betControls{display:flex;gap:8px;align-items:center}
+    .betBtn{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#cfe9ff;cursor:pointer;font-weight:700}
+    .betBtn.active{background:linear-gradient(90deg,#2f86ff,#1f6bff);color:white;border:none}
+    .slotsBoard{display:flex;gap:12px;justify-content:center;align-items:center;margin:12px 0;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));border-radius:12px;position:relative}
+    .reel{width:110px;height:240px;overflow:hidden;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));position:relative;border:1px solid rgba(255,255,255,0.03)}
+    .reelStrip{position:absolute;left:0;top:0;right:0}
+    .symbol{height:80px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#021226}
+    .payline{position:absolute;left:8px;right:8px;height:4px;background:linear-gradient(90deg,#ffffff66,#ffffff11);top:50%;transform:translateY(-50%);pointer-events:none;border-radius:4px;z-index:6}
+    .payline.top{top:16px}
+    .payline.bottom{bottom:16px;top:auto}
+    .lineWin{box-shadow:0 0 20px rgba(255,255,255,0.12) inset, 0 6px 30px rgba(255,255,255,0.03)}
+
+    
+    .toastWrap{position:fixed;right:18px;top:18px;z-index:99999;display:flex;flex-direction:column;gap:10px}
+    .toast{background:linear-gradient(180deg, rgba(7,30,60,0.95), rgba(2,16,36,0.95));color:#e8f7ff;padding:12px 16px;border-radius:12px;box-shadow:0 12px 36px rgba(2,8,20,0.6)}
+
+    @media (max-width:820px){ .calendar{grid-template-columns:repeat(4,1fr)} .panel{padding:14px} .day{min-height:78px} .reel{width:86px;height:192px} .symbol{height:64px;font-size:28px} #wheelCanvas{width:320px;height:320px} .wheelContainer{width:320px;height:320px} }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div class="panel enterPop" role="dialog" aria-modal="true" aria-labelledby="dailyTitle">
+      <header>
+        <h1 id="dailyTitle">Daily Check-in</h1>
+        <div class="hdr-actions">
+          <div class="keyChip" id="keyCount">🔑 0</div>
+          <button id="openWheel" class="spinBtn">Open Wheel</button>
+          <button id="openSlots" class="spinBtn" style="background:linear-gradient(90deg,#ffb259,#ff8a5c);margin-left:8px">Open Slots</button>
+          <button id="closeOverlay" class="closeBtn" title="Close">✕</button>
+        </div>
+      </header>
+
+      <section class="monthHeader">
+        <div id="monthLabel">Loading...</div>
+        <div id="streakLabel">Claimed: 0 / 0</div>
+      </section>
+
+      <main id="calendar" class="calendar" aria-live="polite"></main>
+
+      <footer>
+        <div class="smallMuted">Legend • Claimed / Available / Future</div>
+        <div></div>
+      </footer>
+    </div>
+  </div>
+
+  
+  <div id="wheelModal" class="wheelModal" aria-hidden="true">
+    <div class="wheelCard" role="dialog" aria-modal="true" aria-label="Prize wheel">
+      <div style="position:relative;padding:22px 0;display:flex;justify-content:center;align-items:center;">
+        <div class="pointer" aria-hidden="true"></div>
+        <div class="wheelContainer">
+          <canvas id="wheelCanvas" width="720" height="720"></canvas>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:12px;margin-top:14px;">
+        <button id="spinBtn" class="spinBtn">Spin (1 Key)</button>
+        <button id="closeWheel" class="spinBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:#cfe9ff">Close</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="slotsModal" class="slotsModal" aria-hidden="true">
+    <div class="slotsCard" role="dialog" aria-modal="true" aria-labelledby="slotsTitle">
+      <div class="slotsHeader">
+        <div>
+          <div style="font-weight:800;font-size:18px" id="slotsTitle">Slot Machine</div>
+          <div class="smallMuted">Bet per line. Choose which lines to play. Higher bet = higher rewards.</div>
+        </div>
+        <div>
+          <div class="betControls" aria-hidden="false">
+            <button class="betBtn" data-bet="1" id="bet1">1</button>
+            <button class="betBtn" data-bet="2" id="bet2">2</button>
+            <button class="betBtn" data-bet="5" id="bet5">5</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="slotsBoard" aria-live="polite" aria-atomic="true">
+        <div class="reel" id="reel0"><div class="reelStrip" id="strip0"></div></div>
+        <div class="reel" id="reel1"><div class="reelStrip" id="strip1"></div></div>
+        <div class="reel" id="reel2"><div class="reelStrip" id="strip2"></div></div>
+
+        <div class="payline top" id="paylineTop"></div>
+        <div class="payline" id="paylineCenter"></div>
+        <div class="payline bottom" id="paylineBottom"></div>
+      </div>
+
+      <div class="slotsFooter" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <div>
+          <div class="smallMuted">Balance: <strong id="slotsKeyCount">0</strong> keys</div>
+          <div class="smallMuted">Bet per line: <strong id="currentBet">1</strong> keys</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="linesControls smallMuted">
+            <label><input type="checkbox" id="lineTop" /> Top</label>
+            <label style="margin-left:8px"><input type="checkbox" id="lineCenter" checked /> Center</label>
+            <label style="margin-left:8px"><input type="checkbox" id="lineBottom" /> Bottom</label>
+          </div>
+          <button id="playSlotsBtn" class="spinBtn" style="background:linear-gradient(90deg,#ffb259,#ff8a5c);margin-left:8px">Play</button>
+          <button id="closeSlots" class="spinBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:#cfe9ff">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toastWrap" id="toastWrap" aria-live="polite"></div>
+
+  <canvas id="confettiCanvas" style="position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:99998"></canvas>
+
+  <script>
+  (function(){
+    
+    const COPIES = 8; 
+    let resource = 'daily_checkin';
+    const overlay = document.getElementById('overlay');
+    const calendar = document.getElementById('calendar');
+    const monthLabel = document.getElementById('monthLabel');
+    const streakLabel = document.getElementById('streakLabel');
+    const keyCountEl = document.getElementById('keyCount');
+    const toastWrap = document.getElementById('toastWrap');
+    const confettiCanvas = document.getElementById('confettiCanvas');
+
+    const openWheelBtn = document.getElementById('openWheel');
+    const wheelModal = document.getElementById('wheelModal');
+    const wheelCanvas = document.getElementById('wheelCanvas');
+    const spinBtn = document.getElementById('spinBtn');
+    const closeWheel = document.getElementById('closeWheel');
+
+    const openSlotsBtn = document.getElementById('openSlots');
+    const slotsModal = document.getElementById('slotsModal');
+    const closeSlots = document.getElementById('closeSlots');
+    const playSlotsBtn = document.getElementById('playSlotsBtn');
+    const betButtons = Array.from(document.querySelectorAll('.betBtn'));
+    const slotsKeyCountEl = document.getElementById('slotsKeyCount');
+    const currentBetEl = document.getElementById('currentBet');
+    const lineTopChk = document.getElementById('lineTop');
+    const lineCenterChk = document.getElementById('lineCenter');
+    const lineBottomChk = document.getElementById('lineBottom');
+    const reels = [document.getElementById('strip0'), document.getElementById('strip1'), document.getElementById('strip2')];
+    const paylineTop = document.getElementById('paylineTop');
+    const paylineCenter = document.getElementById('paylineCenter');
+    const paylineBottom = document.getElementById('paylineBottom');
+    const closeOverlayBtn = document.getElementById('closeOverlay');
+
+    
+    const sounds = { open: 'sounds/game.mp3', claim: 'sounds/level.mp3', spin: 'sounds/spin.mp3', reel: 'sounds/reel.mp3' };
+    const audioEls = {};
+    function preloadAudio(){ try{ Object.keys(sounds).forEach(k=>{ const a=new Audio(); a.src=sounds[k]; a.preload='auto'; audioEls[k]=a; }); }catch(e){} }
+    preloadAudio();
+    function playSound(n){ try{ const a = audioEls[n]; if(a){ a.currentTime=0; a.play().catch(()=>{}); } }catch(e){} }
+
+    
+    function formatMoney(n){ return typeof n === 'number' ? n.toLocaleString() : (n||''); }
+    function showToast(title, body, opts){ const el = document.createElement('div'); el.className='toast'; el.innerHTML=`<strong>${title}</strong><div style="margin-top:6px">${body||''}</div>`; toastWrap.appendChild(el); if(opts && opts.duration) setTimeout(()=>el.remove(), opts.duration); else setTimeout(()=>el.remove(), 3000); if(opts && opts.type==='success') playSound('claim'); else if(opts && opts.type==='info') playSound('open'); }
+    function spawnConfetti(x = window.innerWidth/2, y = window.innerHeight/3, amount = 28){
+      const canvas = confettiCanvas; if(!canvas) return;
+      const ctx = canvas.getContext('2d'); canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      const colors = ['#4aa8ff','#2f86ff','#8de0ff','#cfe9ff','#ffd166','#ff8da1']; const particles = [];
+      function rand(min,max){return Math.random()*(max-min)+min}
+      for(let i=0;i<amount;i++){ const size=Math.round(rand(6,14)); particles.push({x:x+rand(-36,36), y:y+rand(-12,12), vx:rand(-260,260)/100, vy:rand(-10,-2), rot:rand(0,360), vr:rand(-8,8), size, shape:Math.random()<0.6?'rect':'tri', color:colors[Math.floor(Math.random()*colors.length)], life:0, ttl:Math.round(rand(60,120))}); }
+      let raf=null; (function frame(){ ctx.clearRect(0,0,canvas.width,canvas.height); for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.vy+=0.12; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life++; const alpha = 1 - p.life/p.ttl; ctx.globalAlpha = Math.max(0,alpha); ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180); if(p.shape==='rect'){ ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6);} else { ctx.beginPath(); ctx.moveTo(0,-p.size); ctx.lineTo(p.size,p.size); ctx.lineTo(-p.size,p.size); ctx.closePath(); ctx.fillStyle=p.color; ctx.fill(); } ctx.restore(); ctx.globalAlpha=1; if(p.life>p.ttl) particles.splice(i,1); } if(particles.length>0) raf=requestAnimationFrame(frame); else { cancelAnimationFrame(raf); ctx.clearRect(0,0,canvas.width,canvas.height);} })();
+    }
+    function showClaimToast(reward){
+      const parts=[]; if(reward.money) parts.push(`${formatMoney(reward.money)} money`); if(reward.weapon) parts.push(`${reward.weapon.replace('WEAPON_','')}`); if(reward.keys) parts.push(`${reward.keys} keys`);
+      const body = parts.length ? parts.join(' • ') : 'You got a prize!';
+      const el=document.createElement('div'); el.className='toast'; el.innerHTML=`<strong>Reward Received</strong><div style="margin-top:6px">${body}</div>`; toastWrap.appendChild(el); playSound('claim'); const panelRect=document.querySelector('.panel').getBoundingClientRect(); spawnConfetti(panelRect.left + panelRect.width*0.5, panelRect.top + panelRect.height*0.25, 42); setTimeout(()=>{ try{ el.remove(); }catch(e){} },7000);
+    }
+
+    
+    let currentPayload = null;
+
+    
+    function renderCalendar(payload){
+      if(!payload) return;
+      currentPayload = payload;
+      calendar.innerHTML='';
+      const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      monthLabel.innerText = `${monthNames[(payload.month||1)-1]||''} ${payload.year||''}`;
+      const days = payload.days || []; let claimed=0; days.forEach(d=>{ if(d.claimed) claimed++; });
+      streakLabel.innerText = `Claimed: ${claimed} / ${days.length||0}`;
+      keyCountEl.innerText = `🔑 ${payload.keys||0}`;
+
+      
+      const now = new Date();
+      const todayYear = now.getFullYear();
+      const todayMonth = now.getMonth() + 1; 
+      const todayDay = now.getDate();
+
+      days.forEach(dayObj => {
+        const el = document.createElement('div'); el.className='day';
+        
+        const isToday = (Number(payload.year) === todayYear && Number(payload.month) === todayMonth && Number(dayObj.day) === todayDay);
+
+        if(dayObj.claimed){
+          el.classList.add('claimed');
+        } else {
+          
+          const dayNum = Number(dayObj.day);
+          const isPast = (Number(payload.year) < todayYear) ||
+                         (Number(payload.year) === todayYear && Number(payload.month) < todayMonth) ||
+                         (Number(payload.year) === todayYear && Number(payload.month) === todayMonth && dayNum < todayDay);
+          const isFuture = (Number(payload.year) > todayYear) ||
+                           (Number(payload.year) === todayYear && Number(payload.month) > todayMonth) ||
+                           (Number(payload.year) === todayYear && Number(payload.month) === todayMonth && dayNum > todayDay);
+          if(isToday){
+            el.classList.add('available');
+          } else if(isFuture){
+            el.classList.add('future');
+          } else if(isPast){
+            el.classList.add('missed'); 
+          } else {
+            el.classList.add('future');
+          }
+        }
+
+        const num = document.createElement('div'); num.className='num'; num.innerText = dayObj.day;
+        const reward = document.createElement('div'); reward.className='reward'; let rewardHtml='';
+        if(dayObj.reward){
+          if(dayObj.reward.money) rewardHtml+=`<div class="money">${formatMoney(dayObj.reward.money)} ${payload.currency||'$'}</div>`;
+          if(dayObj.reward.weapon) rewardHtml+=`<div class="weapon">${(dayObj.reward.weapon||'').replace('WEAPON_','')} x${dayObj.reward.ammo||0}</div>`;
+          if(dayObj.reward.keys) rewardHtml+=`<div class="weapon">Keys: ${dayObj.reward.keys}</div>`;
+        }
+        
+        if(dayObj.claimed){
+          reward.innerHTML = rewardHtml || 'Claimed';
+        } else {
+          const isToday = el.classList.contains('available');
+          if(isToday){
+            reward.innerHTML = rewardHtml || 'Tap to claim';
+          } else if(el.classList.contains('future')){
+            reward.innerHTML = 'Not yet available';
+          } else if(el.classList.contains('missed')){
+            reward.innerHTML = 'Missed';
+          } else {
+            reward.innerHTML = 'Unavailable';
+          }
+        }
+
+        el.appendChild(num); el.appendChild(reward);
+
+        
+        if(!dayObj.claimed && el.classList.contains('available')){
+          const btn=document.createElement('button'); btn.className='claimBtn'; btn.innerText='Claim';
+          btn.addEventListener('click', ()=> doClaim(dayObj.day, btn));
+          el.appendChild(btn);
+        } else if(dayObj.claimed){
+          const badge = document.createElement('div'); badge.className='claimBadge'; badge.innerHTML='✔️ Claimed'; el.appendChild(badge);
+        }
+
+        calendar.appendChild(el);
+      });
+    }
+    
+
+    
+    let claimPendingDays = new Set();
+
+    
+    function doClaim(day, btn){
+      if(!resource) { showToast('Error','Resource not set', {type:'info'}); return; }
+      if(claimPendingDays.has(day)) return;
+
+      
+      const now = new Date();
+      const todayYear = now.getFullYear();
+      const todayMonth = now.getMonth() + 1;
+      const todayDay = now.getDate();
+      if(!currentPayload || Number(currentPayload.year) !== todayYear || Number(currentPayload.month) !== todayMonth || Number(day) !== todayDay){
+        showToast('Not allowed','You can only claim today\'s check-in (only the current day is redeemable).', {type:'info'});
+        return;
+      }
+
+      claimPendingDays.add(day);
+      if(btn) { btn.disabled = true; btn.innerText = 'Claiming...'; }
+      
+      fetch(`https://${resource}/claim`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json; charset=UTF-8'},
+        body: JSON.stringify({ day })
+      }).catch(()=>{}).finally(()=>{
+        
+        setTimeout(()=>{ claimPendingDays.delete(day); if(btn){ try{ btn.disabled=false; btn.innerText='Claim'; }catch(e){} } }, 3500);
+      });
+      showToast('Claim','Claim sent to server — waiting for confirmation...', {type:'info'});
+    }
+    
+
+    
+    function requestClose(){
+      try{ fetch(`https://${resource}/dailyClose`, { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) }).catch(()=>{}); }catch(e){}
+      closeDailyUI();
+    }
+
+    
+    function requestRefresh(){
+      try{ fetch(`https://${resource}/refresh`, { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) }).catch(()=>{}); }catch(e){}
+    }
+
+    
+    let wheelPrizes=[]; let lastRotationDeg=0;
+    function resizeCanvasForDPR(retries = 6){
+      if(!wheelCanvas) return;
+      const rect = wheelCanvas.getBoundingClientRect();
+      if((rect.width === 0 || rect.height === 0) && retries > 0){
+        requestAnimationFrame(()=> resizeCanvasForDPR(retries-1));
+        return;
+      }
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssWidth = Math.max(1, rect.width || wheelCanvas.clientWidth || 420);
+      const cssHeight = Math.max(1, rect.height || wheelCanvas.clientHeight || 420);
+      wheelCanvas.width = Math.round(cssWidth * dpr);
+      wheelCanvas.height = Math.round(cssHeight * dpr);
+      wheelCanvas.style.width = cssWidth + 'px';
+      wheelCanvas.style.height = cssHeight + 'px';
+      const ctx = wheelCanvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function drawWheel(prizes){
+      wheelPrizes = prizes || [];
+      if(!wheelCanvas) return;
+      const rect = wheelCanvas.getBoundingClientRect();
+      if(rect.width === 0 || rect.height === 0){
+        requestAnimationFrame(()=> {
+          resizeCanvasForDPR();
+          requestAnimationFrame(()=> drawWheel(prizes));
+        });
+        return;
+      }
+      resizeCanvasForDPR();
+      const c = wheelCanvas;
+      const ctx = c.getContext('2d');
+      const W = Math.max(1, c.width / (window.devicePixelRatio || 1));
+      const H = Math.max(1, c.height / (window.devicePixelRatio || 1));
+      const cx = W/2;
+      const cy = H/2;
+      const r = Math.min(cx, cy) - 18;
+      ctx.clearRect(0,0,W,H);
+      const count = (prizes && prizes.length) ? prizes.length : 8;
+      const slice = (2*Math.PI)/count;
+      for(let i=0;i<count;i++){
+        const start = i*slice;
+        const end = start + slice;
+        ctx.beginPath();
+        ctx.moveTo(cx,cy);
+        ctx.arc(cx,cy,r,start,end);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(cx,cy, cx + Math.cos(start+slice/2)*r, cy + Math.sin(start+slice/2)*r);
+        grad.addColorStop(0, i%2===0? '#3aa0ff' : '#2f86ff');
+        grad.addColorStop(1, i%2===0? '#7fd1ff' : '#6bc0ff');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        
+        const mid = start + (slice/2);
+        const p = prizes[i] || {};
+      
+      let label = '';
+      if(p && p.type === 'money') label = '$' + (p.amount || '');
+      else if(p && p.type === 'weapon') label = (p.weapon || '').replace('WEAPON_','');
+      else if(p && p.type === 'keys') label = (p.amount || '') + ' keys';
+
+      
+      if(!label || label.toString().trim() === '') {
+        
+        label = (p && p.fallbackText) ? p.fallbackText : '???';
+      }
+
+      
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      const textRadius = r - Math.max(28, r * 0.28);
+      ctx.translate(textRadius, 0);
+      ctx.rotate(Math.PI/2);
+      
+      let angleNormalized = mid % (2*Math.PI);
+      if(angleNormalized < 0) angleNormalized += 2*Math.PI;
+      if(angleNormalized > Math.PI/2 && angleNormalized < (3*Math.PI/2)){
+        ctx.rotate(Math.PI);
+      }
+      const fontSize = Math.max(12, Math.min(22, Math.floor(r * 0.09)));
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.lineWidth = Math.max(1, Math.floor(fontSize * 0.12));
+      ctx.strokeStyle = '#021226';
+      ctx.strokeText(label, 0, 0);
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
+      }
+      wheelCanvas.style.transform = `rotate(${lastRotationDeg}deg)`;
+    }
+
+    
+    let waitingForSpinResult = false;
+    function requestSpin(){
+      if(!resource) { showToast('Error','Resource not set', {type:'info'}); return; }
+      if(waitingForSpinResult){ showToast('Please wait','Already spinning...'); return; }
+      if(!currentPayload || (currentPayload.keys||0) <= 0){ showToast('Not enough keys','You need a key to spin the wheel',{type:'info'}); return; }
+      
+      currentPayload.keys = Math.max(0, (currentPayload.keys||0) - 1);
+      renderCalendar(currentPayload);
+      waitingForSpinResult = true;
+      spinBtn.disabled = true;
+      playSound('spin');
+      fetch(`https://${resource}/spin`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) })
+        .catch(()=>{  })
+        .finally(()=>{  });
+      
+      setTimeout(()=>{ if(waitingForSpinResult){ waitingForSpinResult=false; spinBtn.disabled=false; requestRefresh(); showToast('No response','No spin response from server — refreshed', {type:'info'}); } }, 8500);
+    }
+
+    
+    function animateWheelToIndex(serverIndex, prize){
+      const prizes = (wheelPrizes && wheelPrizes.length) ? wheelPrizes : [];
+      const count = Math.max(1, (prizes.length || 8));
+      const idx = Math.max(1, Math.min(serverIndex, count)) - 1; 
+      const rounds = 6 + Math.floor(Math.random()*2);
+      const slice = 360 / count;
+      
+      const randomOffset = Math.floor(Math.random() * (slice * 0.4)) - (slice * 0.2);
+      const target = rounds * 360 + (idx * slice) + (slice / 2) + randomOffset;
+      lastRotationDeg = (lastRotationDeg + target) % 360;
+      wheelCanvas.style.transition = 'transform 5.4s cubic-bezier(.16,.86,.28,1)';
+      wheelCanvas.style.transform = `rotate(${lastRotationDeg}deg)`;
+      const onEnd = function(ev){
+        if(ev && ev.target !== wheelCanvas) return;
+        wheelCanvas.removeEventListener('transitionend', onEnd);
+        setTimeout(()=>{
+          wheelCanvas.style.transition = '';
+          
+          if(prize && prize.keys){
+            if(!currentPayload) currentPayload = {};
+            currentPayload.keys = (typeof prize.keys === 'number') ? prize.keys : (currentPayload.keys || 0);
+            renderCalendar(currentPayload);
+          }
+          if(prize) showClaimToast(prize);
+          waitingForSpinResult = false;
+          spinBtn.disabled = false;
+        }, 120);
+      };
+      wheelCanvas.addEventListener('transitionend', onEnd);
+      
+      setTimeout(()=> { try{ wheelCanvas.dispatchEvent(new Event('transitionend')); }catch(e){} }, 6500);
+    }
+
+    
+    const SYMBOLS = [
+      {id:'7', label:'7', weight:6},
+      {id:'⭐', label:'⭐', weight:8},
+      {id:'🔔', label:'🔔', weight:10},
+      {id:'🍒', label:'🍒', weight:18},
+      {id:'🍋', label:'🍋', weight:18},
+      {id:'🔑', label:'🔑', weight:6}
+    ];
+    const weighted = []; SYMBOLS.forEach(s=>{ for(let i=0;i<s.weight;i++) weighted.push(s); });
+    const PAYTABLE = {
+      '7': {three:{mult:50}, two:{mult:5}},
+      '⭐': {three:{mult:25}, two:{mult:4}},
+      '🔔': {three:{mult:12}, two:{mult:3}},
+      '🍒': {three:{mult:8}, two:{mult:2}},
+      '🍋': {three:{mult:8}, two:{mult:2}},
+      '🔑': {three:{keys:25}, two:{keys:5}, one:{keys:1}}
+    };
+    const SEQ_LEN = 24;
+    let sequences = [];
+
+    function buildSequences(){
+      sequences = [];
+      for(let r=0;r<3;r++){
+        const seq=[];
+        for(let i=0;i<SEQ_LEN;i++){
+          const s = weighted[Math.floor(Math.random()*weighted.length)];
+          seq.push(s.label);
+        }
+        sequences.push(seq);
+      }
+    }
+
+    function getSymbolHeight(){
+      const s = document.querySelector('.symbol');
+      if(s){ const rect = s.getBoundingClientRect(); if(rect && rect.height) return rect.height; }
+      return 80;
+    }
+
+    function renderReels(){
+      for(let r=0;r<3;r++){
+        const strip = reels[r];
+        strip.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        const seq = sequences[r];
+        for(let copy=0; copy<COPIES; copy++){
+          seq.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'symbol';
+            el.innerText = s;
+            frag.appendChild(el);
+          });
+        }
+        strip.appendChild(frag);
+        strip.style.transition = '';
+        const symH = getSymbolHeight();
+        const baseLen = seq.length;
+        const desiredStartIndex = baseLen * Math.floor(COPIES/2) + 1; 
+        strip.style.transform = `translateY(${-(desiredStartIndex - 1) * symH}px)`;
+      }
+    }
+
+    function getTranslateYFromTransform(el){
+      const style = getComputedStyle(el).transform;
+      if(!style || style === 'none') return 0;
+      const m = style.match(/matrix3?d?\(([^)]+)\)/);
+      if(!m) return 0;
+      const parts = m[1].split(',').map(s=>parseFloat(s.trim()));
+      if(parts.length === 6) return parts[5];
+      if(parts.length === 16) return parts[13];
+      return 0;
+    }
+
+    function computeBoardFromStrips(){
+      const board=[[],[],[]];
+      const symH = getSymbolHeight();
+      for(let r=0;r<3;r++){
+        const strip = reels[r];
+        const ty = getTranslateYFromTransform(strip);
+        const approxIndex = Math.round(1 - (ty / symH));
+        const baseSeq = sequences[r];
+        const baseLen = baseSeq.length;
+        const centerIdx = ((approxIndex - 1) % baseLen + baseLen) % baseLen;
+        const topIdx = ((centerIdx - 1) % baseLen + baseLen) % baseLen;
+        const bottomIdx = ((centerIdx + 1) % baseLen + baseLen) % baseLen;
+        board[0].push(baseSeq[topIdx]);
+        board[1].push(baseSeq[centerIdx]);
+        board[2].push(baseSeq[bottomIdx]);
+      }
+      return board;
+    }
+
+    function evaluateLine(syms, betPerLine){
+      if(!syms || syms.length !== 3) return {};
+      if(syms[0] === syms[1] && syms[1] === syms[2]){
+        const v = PAYTABLE[syms[0]] || {};
+        if(v.three){ if(v.three.keys) return {keys: v.three.keys * betPerLine}; if(v.three.mult) return {money: v.three.mult * betPerLine}; }
+      }
+      if(syms[0] === syms[1]){
+        const v = PAYTABLE[syms[0]] || {};
+        if(v.two){ if(v.two.keys) return {keys: v.two.keys * betPerLine}; if(v.two.mult) return {money: v.two.mult * betPerLine}; }
+      }
+      if(syms.filter(s=>s==='🔑').length === 1){
+        const v = PAYTABLE['🔑'] || {};
+        if(v.one && v.one.keys) return {keys: v.one.keys * betPerLine};
+        return {keys: Math.max(0, Math.floor(1 * betPerLine))};
+      }
+      return {};
+    }
+
+    function randomTargets(){
+      const t=[]; for(let i=0;i<3;i++) t.push(Math.floor(Math.random()*SEQ_LEN)); return t;
+    }
+
+    function animateToTargetsSequential(targets){
+      return new Promise(async (resolve) => {
+        try {
+          const symH = getSymbolHeight();
+          const baseLen = SEQ_LEN;
+          for(let r=0;r<3;r++){
+            await new Promise(res => {
+              const strip = reels[r];
+              const loops = 3 + r;
+              const finalIndex = loops * baseLen + targets[r];
+              const desiredTranslateY = - (finalIndex - 1) * symH;
+              const duration = 900 + (r * 420) + Math.floor(Math.random()*160);
+              const totalItems = strip.children.length;
+              const requiredItems = (loops + 2) * baseLen;
+              if(totalItems < requiredItems){
+                const addCopies = Math.ceil((requiredItems - totalItems)/baseLen);
+                const frag = document.createDocumentFragment();
+                for(let c=0;c<addCopies;c++){ sequences[r].forEach(sym => { const el=document.createElement('div'); el.className='symbol'; el.innerText = sym; frag.appendChild(el); }); }
+                strip.appendChild(frag);
+              }
+              strip.style.transition = `transform ${duration}ms cubic-bezier(.16,.86,.28,1)`;
+              strip.getBoundingClientRect();
+              function onEnd(e){
+                if(e && e.target !== strip) return;
+                strip.removeEventListener('transitionend', onEnd);
+                const normalizedCenter = ((finalIndex - 1) % baseLen + baseLen) % baseLen;
+                const renderedCopies = Math.floor(strip.children.length / baseLen);
+                const copyIndex = Math.floor(renderedCopies/2);
+                const snapIndex = copyIndex * baseLen + normalizedCenter + 1;
+                const snapTranslate = - (snapIndex - 1) * symH;
+                requestAnimationFrame(()=> {
+                  strip.style.transition = '';
+                  strip.style.transform = `translateY(${snapTranslate}px)`;
+                  setTimeout(()=> res({finalIndex, reel:r, normalizedCenter}), 22);
+                });
+              }
+              strip.addEventListener('transitionend', onEnd);
+              requestAnimationFrame(()=> {
+                try{ if(audioEls.reel) audioEls.reel.play().catch(()=>{}); }catch(e){}
+                strip.style.transform = `translateY(${desiredTranslateY}px)`;
+              });
+            });
+            await new Promise(s=>setTimeout(s, 120 + Math.floor(Math.random()*140)));
+          }
+          resolve();
+        } catch(err){
+          resolve();
+        }
+      });
+    }
+
+    
+    let spinningSlots = false;
+    function getKeyBalance(){ return (currentPayload && typeof currentPayload.keys === 'number') ? Number(currentPayload.keys) : Number(slotsKeyCountEl.innerText||0) || 0; }
+    function setKeyBalance(n){ if(!currentPayload) currentPayload = {}; currentPayload.keys = Number(n); keyCountEl.innerText = `🔑 ${currentPayload.keys}`; slotsKeyCountEl.innerText = `${currentPayload.keys}`; }
+
+    async function playSlots(){
+      if(spinningSlots) return;
+      const linesChosen = (lineTopChk.checked?1:0) + (lineCenterChk.checked?1:0) + (lineBottomChk.checked?1:0);
+      if(linesChosen === 0){ showToast('Pick a line','Select at least one payline (Top/Center/Bottom)'); return; }
+      const betPer = selectedBet;
+      const totalCost = betPer * linesChosen;
+      const balance = getKeyBalance();
+      if(balance < totalCost){ showToast('Not enough keys',`You need ${totalCost} keys but have ${balance}`); return; }
+      setKeyBalance(balance - totalCost);
+      playSlotsBtn.disabled = true;
+      spinningSlots = true;
+      betButtons.forEach(b=>b.disabled = true);
+      [paylineTop,paylineCenter,paylineBottom].forEach(el=>el.classList.remove('lineWin'));
+      const targets = randomTargets();
+      await animateToTargetsSequential(targets);
+      const board = computeBoardFromStrips();
+      const selectedLines = [
+        {id:'top', enabled:lineTopChk.checked, rowIndex:0},
+        {id:'center', enabled:lineCenterChk.checked, rowIndex:1},
+        {id:'bottom', enabled:lineBottomChk.checked, rowIndex:2}
+      ].filter(l=>l.enabled);
+      let totalPayout={keys:0,money:0}; const winningLines=[];
+      selectedLines.forEach(line=>{
+        const syms = board[line.rowIndex];
+        const payout = evaluateLine(syms, betPer);
+        if(payout.keys) totalPayout.keys += payout.keys;
+        if(payout.money) totalPayout.money += payout.money;
+        if((payout.keys && payout.keys>0) || (payout.money && payout.money>0)) winningLines.push(line.id);
+      });
+      if(totalPayout.keys>0){ setKeyBalance(getKeyBalance() + totalPayout.keys); showClaimToast({keys: totalPayout.keys}); }
+      if(totalPayout.money>0){ showClaimToast({money: totalPayout.money}); }
+      if(winningLines.length===0) showToast('No win','Better luck next time!'); else { winningLines.forEach(id=>{ if(id==='top') paylineTop.classList.add('lineWin'); if(id==='center') paylineCenter.classList.add('lineWin'); if(id==='bottom') paylineBottom.classList.add('lineWin'); }); spawnConfetti(window.innerWidth/2, window.innerHeight/3, 36); }
+      
+      setTimeout(()=>{ buildSequences(); renderReels(); spinningSlots=false; playSlotsBtn.disabled=false; betButtons.forEach(b=>b.disabled=false); requestRefresh(); }, 300);
+    }
+
+    
+    let selectedBet = 1;
+    function setActiveBet(b){ selectedBet = b; currentBetEl.innerText = b; betButtons.forEach(btn=>btn.classList.toggle('active', Number(btn.dataset.bet)===b)); }
+    betButtons.forEach(b=>b.addEventListener('click', ()=> setActiveBet(Number(b.dataset.bet))));
+    setActiveBet(1);
+
+    
+    buildSequences();
+    renderReels();
+
+    
+    function seedFallbackCalendar(){ const year=(new Date()).getFullYear(); const month=(new Date()).getMonth()+1; const days=[]; for(let i=1;i<=30;i++){ const r={day:i, claimed:false, reward:{money:0}}; days.push(r);} currentPayload={year,month,days,keys:0,currency:'$'}; renderCalendar(currentPayload); }
+    if(!currentPayload) seedFallbackCalendar();
+
+    
+    openWheelBtn.addEventListener('click', ()=>{
+      wheelModal.style.display='flex'; wheelModal.setAttribute('aria-hidden','false');
+      drawWheel(currentPayload && currentPayload.wheelPrizes ? currentPayload.wheelPrizes : wheelPrizes);
+      playSound('open'); requestAnimationFrame(()=> resizeCanvasForDPR());
+    });
+    closeWheel.addEventListener('click', ()=>{ wheelModal.style.display='none'; wheelModal.setAttribute('aria-hidden','true'); });
+    spinBtn.addEventListener('click', requestSpin);
+
+    openSlotsBtn.addEventListener('click', ()=>{ slotsModal.style.display='flex'; slotsModal.setAttribute('aria-hidden','false'); slotsKeyCountEl.innerText = currentPayload.keys||0; renderReels(); playSound('open'); });
+    closeSlots.addEventListener('click', ()=>{ slotsModal.style.display='none'; slotsModal.setAttribute('aria-hidden','true'); });
+    playSlotsBtn.addEventListener('click', playSlots);
+
+    closeOverlayBtn.addEventListener('click', ()=>{ requestClose(); });
+    overlay.addEventListener('click', (e)=>{ if(e.target===overlay){ requestClose(); } });
+
+    document.addEventListener('keydown', (ev)=>{ if(ev.key!=='Escape' && ev.key!=='Esc') return; if(wheelModal && wheelModal.style.display==='flex'){ wheelModal.style.display='none'; wheelModal.setAttribute('aria-hidden','true'); return; } if(slotsModal && slotsModal.style.display==='flex'){ slotsModal.style.display='none'; slotsModal.setAttribute('aria-hidden','true'); return; } if(overlay && overlay.style.display==='flex'){ requestClose(); } });
+
+    window.addEventListener('resize', ()=> drawWheel(wheelPrizes));
+    document.addEventListener('DOMContentLoaded', ()=> { drawWheel(wheelPrizes); wheelCanvas.style.transform = `rotate(${lastRotationDeg}deg)`; });
+
+    
+    function openDailyUI(payload){
+      try{
+        if(payload) {
+          
+          let p = payload;
+          if(payload.payload) p = payload.payload;
+          currentPayload = Object.assign({}, currentPayload || {}, p);
+          if(p.wheelPrizes) wheelPrizes = p.wheelPrizes;
+          renderCalendar(currentPayload);
+          drawWheel(wheelPrizes.length ? wheelPrizes : (currentPayload.wheelPrizes || []));
+        }
+      }catch(e){}
+      overlay.style.display = 'flex';
+      overlay.setAttribute('aria-hidden','false');
+
+      requestAnimationFrame(() => {
+        renderReels();
+        
+        resizeCanvasForDPR();
+        requestAnimationFrame(()=> drawWheel(wheelPrizes.length ? wheelPrizes : (currentPayload && currentPayload.wheelPrizes ? currentPayload.wheelPrizes : [])));
+        const firstbtn = document.querySelector('.panel .spinBtn, .panel .betBtn');
+        if(firstbtn) try{ firstbtn.focus(); }catch(e){}
+      });
+      playSound('open');
+    }
+    function closeDailyUI(){
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden','true');
+      wheelModal.style.display='none'; wheelModal.setAttribute('aria-hidden','true');
+      slotsModal.style.display='none'; slotsModal.setAttribute('aria-hidden','true');
+      playSound('open');
+    }
+
+    
+    window.openDailyUI = openDailyUI;
+    window.closeDailyUI = closeDailyUI;
+
+    
+    window.addEventListener('message', function(ev){
+      const d = ev && ev.data;
+      if(!d || typeof d !== 'object') return;
+      if(d.type === 'azfw_set_resource' && d.resource){ resource = d.resource; }
+      else if(d.action === 'open' || d.action === 'daily_open'){
+        if(d.resource) resource = d.resource;
+        const payload = d.payload || d.data || d;
+        openDailyUI(payload);
+      } else if(d.action === 'close' || d.action === 'daily_close'){
+        closeDailyUI();
+      } else if(d.action === 'claimSuccess' || d.action === 'daily_claimSuccess'){
+        
+        if(d.payload) { currentPayload = d.payload; renderCalendar(currentPayload); }
+        if(d.reward) showClaimToast(d.reward);
+      } else if(d.action === 'daily_playSound'){
+        playSound(d.sound || 'open');
+      } else if(d.action === 'spinResult' || d.action === 'daily_spinResult'){
+        
+        const data = d.data || d;
+        
+        const idx = (data && data.index) ? Number(data.index) : 1;
+        const prize = (data && data.prize) ? data.prize : (wheelPrizes[(idx-1)] || null);
+        
+        animateWheelToIndex(idx, Object.assign({}, prize, { keys: data.keys }));
+      }
+    });
+
+    
+    window.__openDailyDebug = function(){ openDailyUI({ keys:10 }); };
+    window.__daily_checkin_forceHideWheel = ()=>{ if(wheelModal){ wheelModal.style.display='none'; wheelModal.setAttribute('aria-hidden','true'); } };
+    window.__daily_checkin_forceHideSlots = ()=>{ if(slotsModal){ slotsModal.style.display='none'; slotsModal.setAttribute('aria-hidden','true'); } };
+
+  })();
+  </script>
+</body>
+</html>

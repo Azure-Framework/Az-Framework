@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Injury Overlay</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --card-bg: rgba(5, 10, 20, 0.08);
+      --panel-bg: rgba(8, 14, 27, 0.14);
+      --line: rgba(95, 146, 255, 0.82);
+      --line-soft: rgba(95, 146, 255, 0.28);
+      --accent: #76a3ff;
+      --accent-soft: rgba(118, 163, 255, 0.12);
+      --danger: #ef566c;
+      --danger-soft: rgba(239, 86, 108, 0.68);
+      --text-main: #f5f7ff;
+      --text-sub: rgba(220, 232, 255, 0.72);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: transparent;
+    }
+
+    
+
+
+
+    .hidden { display: none !important; }
+    .injury-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 4vh;
+    }
+
+
+
+    .injury-card {
+      pointer-events: auto;
+      width: 760px;
+      max-width: 94vw;
+      min-width: 520px;
+      background: var(--card-bg);
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      padding: 18px 20px 14px;
+      max-height: 44vh;
+      overflow: hidden;
+      resize: none;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .injury-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(95, 146, 255, 0.18);
+    }
+
+    .injury-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .injury-title .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #7ef2c8;
+
+    }
+
+    .injury-header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .injury-status {
+      font-size: 12px;
+      color: var(--text-sub);
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(18, 34, 64, 0.24);
+      white-space: nowrap;
+    }
+
+    .injury-bleeding {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 79, 106, 0.26);
+      background: rgba(58, 18, 28, 0.24);
+      color: #ffdfe3;
+      white-space: nowrap;
+    }
+
+    .injury-bleeding.none {
+      color: var(--text-sub);
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(18, 34, 64, 0.18);
+    }
+
+    .injury-body {
+      display: flex;
+      gap: 22px;
+      padding-top: 14px;
+      height: calc(100% - 64px);
+      min-height: 120px;
+    }
+
+    .injury-body-map {
+      flex: 0 0 170px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .body-silhouette {
+      position: relative;
+      width: 110px;
+      height: 220px;
+    }
+
+    .body-base {
+      position: absolute;
+      background: rgba(45, 63, 104, 0.28);
+      opacity: 0.38;
+      border-radius: 999px;
+    }
+
+    .base-head {
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 34px;
+      height: 38px;
+    }
+
+    .base-neck {
+      top: 42px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 14px;
+    }
+
+    .base-torso {
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 46px;
+      height: 72px;
+      border-radius: 24px;
+    }
+
+    .base-arm-left,
+    .base-arm-right {
+      top: 56px;
+      width: 20px;
+      height: 78px;
+      border-radius: 999px;
+    }
+
+    .base-arm-left {
+      left: 8px;
+    }
+
+    .base-arm-right {
+      right: 8px;
+    }
+
+    .base-leg-left,
+    .base-leg-right {
+      top: 120px;
+      width: 22px;
+      height: 86px;
+      border-radius: 999px;
+    }
+
+    .base-leg-left {
+      left: 28px;
+    }
+
+    .base-leg-right {
+      right: 28px;
+    }
+
+    .body-zone {
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.12;
+      background: var(--accent-soft);
+      transition: opacity 0.16s ease, background-color 0.16s ease
+    }
+
+    .body-zone.hit {
+      opacity: 0.82;
+      background: var(--danger-soft);
+
+    }
+
+    .zone-head {
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 34px;
+    }
+
+    .zone-torso {
+      top: 54px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 70px;
+    }
+
+    .zone-left-arm {
+      top: 58px;
+      left: 10px;
+      width: 18px;
+      height: 76px;
+    }
+
+    .zone-right-arm {
+      top: 58px;
+      right: 10px;
+      width: 18px;
+      height: 76px;
+    }
+
+    .zone-left-leg {
+      top: 122px;
+      left: 30px;
+      width: 20px;
+      height: 84px;
+    }
+
+    .zone-right-leg {
+      top: 122px;
+      right: 30px;
+      width: 20px;
+      height: 84px;
+    }
+
+    .injury-list-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .injury-list-header {
+      display: grid;
+      grid-template-columns: 1.1fr 2.0fr;
+      gap: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-sub);
+      padding-bottom: 2px;
+    }
+
+    .injury-list {
+      flex: 1;
+      max-height: 170px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .injury-row {
+      display: grid;
+      grid-template-columns: 1.1fr 2.0fr;
+      gap: 6px;
+      font-size: 13px;
+      padding: 5px 6px;
+      border-radius: 8px;
+      background: rgba(19, 26, 42, 0.9);
+      margin-bottom: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .injury-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .injury-region {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .injury-desc {
+      color: var(--text-sub);
+    }
+
+    .injury-footer {
+      margin-top: 6px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 11px;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .hint {
+      opacity: 0.78;
+    }
+
+
+
+    .downed-hud {
+      position: absolute;
+      left: 50%;
+      bottom: 7.5vh;
+      transform: translateX(-50%);
+      pointer-events: none;
+      min-width: 420px;
+      max-width: 78vw;
+      padding: 10px 16px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(118, 163, 255, 0.72);
+      background: rgba(7, 12, 22, 0.14);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .downed-hud.hidden { display: none; }
+
+    .downed-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .downed-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .downed-state {
+      color: var(--danger);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .downed-subline {
+      color: var(--text-sub);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .downed-counts {
+      color: var(--text-sub);
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .downed-progress {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(118, 163, 255, 0.14);
+      overflow: hidden;
+    }
+
+    .downed-progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: rgba(239, 86, 108, 0.85);
+    }
+
+    .downed-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-sub);
+      font-size: 12px;
+    }
+
+    .downed-key {
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(118, 163, 255, 0.55);
+      background: rgba(118, 163, 255, 0.08);
+      color: var(--text-main);
+      font-weight: 600;
+      margin: 0 4px;
+    }
+
+    @media (max-width: 640px) {
+      .injury-body {
+        flex-direction: column;
+      }
+      .injury-body-map {
+        justify-content: flex-start;
+      }
+    }
+
+    
+
+
+
+.medprompt {
+  position: absolute;
+  left: 50%;
+  top: 88%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.medprompt.hidden {
+  display: none;
+}
+
+.medprompt-card {
+  min-width: 230px;
+  max-width: 300px;
+  padding: 6px 14px 9px;
+  border-radius: 999px;
+  background: rgba(7, 12, 22, 0.22);
+  border: 1px solid rgba(118, 163, 255, 0.65);
+  text-align: center;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+
+.medprompt-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+
+}
+
+.medprompt-icon::before {
+  content: "+";
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.medprompt-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.medprompt-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  
+}
+
+.medprompt-sub {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.medprompt-key {
+  display: inline-block;
+  padding: 1px 7px 2px;
+  border-radius: 4px;
+  margin: 0 3px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+  </style>
+</head>
+<body>
+  
+  <div id="injury-overlay" class="injury-overlay hidden">
+    <div class="injury-card">
+      <div class="injury-header">
+        <div class="injury-title">
+          <span class="dot"></span>
+          <span id="injury-title-text">Patient Injuries</span>
+        </div>
+        <div class="injury-header-right">
+          <div class="injury-bleeding none" id="injury-bleeding">No bleeding</div>
+          <div class="injury-status" id="injury-status">Stable</div>
+        </div>
+      </div>
+
+      <div class="injury-body">
+        <div class="injury-body-map">
+          <div class="body-silhouette">
+            
+            <div class="body-base base-head"></div>
+            <div class="body-base base-neck"></div>
+            <div class="body-base base-torso"></div>
+            <div class="body-base base-arm-left"></div>
+            <div class="body-base base-arm-right"></div>
+            <div class="body-base base-leg-left"></div>
+            <div class="body-base base-leg-right"></div>
+
+            
+            <div class="body-zone zone-head" data-zone="Head"></div>
+            <div class="body-zone zone-torso" data-zone="Torso"></div>
+            <div class="body-zone zone-left-arm" data-zone="Left Arm"></div>
+            <div class="body-zone zone-right-arm" data-zone="Right Arm"></div>
+            <div class="body-zone zone-left-leg" data-zone="Left Leg"></div>
+            <div class="body-zone zone-right-leg" data-zone="Right Leg"></div>
+          </div>
+        </div>
+
+        <div class="injury-list-container">
+          <div class="injury-list-header">
+            <span>Region</span>
+            <span>Bone / Details</span>
+          </div>
+          <div id="injury-list" class="injury-list"></div>
+        </div>
+      </div>
+
+      <div class="injury-footer">
+        <span class="hint">
+          /injuries to pin/unpin • auto-shows when downed
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div id="downed-hud" class="downed-hud hidden">
+    <div class="downed-top">
+      <div class="downed-title-wrap">
+        <span class="downed-state">DOWNED</span>
+        <span class="downed-subline" id="downed-subline">EMS / CPR available</span>
+      </div>
+      <div class="downed-counts" id="downed-counts">Respawn in 60s</div>
+    </div>
+    <div class="downed-progress"><div id="downed-progress-fill" class="downed-progress-fill"></div></div>
+    <div class="downed-bottom">
+      <div id="downed-bleedout">Bleedout in 300s</div>
+      <div id="downed-action">Hold <span class="downed-key">E</span> to respawn at hospital</div>
+    </div>
+  </div>
+
+
+<div id="medprompt" class="medprompt hidden">
+  <div class="medprompt-card">
+    <div class="medprompt-icon"></div>
+    <div class="medprompt-text">
+      <div id="medprompt-name" class="medprompt-title">Medical Supplies</div>
+      <div class="medprompt-sub">
+        Press <span class="medprompt-key">E</span> to use
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <script>
+    
+
+    let overlayVisible = false;
+    let pinnedByPlayer = false;
+
+    const overlayEl  = document.getElementById('injury-overlay');
+    const listEl     = document.getElementById('injury-list');
+    const statusEl   = document.getElementById('injury-status');
+    const titleEl    = document.getElementById('injury-title-text');
+    const bleedingEl = document.getElementById('injury-bleeding');
+
+    function setOverlayVisible(visible) {
+      overlayVisible = visible;
+      overlayEl.classList.toggle('hidden', !visible);
+    }
+
+    function clearZones() {
+      document.querySelectorAll('.body-zone').forEach(z => z.classList.remove('hit'));
+    }
+
+    function markZones(injuries) {
+      clearZones();
+      injuries.forEach(entry => {
+        const selector = '.body-zone[data-zone="' + (entry.zone || '') + '"]';
+        const el = document.querySelector(selector);
+        if (el) el.classList.add('hit');
+      });
+    }
+
+    function renderList(injuries) {
+      listEl.innerHTML = '';
+      if (!injuries || !injuries.length) {
+        const row = document.createElement('div');
+        row.className = 'injury-row';
+        row.innerHTML = `
+          <div class="injury-region">No injuries</div>
+          <div class="injury-desc">No active wounds recorded.</div>
+        `;
+        listEl.appendChild(row);
+        return;
+      }
+
+      injuries.forEach(entry => {
+        const zone   = entry.zone || 'Unknown';
+        const wounds = Array.isArray(entry.wounds) ? entry.wounds : [];
+
+        const descParts = wounds.map(w => {
+          let detail = w.details || w.type || 'Injury';
+          if (w.bone) {
+            detail = w.bone + ' — ' + detail;
+          }
+          return detail;
+        });
+
+        const desc = descParts.join(' • ') || 'Injury';
+
+        const row = document.createElement('div');
+        row.className = 'injury-row';
+        row.innerHTML = `
+          <div class="injury-region">${zone}</div>
+          <div class="injury-desc">${desc}</div>
+        `;
+        listEl.appendChild(row);
+      });
+    }
+
+    function updateStatus(dead, injuries) {
+      if (dead) {
+        statusEl.textContent = 'Downed';
+        statusEl.style.background = 'radial-gradient(circle at 0 0, rgba(255, 79, 106, 0.7), transparent)';
+        return;
+      }
+
+      const hasCrit = (injuries || []).some(entry =>
+        (entry.wounds || []).some(w =>
+          (w.details || '').toLowerCase().includes('critical')
+        )
+      );
+
+      if (hasCrit) {
+        statusEl.textContent = 'Critical';
+        statusEl.style.background = 'radial-gradient(circle at 0 0, rgba(255, 79, 106, 0.7), transparent)';
+      } else if (injuries && injuries.length > 0) {
+        statusEl.textContent = 'Injured';
+        statusEl.style.background = 'radial-gradient(circle at 0 0, rgba(255, 187, 79, 0.7), transparent)';
+      } else {
+        statusEl.textContent = 'Stable';
+        statusEl.style.background = 'radial-gradient(circle at 0 0, rgba(79, 139, 255, 0.7), transparent)';
+      }
+    }
+
+    function updateBleeding(info) {
+      if (!bleedingEl) return;
+
+      if (!info || !info.active || (info.level || 0) <= 0) {
+        bleedingEl.textContent = 'No bleeding';
+        bleedingEl.classList.add('none');
+        return;
+      }
+
+      const lvl = info.level || 1;
+      let label = 'Minor bleeding';
+      if (lvl === 2) label = 'Moderate bleeding';
+      if (lvl >= 3)  label = 'Severe bleeding';
+
+      bleedingEl.textContent = label;
+      bleedingEl.classList.remove('none');
+    }
+
+    
+
+    const medPromptRoot = document.getElementById('medprompt');
+    const medPromptName = document.getElementById('medprompt-name');
+    const downedHud = document.getElementById('downed-hud');
+    const downedSubline = document.getElementById('downed-subline');
+    const downedCounts = document.getElementById('downed-counts');
+    const downedBleedout = document.getElementById('downed-bleedout');
+    const downedAction = document.getElementById('downed-action');
+    const downedProgressFill = document.getElementById('downed-progress-fill');
+
+    function updateMedPrompt(data) {
+      if (!medPromptRoot) return;
+
+      if (!data.visible) {
+        medPromptRoot.classList.add('hidden');
+        return;
+      }
+
+      medPromptName.textContent = data.name || 'Medical Supplies';
+      medPromptRoot.classList.remove('hidden');
+    }
+
+
+    function updateDownedHud(data) {
+      if (!downedHud) return;
+      const visible = !!(data && data.visible);
+      downedHud.classList.toggle('hidden', !visible);
+      if (!visible) return;
+
+      const respawnLeft = Math.max(0, Number(data.respawnLeft || 0));
+      const bleedoutLeft = Math.max(0, Number(data.bleedoutLeft || 0));
+      const progress = Math.max(0, Math.min(100, Number(data.holdPercent || 0)));
+      const canRespawn = !!data.canRespawn;
+
+      downedSubline.textContent = data.subtitle || 'EMS / CPR available';
+      downedCounts.textContent = canRespawn ? 'Respawn available' : `Respawn in ${respawnLeft}s`;
+      downedBleedout.textContent = `Bleedout in ${bleedoutLeft}s`;
+      downedAction.innerHTML = canRespawn
+        ? `Hold <span class="downed-key">E</span> to respawn at hospital`
+        : 'Waiting for medical assistance or timer';
+      downedProgressFill.style.width = `${progress}%`;
+    }
+
+    
+
+    window.addEventListener('message', function (event) {
+      const data = event.data || {};
+      if (data.type === 'azfw_set_resource') { return; }
+
+      if (data.type === 'injury:update') {
+        const injuries  = Array.isArray(data.injuries) ? data.injuries : [];
+        const dead      = !!data.dead;
+        const pinned    = !!data.pinned;
+        const showAlive = !!data.showAlive;
+        const showDead  = !!data.showDead;
+
+        pinnedByPlayer = pinned;
+
+        renderList(injuries);
+        markZones(injuries);
+        updateStatus(dead, injuries);
+        updateBleeding(data.bleeding || { active: false, level: 0 });
+
+        titleEl.textContent = dead ? 'Downed Patient' : 'Patient Injuries';
+
+        let shouldShow = false;
+        if (pinnedByPlayer) {
+          shouldShow = true;
+        } else if (dead && showDead) {
+          shouldShow = true;
+        } else if (!dead && showAlive) {
+          shouldShow = injuries.length > 0;
+        }
+
+        setOverlayVisible(shouldShow);
+      }
+
+      else if (data.type === 'medprompt:update') {
+        updateMedPrompt(data);
+      }
+      else if (data.type === 'downed:update') {
+        updateDownedHud(data);
+      }
+    });
+  </script>
+</body>
+</html>

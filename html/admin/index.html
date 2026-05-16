@@ -1,0 +1,3243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Az-Admin</title>
+  <style>
+:root{
+  --uiScale: 1;
+  --bg:#090e15;
+  --panel: rgba(18,22,29,.86);
+  --panel2: rgba(20,27,36,.78);
+  --stroke: rgba(57,112,230,.12);
+  --stroke2: rgba(91,192,255,.20);
+  --text:#f5efe6;
+  --muted: rgba(245,239,230,.68);
+  --muted2: rgba(245,239,230,.46);
+  --accent:#3970e6;
+  --accent2:#5bc0ff;
+  --green:#22c55e;
+  --danger:#3970e6;
+  --shadow: 0 24px 70px rgba(0,0,0,.55);
+  --r: 18px;
+  --r2: 14px;
+  --blur: 18px;
+  --pad: 18px;
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+
+*{ box-sizing:border-box; }
+html, body{ width:100%; height:100%; margin:0; background:transparent; font-family:var(--font); color:var(--text); }
+body{ overflow:hidden; }
+
+.hidden{ display:none !important; }
+
+.app{
+  position:fixed; inset:0;
+  display:flex; align-items:flex-start; justify-content:flex-start;
+  background: transparent !important;
+}
+
+.shell{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width:min(1400px, 95vw);
+  height: min(860px, 94vh);
+  border-radius: 22px;
+  transform: translate(-50%,-50%) scale(var(--uiScale));
+  transform-origin: center center;
+  will-change: transform;
+  background: radial-gradient(1200px 600px at 50% 0%, rgba(255,255,255,.05), transparent 60%),
+              radial-gradient(900px 500px at 12% 10%, rgba(57,112,230,.18), transparent 65%),
+              radial-gradient(900px 500px at 88% 10%, rgba(91,192,255,.14), transparent 65%),
+              rgba(10,14,21,.84);
+  overflow:hidden;
+  border:1px solid rgba(57,112,230,.18);
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+}
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), transparent);
+  cursor: grab;
+  user-select: none;
+}
+.shell.isDragging .topbar{ cursor: grabbing; }
+
+.shellResize{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  width:18px;
+  height:18px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06);
+  cursor: nwse-resize;
+  z-index: 30;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+.shellResize::after{
+  content:"";
+  position:absolute;
+  inset:4px;
+  border-right: 2px solid rgba(255,255,255,.45);
+  border-bottom: 2px solid rgba(255,255,255,.45);
+  border-radius: 3px;
+  opacity:.8;
+}
+
+.brand{ display:flex; align-items:center; gap:12px; }
+.brandIcon{
+  width:42px; height:42px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg, rgba(57,112,230,.20), rgba(91,192,255,.12));
+  border: 1px solid rgba(57,112,230,.22);
+  color: var(--text);
+}
+.brandTitle{ font-weight:700; letter-spacing:.2px; }
+.brandSub{ font-size:11px; color: var(--muted); margin-top:2px; letter-spacing: .6px; }
+
+.topTabs{
+  display:flex; align-items:center; gap:10px;
+  padding: 6px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+}
+.topTab{
+  border:0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight: 600;
+  display:flex; align-items:center; gap:8px;
+  transition: 140ms var(--ease);
+}
+.topTab:hover{ background: rgba(255,255,255,.05); color:var(--text); }
+.topTab.isActive{
+  background: linear-gradient(180deg, rgba(57,112,230,.18), rgba(91,192,255,.10));
+  color: var(--text);
+  border: 1px solid rgba(57,112,230,.24);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+.topTab .ico{ display:inline-flex; opacity:.95; }
+
+.topRight{ display:flex; align-items:center; gap:10px; }
+
+.iconBtn{
+  width:42px; height:42px; border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition: 140ms var(--ease);
+}
+.iconBtn:hover{ background: rgba(255,255,255,.07); transform: translateY(-1px); }
+.iconBtn.solid{ background: rgba(255,255,255,.06); }
+
+.content{
+  display:grid;
+  grid-template-columns: 340px 1fr;
+  height: calc(100% - 72px);
+  min-height: 0;
+}
+
+.sidebar{
+  border-right: 1px solid var(--stroke);
+  padding: 16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height: 0;
+}
+
+.sideHeader{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
+}
+.sideTitle{ font-weight:700; letter-spacing:.2px; }
+
+.btn{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight:700;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  transition: 140ms var(--ease);
+}
+.btn:hover{ background: rgba(255,255,255,.07); transform: translateY(-1px); }
+.btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+.btn.small{ padding:10px 12px; border-radius: 12px; font-weight:700; }
+.btn.tiny{ padding:7px 10px; border-radius: 10px; font-weight:700; font-size:12px; }
+.btn.pill{ border-radius: 14px; padding: 12px 16px; }
+.btn.blue{ border-color: rgba(57,112,230,.34); background: linear-gradient(180deg, rgba(57,112,230,.20), rgba(91,192,255,.12)); }
+.btn.green{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+.btn.danger{ border-color: rgba(57,112,230,.35); background: rgba(57,112,230,.12); }
+.btn .ico{ opacity:.95; }
+.btn.ghost{
+  background: transparent;
+  border-color: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.85);
+}
+.btn.ghost:hover{ background: rgba(255,255,255,.06); }
+
+.filters{
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 12px;
+  display:flex; flex-direction:column; gap:12px;
+}
+
+.checkRow{
+  display:flex; align-items:center; gap:10px;
+  font-size: 13px; color: var(--muted);
+  user-select:none;
+}
+.checkRow input{ width:14px; height:14px; accent-color: var(--accent); }
+
+.filterRow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+
+.selectWrap{ position:relative; }
+select{
+  width:100%;
+  padding: 12px 38px 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  outline:none;
+  appearance:none;
+  font-weight: 700;
+}
+.selectChevron{
+  position:absolute; right:12px; top:50%; transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events:none;
+}
+
+.searchWrap input, .reportReason input, .chatComposer input, .formField input, .deptSearch{
+  width:100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  outline:none;
+  font-weight: 650;
+}
+.searchWrap input::placeholder,
+.formField input::placeholder,
+.chatComposer input::placeholder,
+.deptSearch::placeholder{
+  color: rgba(255,255,255,.38);
+  font-weight: 600;
+}
+
+.list{
+  flex:1;
+  overflow:auto;
+  padding-right: 6px;
+}
+.list::-webkit-scrollbar{ width: 8px; }
+.list::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.10); border-radius: 10px; }
+.list::-webkit-scrollbar-track{ background: transparent; }
+
+.reportItem{
+  padding: 12px;
+  border-radius: var(--r2);
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  cursor:pointer;
+  margin-bottom: 10px;
+  transition: 140ms var(--ease);
+}
+.reportItem:hover{ background: rgba(255,255,255,.06); transform: translateY(-1px); }
+.reportItem.isActive{ border-color: rgba(57,112,230,.34); box-shadow: 0 0 0 1px rgba(57,112,230,.16) inset; }
+.reportItemTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.reportItemId{ font-weight: 900; letter-spacing: .2px; }
+.badges{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+.badge{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.badge.green{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); color: rgba(220,255,236,.95); }
+.badge.blue{ border-color: rgba(57,112,230,.34); background: rgba(57,112,230,.14); color: rgba(210,232,255,.96); }
+
+.reportItemSub{ margin-top:8px; color: var(--muted); font-size: 12px; display:flex; gap:10px; }
+.reportItemSub .pill{ padding: 4px 8px; border:1px solid var(--stroke); border-radius:999px; background: rgba(255,255,255,.02); }
+
+.empty{
+  color: var(--muted2);
+  padding: 18px 12px;
+  text-align:center;
+  border-radius: var(--r2);
+  border: 1px dashed rgba(255,255,255,.10);
+  background: rgba(255,255,255,.02);
+}
+.empty.small{ margin-top:10px; }
+
+.main{
+  padding: 16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height: 0;
+}
+
+.panel{
+  flex:1;
+  border-radius: 22px;
+  border: 1px solid var(--stroke);
+  background: rgba(12,13,18,.72);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  min-height: 0;
+}
+
+.panelHeader{
+  padding: 16px 16px 14px 16px;
+  border-bottom: 1px solid var(--stroke);
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), transparent);
+}
+.panelTitle{ font-size: 18px; font-weight: 900; letter-spacing:.2px; }
+.panelChips{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+.chip{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+}
+.chipGreen{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); color: rgba(230,255,240,.95); }
+.chipBlue{ border-color: rgba(57,112,230,.34); background: rgba(57,112,230,.14); color: rgba(210,232,255,.96); }
+
+.view{
+  padding: 14px 16px 16px 16px;
+  overflow:auto;
+  flex:1;
+  min-height: 0;
+}
+.view::-webkit-scrollbar{ width: 10px; }
+.view::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.10); border-radius: 10px; }
+.view::-webkit-scrollbar-track{ background: transparent; }
+
+.reportMeta{ margin-bottom: 10px; }
+.metaRow{ display:flex; align-items:center; gap:10px; color: var(--muted); font-weight: 700; font-size: 13px; flex-wrap:wrap; }
+.metaIco{ display:inline-flex; opacity:.9; }
+.dot{ opacity:.4; }
+
+.tabs{
+  display:flex; gap:14px;
+  margin: 14px 0 10px;
+  border-bottom: 1px solid var(--stroke);
+}
+.tab{
+  border:0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 2px;
+  cursor:pointer;
+  font-weight: 900;
+  position:relative;
+}
+.tab.isActive{ color: var(--text); }
+.tab.isActive::after{
+  content:'';
+  position:absolute; left:0; right:0; bottom:-1px;
+  height:2px;
+  background: rgba(255,255,255,.20);
+  border-radius:2px;
+}
+
+.subPanel{
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  padding: 14px;
+  min-height: 360px;
+  display:flex;
+  flex-direction:column;
+  min-height: 0;
+}
+.mutedCenter{
+  color: var(--muted2);
+  text-align:center;
+  margin:auto 0;
+  font-weight: 750;
+}
+
+.chatComposer{
+  display:flex;
+  gap:10px;
+  margin-top:auto;
+  padding-top: 12px;
+}
+.chatLog{ display:flex; flex-direction:column; gap:10px; }
+
+.chatMsg{
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.chatRow{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+.chatMain{ flex:1; min-width:0; }
+.chatMeta{ font-size:12px; color: rgba(255,255,255,.55); margin: 2px 0 6px; }
+
+.chatBubble{
+  display:inline-block;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  max-width: 680px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chatMsg.me .chatRow{ flex-direction: row-reverse; }
+.chatMsg.me .chatBubble{
+  border-color: rgba(57,112,230,.34);
+  background: rgba(59,130,246,.10);
+}
+
+#subChat{ min-height:0; }
+#chatLog{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding-right: 6px;
+}
+#chatLog::-webkit-scrollbar{ width: 8px; }
+#chatLog::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.10); border-radius: 10px; }
+#chatLog::-webkit-scrollbar-track{ background: transparent; }
+
+.actions{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
+  margin-top: 14px;
+}
+.actionsLeft, .actionsRight{ display:flex; gap:10px; }
+
+.bottomNav{
+  display:flex; align-items:center; gap:10px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+}
+.bottomTab{
+  border:0;
+  background: transparent;
+  color: var(--muted);
+  padding: 12px 14px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight: 900;
+  display:flex; align-items:center; gap:10px;
+  transition: 140ms var(--ease);
+}
+.bottomTab:hover{ background: rgba(255,255,255,.05); color: var(--text); }
+.bottomTab.isActive{ background: rgba(255,255,255,.08); color: var(--text); border: 1px solid rgba(255,255,255,.10); }
+.bottomHint{ margin-left:auto; color: var(--muted2); font-weight: 750; padding: 0 8px; font-size: 12px; }
+
+.viewHeader{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px;
+  margin-bottom: 12px;
+}
+.hTitle{ font-size: 18px; font-weight: 900; }
+
+.playersLayout{
+  display:grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 14px;
+}
+.playersListWrap{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  min-height: 0;
+}
+.playersListTitle{
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--stroke);
+  font-weight: 900;
+  color: var(--muted);
+}
+.playersList{
+  padding: 12px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.playerRow{
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.03);
+  cursor:pointer;
+  transition: 140ms var(--ease);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.playerRow:hover{ background: rgba(255,255,255,.06); transform: translateY(-1px); }
+.playerRow.isActive{ border-color: rgba(57,112,230,.34); box-shadow: 0 0 0 1px rgba(57,112,230,.16) inset; }
+.playerRow .name{ font-weight: 900; }
+.playerRow .sid{ color: var(--muted); font-weight: 800; }
+
+.playerCard{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  padding: 14px;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+.playerCardHeader{
+  border-bottom: 1px solid var(--stroke);
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+}
+.playerName{ font-weight: 950; font-size: 18px; }
+.playerSid{ color: var(--muted); font-weight: 800; }
+
+.kv{
+  display:grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap:10px;
+  align-items:center;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+}
+.kv .k{ color: var(--muted); font-weight: 900; }
+.kv .v{ font-weight: 900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top: 6px;
+}
+
+.pillRow{ display:flex; gap:10px; margin: 4px 0 12px; flex-wrap:wrap; }
+.pillRow code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"; font-size: 12px; color: rgba(255,255,255,.86); }
+
+.formGrid{
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:12px;
+  margin-top: 10px;
+}
+.formField label{
+  display:block;
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.formField input{ font-weight: 900; }
+
+.quickRow{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  margin-top: 14px;
+  flex-wrap:wrap;
+}
+.quick{
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-weight: 950;
+  padding: 12px 14px;
+  cursor:pointer;
+  transition: 140ms var(--ease);
+  min-width: 160px;
+  text-align:left;
+}
+.quick:hover{ background: rgba(255,255,255,.07); transform: translateY(-1px); }
+.quick.green{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+.quick.danger{ border-color: rgba(57,112,230,.35); background: rgba(57,112,230,.10); }
+.spacer{ flex:1; }
+
+.note{ margin-top: 12px; }
+.smallMuted{ color: var(--muted2); font-weight: 750; font-size: 12px; }
+
+.deptForm{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  padding: 14px;
+}
+.deptBtns{ margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap; }
+
+.deptTableWrap{
+  margin-top: 12px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  overflow:hidden;
+}
+.deptTableHeader{
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--stroke);
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.deptTitle{ font-weight: 950; color: var(--muted); }
+.deptSearch{ width: 260px; padding: 10px 12px; border-radius: 12px; font-weight: 900; }
+
+.deptTable{ width:100%; }
+.deptRow{
+  display:grid;
+  grid-template-columns: 1.4fr 1.4fr 1.2fr .8fr;
+  gap:10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  align-items:center;
+}
+.deptRow:hover{ background: rgba(255,255,255,.03); }
+.deptRow.deptHead{
+  background: rgba(255,255,255,.03);
+  color: var(--muted);
+  font-weight: 950;
+}
+.deptRow .right{ text-align:right; }
+.deptRow.isActive{ box-shadow: 0 0 0 1px rgba(59,130,246,.18) inset; background: rgba(59,130,246,.05); }
+
+.deptRow.deptCfg{
+  grid-template-columns: 1fr 1.35fr .75fr .6fr .6fr .6fr;
+}
+.toggleField{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top: 6px;
+}
+.toggleField input[type="checkbox"]{
+  width: 18px;
+  height: 18px;
+  accent-color: #3970e6;
+}
+.sectionLabel{
+  margin: 16px 2px 8px;
+  color: var(--muted);
+  font-weight: 950;
+  letter-spacing: .2px;
+}
+
+.statsGrid{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+.statCard{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  padding: 14px;
+}
+.statK{ color: var(--muted); font-weight: 950; font-size: 12px; letter-spacing:.4px; }
+.statV{ font-weight: 999; font-size: 28px; margin-top: 6px; }
+
+.toastHost{
+  position:absolute;
+  right: 16px;
+  top: 82px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
+  z-index: 50;
+}
+.toast{
+  pointer-events:none;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(16px);
+  min-width: 280px;
+  max-width: 360px;
+}
+.toast .t{ font-weight: 950; }
+.toast .d{ color: var(--muted); font-weight: 750; margin-top: 2px; }
+.toast.good{ border-color: rgba(34,197,94,.30); }
+.toast.bad{ border-color: rgba(57,112,230,.30); }
+
+.modal{ position:fixed; inset:0; z-index: 20; display:flex; align-items:center; justify-content:center; }
+.modal.hidden{ display:none; }
+.modalBackdrop{ position:absolute; inset:0; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); }
+.modalCard{ position:relative; width: min(560px, 92vw); border-radius: 20px; border: 1px solid var(--stroke2); background: rgba(10,11,20,.78); box-shadow: 0 28px 90px rgba(0,0,0,.65); overflow:hidden; }
+.modalHeader{ padding: 16px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.08); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.modalTitle{ font-weight: 999; letter-spacing:.2px; }
+.modalSub{ color: var(--muted); font-weight: 700; font-size: 12px; margin-top: 3px; }
+.modalBody{ padding: 14px 16px 16px; display:flex; flex-direction:column; gap: 12px; }
+.modalFooter{
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+}
+.field{ display:flex; flex-direction:column; gap:6px; }
+.lab{ color: var(--muted); font-weight: 900; font-size: 12px; letter-spacing:.3px; }
+
+.field input, .field select, .field textarea{
+  width:100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.92);
+  padding: 12px 12px;
+  outline:none;
+  font-weight: 800;
+}
+.field textarea{ min-height: 110px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus{
+  border-color: rgba(59,130,246,.55);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+
+.avatar{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+}
+.avatar.sm{ width: 22px; height: 22px; }
+
+.metaUser{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+
+.staffTag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(34,197,94,.12);
+  border: 1px solid rgba(34,197,94,.22);
+  color: rgba(229,255,242,.95);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .2px;
+  margin-left: 10px;
+}
+.staffTag .check{
+  display:inline-block;
+  filter: drop-shadow(0 0 10px rgba(34,197,94,.45));
+  animation: staffPulse 1.1s var(--ease) infinite;
+  transform-origin: center;
+}
+@keyframes staffPulse{
+  0%{ transform: scale(1); opacity: .85; }
+  50%{ transform: scale(1.18); opacity: 1; }
+  100%{ transform: scale(1); opacity: .85; }
+}
+
+input, select, textarea{ color: var(--text); }
+input::placeholder, textarea::placeholder{ color: rgba(255,255,255,.48); }
+select option{ background: #0b0e18; color: #e9ecff; }
+
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill{
+  -webkit-text-fill-color: var(--text);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.notesBox{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  height:100%;
+  min-height: 0;
+}
+.notesInput{
+  flex: 1;
+  min-height: 140px;
+  width:100%;
+  resize: vertical;
+  padding:12px 12px;
+  border-radius:14px;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.10);
+  color: rgba(255,255,255,.92);
+  outline:none;
+  font-weight: 750;
+}
+.notesInput::placeholder{ color: rgba(255,255,255,.38); font-weight: 650; }
+.notesInput:focus{
+  border-color: rgba(59,130,246,.55);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+.notesActions{
+  display:flex;
+  justify-content:flex-start;
+  gap:10px;
+}
+
+.isHidden{ display:none !important; }
+
+.frame{
+  height: 92vh;
+  max-height: 92vh;
+}
+
+.notifyOverlay{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index: 99999;
+}
+
+.notifStack{
+  position:fixed;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  max-width:min(460px, 92vw);
+}
+
+.notifStack[data-pos="top-right"]{ top:18px; right:18px; align-items:flex-end; }
+.notifStack[data-pos="top-left"]{ top:18px; left:18px; align-items:flex-start; }
+.notifStack[data-pos="bottom-right"]{ bottom:18px; right:18px; align-items:flex-end; }
+.notifStack[data-pos="bottom-left"]{ bottom:18px; left:18px; align-items:flex-start; }
+.notifStack[data-pos="top-center"]{ top:18px; left:50%; transform:translateX(-50%); align-items:center; }
+.notifStack[data-pos="bottom-center"]{ bottom:18px; left:50%; transform:translateX(-50%); align-items:center; }
+.notifStack[data-pos="center"]{ top:50%; left:50%; transform:translate(-50%,-50%); align-items:center; }
+
+.notifCard{
+  position: relative !important;
+  width: min(420px, 92vw) !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  background: rgba(16,17,24,.86) !important;
+}
+
+.notifCard::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(700px 260px at 30% 0%, rgba(59,130,246,.18), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 42%);
+}
+
+.notifInner{ position: relative !important; z-index: 1 !important; }
+
+.notifBar{
+  height: 3px !important;
+  overflow: hidden !important;
+}
+.notifBar > i{
+  display:block !important;
+  height:100% !important;
+  width:100% !important;
+  transform-origin:left !important;
+  transform: scaleX(1) !important;
+  animation-name: notifBar !important;
+  animation-timing-function: linear !important;
+  animation-fill-mode: forwards !important;
+}
+
+.notifImg{
+  width:56px;
+  height:56px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  background-size: cover;
+  background-position: center;
+  flex: 0 0 auto;
+}
+
+.notifMain{ flex:1; min-width:0; }
+.notifTitleRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight: 850;
+  letter-spacing: .2px;
+}
+.notifIcon{ font-size: 18px; line-height: 1; }
+.notifTitle{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.notifMsg{
+  margin-top:6px;
+  font-weight: 650;
+  color: rgba(255,255,255,.86);
+  line-height: 1.25;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.notifFooter{
+  margin-top:8px;
+  font-weight: 750;
+  color: rgba(255,255,255,.62);
+  font-size: 12px;
+}
+.notifBar{
+  height: 3px;
+  background: rgba(255,255,255,.12);
+}
+.notifBar > i{
+  display:block;
+  height:100%;
+  width:100%;
+  transform-origin:left;
+  transform: scaleX(1);
+  background: rgba(59,130,246,.85);
+  animation-name: notifBar;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes notifBar{
+  to{ transform: scaleX(0); }
+}
+
+.notifyGrid{
+  display:grid;
+  grid-template-columns: 1.25fr .75fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+.notifyForm{
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.10);
+}
+.notifyPreviewWrap{
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+}
+.previewTitle{
+  font-weight: 900;
+  color: rgba(255,255,255,.75);
+  margin-bottom: 10px;
+}
+.notifyPreviewBox{
+  min-height: 200px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255,255,255,.14);
+  background: rgba(255,255,255,.03) !important;
+  padding: 12px;
+}
+
+.notifyActions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top: 12px;
+}
+
+.colorRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+.colorRow input[type="number"]{ width: 90px; }
+
+  </style>
+</head>
+<body>
+  <div id="notifyOverlay" class="notifyOverlay" aria-hidden="true"></div>
+
+  <div id="app" class="app hidden">
+    <div class="shell" id="shell">
+      <div class="shellResize" id="shellResize" title="Resize"></div>
+
+      <header class="topbar">
+        <div class="brand">
+          <div class="brandIcon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M6 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M6 4h11l-1.5 4L17 12H6" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="brandText">
+            <div class="brandTitle">Reports</div>
+            <div class="brandSub">SUPPORT SYSTEM</div>
+          </div>
+        </div>
+
+        <nav class="topTabs" role="tablist" aria-label="Primary">
+          <button class="topTab isActive" data-toptab="my" type="button">
+            <span class="ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                <path d="M4 7h16v12H4z" stroke="currentColor" stroke-width="2" />
+                <path d="M8 7V5h8v2" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </span>
+            My Reports
+          </button>
+
+          <button class="topTab" data-toptab="admin" data-adminonly="1" type="button">
+            <span class="ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                <path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4Z" stroke="currentColor" stroke-width="2" />
+                <path d="M12 8v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 17h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </span>
+            Admin Panel
+          </button>
+
+          <button class="topTab" data-toptab="stats" data-adminonly="1" type="button">
+            <span class="ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                <path d="M4 19V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M7 16l4-5 3 3 5-7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            Statistics
+          </button>
+        </nav>
+
+        <div class="topRight">
+          <div id="toastHost" class="toastHost"></div>
+
+          <button id="btnSettings" class="iconBtn" type="button" title="Settings (stub)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M19.4 15a8.2 8.2 0 0 0 .1-2l2-1.5-2-3.5-2.4.6a7.9 7.9 0 0 0-1.7-1L15 4H9L8.6 6.6a7.9 7.9 0 0 0-1.7 1L4.5 7 2.5 10.5l2 1.5a8.2 8.2 0 0 0 .1 2l-2 1.5 2 3.5 2.4-.6a7.9 7.9 0 0 0 1.7 1L9 20h6l.4-2.6a7.9 7.9 0 0 0 1.7-1l2.4.6 2-3.5-2-1.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <button id="btnClose" class="iconBtn" type="button" title="Close">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <aside class="sidebar">
+          <div class="sideHeader">
+            <div id="sideTitle" class="sideTitle">My Reports</div>
+            <button id="btnCreateReport" class="btn small" type="button">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
+              Create Report
+            </button>
+          </div>
+
+          <div class="filters">
+            <label class="checkRow">
+              <input id="chkShowResolved" type="checkbox" />
+              <span>Show resolved</span>
+            </label>
+
+            <div class="filterRow">
+              <div class="selectWrap">
+                <select id="selStatus">
+                  <option value="all">All</option>
+                  <option value="open">Open</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+                <span class="selectChevron">⌄</span>
+              </div>
+              <div class="selectWrap">
+                <select id="selPriority">
+                  <option value="all">All</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+                <span class="selectChevron">⌄</span>
+              </div>
+            </div>
+
+            <div class="searchWrap">
+              <input id="txtSearch" type="text" placeholder="Search by Player" />
+            </div>
+          </div>
+
+          <div id="reportList" class="list"></div>
+          <div id="emptyList" class="empty">No reports.</div>
+        </aside>
+
+        <main class="main">
+          <div class="panel">
+            <div id="panelHeader" class="panelHeader">
+              <div class="panelTitle">Report</div>
+              <div class="panelChips">
+                <span id="chipId" class="chip">#—</span>
+                <span id="chipResolved" class="chip chipGreen hidden">Resolved</span>
+                <span id="chipPriority" class="chip chipBlue">Normal</span>
+              </div>
+            </div>
+
+            <section id="viewReport" class="view">
+              <div class="reportMeta">
+                <div class="metaRow">
+                  <span class="metaIco" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+                      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2"/>
+                      <path d="M4 20c1.5-4 14.5-4 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>
+                  <span class="metaUser">
+                    <img id="metaReporterAvatar" class="avatar sm" src="" alt="" />
+                    <span id="metaReporter">—</span>
+                  </span>
+
+                  <span class="dot">•</span>
+
+                  <span class="metaUser">
+                    <img id="metaTargetAvatar" class="avatar sm" src="" alt="" />
+                    <span id="metaTarget">—</span>
+                  </span>
+
+                  <span class="dot">•</span>
+                  <span id="metaCategory">General</span>
+                  <span class="dot">•</span>
+                  <span id="metaTime">—</span>
+                </div>
+              </div>
+
+              <div class="reportReason">
+                <input id="txtReason" type="text" readonly />
+              </div>
+
+              <div class="tabs">
+                <button class="tab isActive" data-subtab="chat" type="button">Chat</button>
+                <button class="tab" data-subtab="notes" data-adminonly="1" type="button">Admin Notes</button>
+              </div>
+
+              <div class="subview">
+                <div id="subChat" class="subPanel">
+                  <div id="chatEmpty" class="mutedCenter">No messages yet</div>
+                  <div id="chatLog" class="chatLog"></div>
+
+                  <div class="chatComposer">
+                    <input id="chatInput" type="text" placeholder="Type a message..." />
+                    <button id="btnSendChat" class="iconBtn solid" type="button" title="Send">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                        <path d="M3 11l18-8-8 18-2-7-8-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="subNotes" class="subPanel hidden" data-adminonly="1">
+                  <div class="notesBox">
+                    <textarea id="notesInput" class="notesInput" placeholder="Internal notes (admins only)..."></textarea>
+                    <div class="notesActions">
+                      <button id="btnSaveNotes" class="btn small blue" type="button">
+                        <span class="ico" aria-hidden="true">💾</span> Save Notes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="actions">
+                <div class="actionsLeft">
+                  <button id="btnClaim" data-adminonly="1" class="btn pill" type="button" disabled>
+                    <span class="ico" aria-hidden="true">✋</span> <span class="btnLabel">Claim</span>
+                  </button>
+                </div>
+                <div class="actionsRight">
+                  <button id="btnResolve" data-adminonly="1" class="btn pill green" type="button" disabled>
+                    <span class="ico" aria-hidden="true">✓</span> Resolve
+                  </button>
+                  <button id="btnDelete" data-adminonly="1" class="btn pill danger" type="button" disabled>
+                    <span class="ico" aria-hidden="true">🗑</span> Delete
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section id="viewPlayers" class="view hidden">
+              <div class="viewHeader">
+                <div class="hTitle">Players</div>
+                <button id="btnLoadPlayers" data-adminonly="1" class="btn small blue" type="button">
+                  <span class="ico" aria-hidden="true">👥</span> Load Players
+                </button>
+              </div>
+
+              <div class="playersLayout">
+                <div class="playersListWrap">
+                  <div class="playersListTitle">Online</div>
+                  <div id="playersList" class="playersList"></div>
+                </div>
+
+                <div class="playerCard">
+                  <div class="playerCardHeader">
+                    <div id="playerName" class="playerName">Select a player</div>
+                    <div id="playerSid" class="playerSid">—</div>
+                  </div>
+
+                  <div class="kv">
+                    <div class="k">Discord</div>
+                    <div class="v" id="playerDiscord">—</div>
+                    <button id="btnFetchDiscord" class="btn tiny" type="button" disabled>Fetch</button>
+                  </div>
+
+                  <div class="grid2">
+                    <button class="btn pill" id="btnTeleport" type="button" disabled>Teleport</button>
+                    <button class="btn pill" id="btnBring" type="button" disabled>Bring</button>
+                    <button class="btn pill" id="btnFreeze" type="button" disabled>Freeze</button>
+                    <button class="btn pill danger" id="btnKick" type="button" disabled>Kick</button>
+                  </div>
+
+                  <div class="note smallMuted">
+                    Actions require server-side implementations for kick/ban if you want full moderation.
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section id="viewMoney" class="view hidden">
+              <div class="viewHeader">
+                <div class="hTitle">Money Operations</div>
+                <button id="btnMoneyLoadPlayers" class="btn small blue" type="button">
+                  <span class="ico" aria-hidden="true">👥</span> Load Players
+                </button>
+              </div>
+
+              <div class="pillRow">
+                <span class="chip">Admin-only</span>
+                <span class="chip">Uses your <code>moneyOp</code> NUI callback</span>
+              </div>
+
+              <div class="formGrid">
+                <div class="formField">
+                  <label>Target</label>
+                  <div class="selectWrap">
+                    <select id="moneyTarget"></select>
+                    <span class="selectChevron">⌄</span>
+                  </div>
+                </div>
+
+                <div class="formField">
+                  <label>Operation</label>
+                  <div class="selectWrap">
+                    <select id="moneyOp">
+                      <option value="add">Add Cash</option>
+                      <option value="deduct">Remove Cash</option>
+                      <option value="deposit">Deposit (cash → bank)</option>
+                      <option value="withdraw">Withdraw (bank → cash)</option>
+                      <option value="transfer">Transfer (needs second ID)</option>
+                    </select>
+                    <span class="selectChevron">⌄</span>
+                  </div>
+                </div>
+
+                <div class="formField">
+                  <label>Amount</label>
+                  <input id="moneyAmount" type="number" value="1000" />
+                </div>
+
+                <div class="formField">
+                  <label>Extra (for transfer)</label>
+                  <input id="moneyExtra" type="text" placeholder="Second player ID" />
+                </div>
+              </div>
+
+              <div class="quickRow">
+                <button class="quick green" data-delta="1000">+ 1,000</button>
+                <button class="quick green" data-delta="10000">+ 10,000</button>
+                <button class="quick danger" data-delta="-1000">- 1,000</button>
+                <button class="quick danger" data-delta="-10000">- 10,000</button>
+                <div class="spacer"></div>
+                <button id="btnRunMoney" data-adminonly="1" class="btn pill blue" type="button">
+                  <span class="ico" aria-hidden="true">⚡</span> Run Operation
+                </button>
+              </div>
+
+              <div class="note smallMuted">
+                This panel matches server.lua payload: <code>{ op, target, amount, extra }</code>.
+              </div>
+            </section>
+
+            <section id="viewDepartments" class="view hidden">
+              <div class="viewHeader">
+                <div class="hTitle">Departments</div>
+                <button id="btnRefreshDepartments" class="btn small" type="button">Refresh</button>
+              </div>
+
+              <div class="sectionLabel">Configured Department Defaults</div>
+              <div class="deptForm">
+                <div class="formGrid">
+                  <div class="formField">
+                    <label>Department ID</label>
+                    <input id="cfgDeptId" type="text" placeholder="police / ems / fire..." />
+                  </div>
+                  <div class="formField">
+                    <label>Label</label>
+                    <input id="cfgDeptLabel" type="text" placeholder="Police / EMS / Fire..." />
+                  </div>
+                  <div class="formField">
+                    <label>Default Paycheck</label>
+                    <input id="cfgDeptPay" type="number" value="0" />
+                  </div>
+                  <div class="formField">
+                    <label>Permissions / State</label>
+                    <div class="toggleField"><input id="cfgDeptAop" type="checkbox" /><span>Can use AOP</span></div>
+                    <div class="toggleField"><input id="cfgDeptPrio" type="checkbox" /><span>Can use Priority</span></div>
+                    <div class="toggleField"><input id="cfgDeptEnabled" type="checkbox" checked /><span>Enabled</span></div>
+                  </div>
+                </div>
+
+                <div class="deptBtns">
+                  <button id="btnCfgDeptSave" data-adminonly="1" class="btn pill green" type="button">Save Config Department</button>
+                  <button id="btnCfgDeptRemove" data-adminonly="1" class="btn pill danger" type="button">Remove Config Department</button>
+                </div>
+              </div>
+
+              <div class="deptTableWrap">
+                <div class="deptTableHeader">
+                  <div class="deptTitle">Config Rows</div>
+                  <input id="cfgDeptSearch" class="deptSearch" type="text" placeholder="Filter configured departments..." />
+                </div>
+
+                <div class="deptTable">
+                  <div class="deptRow deptHead deptCfg">
+                    <div>ID</div>
+                    <div>Label</div>
+                    <div class="right">Pay</div>
+                    <div>AOP</div>
+                    <div>PRIO</div>
+                    <div>ON</div>
+                  </div>
+                  <div id="cfgDeptRows"></div>
+                </div>
+
+                <div id="cfgDeptEmpty" class="empty hidden">
+                  No configured departments yet.
+                </div>
+              </div>
+
+              <div class="sectionLabel">Department Access / DB Rows</div>
+              <div class="deptForm">
+                <div class="formGrid">
+                  <div class="formField">
+                    <label>Discord ID</label>
+                    <input id="deptDiscord" type="text" placeholder="123456789012345678" />
+                  </div>
+                  <div class="formField">
+                    <label>Char ID</label>
+                    <input id="deptChar" type="text" placeholder="optional (defaults to discord id)" />
+                  </div>
+                  <div class="formField">
+                    <label>Department</label>
+                    <input id="deptName" type="text" placeholder="SAFD / LSPD / DOJ..." />
+                  </div>
+                  <div class="formField">
+                    <label>Paycheck Override</label>
+                    <input id="deptPay" type="number" value="0" />
+                  </div>
+                </div>
+
+                <div class="deptBtns">
+                  <button id="btnDeptCreate" data-adminonly="1" class="btn pill green" type="button">Create / Upsert Access Row</button>
+                  <button id="btnDeptModify" data-adminonly="1" class="btn pill" type="button">Modify Access Row</button>
+                  <button id="btnDeptRemove" data-adminonly="1" class="btn pill danger" type="button">Remove Access Row</button>
+                </div>
+              </div>
+
+              <div class="deptTableWrap">
+                <div class="deptTableHeader">
+                  <div class="deptTitle">DB Rows</div>
+                  <input id="deptSearch" class="deptSearch" type="text" placeholder="Filter DB rows..." />
+                </div>
+
+                <div class="deptTable">
+                  <div class="deptRow deptHead">
+                    <div>Discord</div>
+                    <div>Char</div>
+                    <div>Department</div>
+                    <div class="right">Paycheck</div>
+                  </div>
+                  <div id="deptRows"></div>
+                </div>
+
+                <div id="deptEmpty" class="empty hidden">
+                  No department rows found.
+                </div>
+              </div>
+            </section>
+
+            <section id="viewAnnounce" class="view hidden" data-adminonly="1">
+              <div class="viewHeader">
+                <div class="hTitle">Announcement Tool</div>
+                <div class="hRight">
+                  <button id="btnAnnPreview" class="btn small" type="button">Preview</button>
+                  <button id="btnAnnClear" class="btn small" type="button">Clear</button>
+                </div>
+              </div>
+
+              <div class="notifyGrid">
+                <div class="notifyForm">
+                  <div class="formGrid">
+                    <div class="formField">
+                      <label>Icon / Emoji</label>
+                      <input id="annIcon" type="text" maxlength="12" placeholder="📣" value="📣" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Title</label>
+                      <input id="annTitle" type="text" maxlength="80" placeholder="Server Announcement" />
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Message</label>
+                      <textarea id="annMessage" rows="5" maxlength="650" placeholder="Type your announcement..."></textarea>
+                    </div>
+
+                    <div class="formField">
+                      <label>Preset</label>
+                      <select id="annPreset">
+                        <option value="info" selected>Info</option>
+                        <option value="good">Success</option>
+                        <option value="warn">Warning</option>
+                        <option value="bad">Error</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Position</label>
+                      <select id="annPos">
+                        <option value="top-right" selected>Top Right</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="center">Center</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Font</label>
+                      <select id="annFont">
+                        <option value="Inter">Inter</option>
+                        <option value="system">System</option>
+                        <option value="Orbitron">Orbitron</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Montserrat">Montserrat</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Font Size</label>
+                      <input id="annSize" type="number" min="12" max="28" value="16" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Text Color</label>
+                      <input id="annText" type="color" value="#ffffff" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Background</label>
+                      <div class="colorRow">
+                        <input id="annBg" type="color" value="#111827" />
+                        <input id="annBgA" type="number" min="10" max="100" value="86" />
+                        <span class="smallMuted">% alpha</span>
+                      </div>
+                    </div>
+
+                    <div class="formField">
+                      <label>Border</label>
+                      <div class="colorRow">
+                        <input id="annBorder" type="color" value="#ffffff" />
+                        <input id="annBorderA" type="number" min="0" max="100" value="12" />
+                        <span class="smallMuted">% alpha</span>
+                      </div>
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Image URL (optional)</label>
+                      <input id="annImg" type="text" placeholder="https://..." />
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Footer (optional)</label>
+                      <input id="annFooter" type="text" maxlength="120" placeholder="— Staff Team" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Duration (ms)</label>
+                      <input id="annDur" type="number" min="1200" max="300000" value="6000" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Progress Bar</label>
+                      <select id="annBar">
+                        <option value="1" selected>On</option>
+                        <option value="0">Off</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="notifyActions">
+                    <button id="btnAnnSend" class="btn pill blue" type="button" data-adminonly="1">
+                      <span class="ico" aria-hidden="true">🚀</span> Broadcast
+                    </button>
+                  </div>
+
+                  <div class="note smallMuted">
+                    Broadcasts an on-screen UI notification to everyone (even if menu is closed).
+                  </div>
+                </div>
+
+                <div class="notifyPreviewWrap">
+                  <div class="previewTitle">Live Preview</div>
+                  <div id="annPreviewBox" class="notifyPreviewBox"></div>
+                </div>
+              </div>
+            </section>
+
+            <section id="viewNotify" class="view hidden" data-adminonly="1">
+              <div class="viewHeader">
+                <div class="hTitle">Notify Player</div>
+                <div class="hRight">
+                  <button id="btnNotLoadPlayers" class="btn small" type="button">Load Players</button>
+                  <button id="btnNotPreview" class="btn small" type="button">Preview</button>
+                  <button id="btnNotClear" class="btn small" type="button">Clear</button>
+                </div>
+              </div>
+
+              <div class="notifyGrid">
+                <div class="notifyForm">
+                  <div class="formGrid">
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Target Player</label>
+                      <select id="notTarget"></select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Icon / Emoji</label>
+                      <input id="notIcon" type="text" maxlength="12" placeholder="🔔" value="🔔" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Title</label>
+                      <input id="notTitle" type="text" maxlength="80" placeholder="Message from Staff" />
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Message</label>
+                      <textarea id="notMessage" rows="5" maxlength="650" placeholder="Type the player notification..."></textarea>
+                    </div>
+
+                    <div class="formField">
+                      <label>Preset</label>
+                      <select id="notPreset">
+                        <option value="info" selected>Info</option>
+                        <option value="good">Success</option>
+                        <option value="warn">Warning</option>
+                        <option value="bad">Error</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Position</label>
+                      <select id="notPos">
+                        <option value="top-right" selected>Top Right</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="center">Center</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Font</label>
+                      <select id="notFont">
+                        <option value="Inter">Inter</option>
+                        <option value="system">System</option>
+                        <option value="Orbitron">Orbitron</option>
+                        <option value="Bebas Neue">Bebas Neue</option>
+                        <option value="Montserrat">Montserrat</option>
+                      </select>
+                    </div>
+
+                    <div class="formField">
+                      <label>Font Size</label>
+                      <input id="notSize" type="number" min="12" max="28" value="16" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Text Color</label>
+                      <input id="notText" type="color" value="#ffffff" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Background</label>
+                      <div class="colorRow">
+                        <input id="notBg" type="color" value="#111827" />
+                        <input id="notBgA" type="number" min="10" max="100" value="86" />
+                        <span class="smallMuted">% alpha</span>
+                      </div>
+                    </div>
+
+                    <div class="formField">
+                      <label>Border</label>
+                      <div class="colorRow">
+                        <input id="notBorder" type="color" value="#ffffff" />
+                        <input id="notBorderA" type="number" min="0" max="100" value="12" />
+                        <span class="smallMuted">% alpha</span>
+                      </div>
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Image URL (optional)</label>
+                      <input id="notImg" type="text" placeholder="https://..." />
+                    </div>
+
+                    <div class="formField" style="grid-column:1 / -1;">
+                      <label>Footer (optional)</label>
+                      <input id="notFooter" type="text" maxlength="120" placeholder="— Staff Team" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Duration (ms)</label>
+                      <input id="notDur" type="number" min="1200" max="300000" value="6000" />
+                    </div>
+
+                    <div class="formField">
+                      <label>Progress Bar</label>
+                      <select id="notBar">
+                        <option value="1" selected>On</option>
+                        <option value="0">Off</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="notifyActions">
+                    <button id="btnNotSend" class="btn pill blue" type="button" data-adminonly="1">
+                      <span class="ico" aria-hidden="true">📨</span> Send To Player
+                    </button>
+                  </div>
+
+                  <div class="note smallMuted">
+                    Sends a UI notification to the selected player (even if their menu is closed).
+                  </div>
+                </div>
+
+                <div class="notifyPreviewWrap">
+                  <div class="previewTitle">Live Preview</div>
+                  <div id="notPreviewBox" class="notifyPreviewBox"></div>
+                </div>
+              </div>
+            </section>
+
+            <section id="viewStats" class="view hidden">
+              <div class="viewHeader">
+                <div class="hTitle">Statistics</div>
+              </div>
+
+              <div class="statsGrid">
+                <div class="statCard">
+                  <div class="statK">Total Reports</div>
+                  <div id="statTotal" class="statV">0</div>
+                </div>
+                <div class="statCard">
+                  <div class="statK">Open</div>
+                  <div id="statOpen" class="statV">0</div>
+                </div>
+                <div class="statCard">
+                  <div class="statK">Resolved</div>
+                  <div id="statResolved" class="statV">0</div>
+                </div>
+                <div class="statCard">
+                  <div class="statK">Departments</div>
+                  <div id="statDepts" class="statV">0</div>
+                </div>
+              </div>
+
+              <div class="note smallMuted">
+                Stats are derived from the current UI cache (reports + departments).
+              </div>
+            </section>
+          </div>
+
+          <footer class="bottomNav">
+            <button class="bottomTab isActive" data-view="report" type="button">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="2"/>
+                  <path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
+              Report
+            </button>
+
+            <button class="bottomTab" data-view="players" data-adminonly="1" type="button">
+              <span class="ico" aria-hidden="true">👤</span>
+              Players
+            </button>
+
+            <button class="bottomTab" data-view="money" data-adminonly="1" type="button">
+              <span class="ico" aria-hidden="true">💰</span>
+              Money
+            </button>
+
+            <button class="bottomTab" data-view="departments" data-adminonly="1" type="button">
+              <span class="ico" aria-hidden="true">🏢</span>
+              Departments
+            </button>
+
+            <button class="bottomTab" data-view="announce" data-adminonly="1" type="button">
+              <span class="ico" aria-hidden="true">📣</span> Announce
+            </button>
+
+            <button class="bottomTab" data-view="notify" data-adminonly="1" type="button">
+              <span class="ico" aria-hidden="true">🔔</span> Notify
+            </button>
+
+            <div class="bottomHint" id="bottomHint">Select a report/player to enable actions.</div>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <div id="createModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Create report">
+    <div class="modalBackdrop" data-close="1"></div>
+
+    <div class="modalCard">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle">Create Report</div>
+          <div class="modalSub">Fill out the details, then submit. Staff will review it.</div>
+        </div>
+        <button id="btnCreateClose" class="btn ghost" type="button">
+          Close
+        </button>
+      </div>
+
+      <div class="modalBody">
+        <div class="formGrid">
+          <label class="field">
+            <span class="lab">Target Server ID (optional)</span>
+            <input id="createTarget" type="number" min="0" placeholder="0" />
+          </label>
+
+          <label class="field">
+            <span class="lab">Priority</span>
+            <select id="createPriority">
+              <option value="normal" selected>Normal</option>
+              <option value="low">Low</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+
+          <label class="field" style="grid-column:1 / -1;">
+            <span class="lab">Category</span>
+            <input id="createCategory" type="text" placeholder="General" value="General" />
+          </label>
+
+          <label class="field" style="grid-column:1 / -1;">
+            <span class="lab">Reason</span>
+            <textarea id="createReason" rows="5" placeholder="Explain what happened..."></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="modalFooter">
+        <button id="btnCreateSubmit" class="btn blue" type="button">
+          Submit Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(() => {
+  const resource = (window.GetParentResourceName ? GetParentResourceName() : ((window.parent && window.parent.GetParentResourceName) ? window.parent.GetParentResourceName() : "Az-Framework"));
+  const $ = (id) => document.getElementById(id);
+
+  const SHELL_STORE_KEY = "az_admin_shell_v1";
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+  function loadShellPrefs(){
+    try { return JSON.parse(localStorage.getItem(SHELL_STORE_KEY) || "null"); }
+    catch { return null; }
+  }
+  function saveShellPrefs(p){
+    try { localStorage.setItem(SHELL_STORE_KEY, JSON.stringify(p)); } catch {}
+  }
+  function applyShellPrefs(){
+    const shell = $("shell");
+    if (!shell) return;
+    const prefs = loadShellPrefs();
+    if (!prefs) return;
+    if (prefs.w && prefs.h){
+      shell.style.width = prefs.w + "px";
+      shell.style.height = prefs.h + "px";
+    }
+    if (typeof prefs.x === "number" && typeof prefs.y === "number"){
+      shell.style.left = prefs.x + "px";
+      shell.style.top  = prefs.y + "px";
+      shell.style.transform = `scale(var(--uiScale))`;
+      shell.style.transformOrigin = "top left";
+    }
+  }
+  function initShellDragResize(){
+    const shell = $("shell");
+    const topbar = document.querySelector(".topbar");
+    const handle = $("shellResize");
+    if (!shell || !topbar || !handle) return;
+
+    const prefs = loadShellPrefs();
+    if (prefs && typeof prefs.x === "number" && typeof prefs.y === "number"){
+      applyShellPrefs();
+    }
+
+    let dragging = false;
+    let startX=0, startY=0, startLeft=0, startTop=0;
+
+    const beginDrag = (e) => {
+      const t = e.target;
+      if (t && (t.closest("#btnClose") || t.closest("#btnSettings") || t.closest(".topTabs") || t.closest(".iconBtn") || t.closest("button"))) {
+        return;
+      }
+      dragging = true;
+      shell.classList.add("isDragging");
+      const rect = shell.getBoundingClientRect();
+
+      if (shell.style.transform.includes("translate")){
+        shell.style.left = rect.left + "px";
+        shell.style.top  = rect.top + "px";
+        shell.style.transform = `scale(var(--uiScale))`;
+        shell.style.transformOrigin = "top left";
+      }
+
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = parseFloat(shell.style.left || rect.left);
+      startTop  = parseFloat(shell.style.top  || rect.top);
+      e.preventDefault();
+    };
+
+    const moveDrag = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const rect = shell.getBoundingClientRect();
+      const w = rect.width, h = rect.height;
+
+      let nx = startLeft + dx;
+      let ny = startTop + dy;
+
+      nx = clamp(nx, 8, vw - w - 8);
+      ny = clamp(ny, 8, vh - h - 8);
+
+      shell.style.left = nx + "px";
+      shell.style.top  = ny + "px";
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      shell.classList.remove("isDragging");
+
+      const rect = shell.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      const x = Math.round(parseFloat(shell.style.left || rect.left));
+      const y = Math.round(parseFloat(shell.style.top  || rect.top));
+      saveShellPrefs({ x, y, w, h });
+    };
+
+    topbar.addEventListener("pointerdown", beginDrag);
+    window.addEventListener("pointermove", moveDrag);
+    window.addEventListener("pointerup", endDrag);
+
+    let resizing = false;
+    let rsX=0, rsY=0, rsW=0, rsH=0;
+
+    const beginResize = (e) => {
+      resizing = true;
+      const rect = shell.getBoundingClientRect();
+
+      if (shell.style.transform.includes("translate")){
+        shell.style.left = rect.left + "px";
+        shell.style.top  = rect.top + "px";
+        shell.style.transform = `scale(var(--uiScale))`;
+        shell.style.transformOrigin = "top left";
+      }
+
+      rsX = e.clientX;
+      rsY = e.clientY;
+      rsW = rect.width;
+      rsH = rect.height;
+
+      handle.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    };
+
+    const moveResize = (e) => {
+      if (!resizing) return;
+      const dx = e.clientX - rsX;
+      const dy = e.clientY - rsY;
+
+      const minW = 980;
+      const minH = 620;
+      const maxW = Math.min(window.innerWidth - 16, 1800);
+      const maxH = Math.min(window.innerHeight - 16, 1100);
+
+      const nw = clamp(rsW + dx, minW, maxW);
+      const nh = clamp(rsH + dy, minH, maxH);
+
+      shell.style.width = Math.round(nw) + "px";
+      shell.style.height = Math.round(nh) + "px";
+    };
+
+    const endResize = () => {
+      if (!resizing) return;
+      resizing = false;
+
+      const rect = shell.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      const x = Math.round(parseFloat(shell.style.left || rect.left));
+      const y = Math.round(parseFloat(shell.style.top  || rect.top));
+      saveShellPrefs({ x, y, w, h });
+    };
+
+    handle.addEventListener("pointerdown", beginResize);
+    window.addEventListener("pointermove", moveResize);
+    window.addEventListener("pointerup", endResize);
+
+    window.addEventListener("resize", () => {
+      const prefs2 = loadShellPrefs();
+      if (!prefs2) return;
+      const rect = shell.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+
+      let x = parseFloat(shell.style.left || prefs2.x || rect.left);
+      let y = parseFloat(shell.style.top  || prefs2.y || rect.top);
+
+      x = clamp(x, 8, vw - rect.width - 8);
+      y = clamp(y, 8, vh - rect.height - 8);
+
+      shell.style.left = x + "px";
+      shell.style.top  = y + "px";
+      saveShellPrefs({ x: Math.round(x), y: Math.round(y), w: Math.round(rect.width), h: Math.round(rect.height) });
+    });
+  }
+
+  const state = {
+    open: false,
+    topTab: "my",
+    view: "report",
+    myServerId: null,
+    isAdmin: false,
+    reports: [],
+    selectedReportId: null,
+    players: [],
+    selectedPlayerId: null,
+    departments: [],
+    selectedDeptKey: null,
+    configuredDepartments: [],
+    selectedConfiguredDeptId: null,
+    _openedOnce: false,
+  };
+
+  async function postNui(cbName, data = {}) {
+    try {
+      const res = await fetch(`https://${resource}/${cbName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify(data),
+      });
+
+      const text = await res.text();
+      let json = {};
+      try { json = JSON.parse(text || "{}"); } catch { json = {}; }
+
+      if (!res.ok) {
+        return { ok: false, error: json?.error || `HTTP ${res.status} (${cbName})` };
+      }
+
+      if (json && typeof json.ok === "undefined") json.ok = true;
+      return json;
+    } catch (e) {
+      return { ok: false, error: String(e?.message || e) };
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function toast(title, desc = "", kind = "good", ms = 2400) {
+    const host = $("toastHost");
+    if (!host) return;
+
+    const el = document.createElement("div");
+    el.className = `toast ${kind}`;
+    el.innerHTML = `<div class="t">${escapeHtml(title)}</div>${desc ? `<div class="d">${escapeHtml(desc)}</div>` : ""}`;
+    host.appendChild(el);
+
+    setTimeout(() => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-6px)";
+      el.style.transition = "240ms ease";
+      setTimeout(() => el.remove(), 260);
+    }, ms);
+  }
+
+  function isHttpUrl(u) {
+    const s = String(u || "").trim();
+    return s.startsWith("https://") || s.startsWith("http://");
+  }
+
+  function discordDefaultAvatarUrl(discordId) {
+    try {
+      const n = BigInt(String(discordId).trim());
+      const idx = Number((n >> 22n) % 6n);
+      return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+    } catch {
+      return "https://cdn.discordapp.com/embed/avatars/0.png";
+    }
+  }
+
+  function setAvatar(imgEl, discordId, preferredUrl) {
+    if (!imgEl) return;
+
+    const fallback = discordDefaultAvatarUrl(discordId);
+    const primary = isHttpUrl(preferredUrl) ? String(preferredUrl).trim() : fallback;
+
+    imgEl.onerror = () => {
+      imgEl.onerror = null;
+      imgEl.src = fallback;
+    };
+
+    imgEl.src = primary;
+  }
+
+  function syncScale() {
+    const baseW = 1400;
+    const baseH = 860;
+    const vw = window.innerWidth || baseW;
+    const vh = window.innerHeight || baseH;
+    const s = Math.min(vw / (baseW + 40), vh / (baseH + 40), 1);
+    document.documentElement.style.setProperty("--uiScale", s.toFixed(3));
+  }
+  window.addEventListener("resize", syncScale);
+  syncScale();
+
+  function openCreateModal() {
+    const m = $("createModal");
+    if (!m) return;
+    const target = $("createTarget");
+    const category = $("createCategory");
+    const priority = $("createPriority");
+    const reason = $("createReason");
+    if (target) target.value = "";
+    if (category) category.value = "General";
+    if (priority) priority.value = "normal";
+    if (reason) reason.value = "";
+    m.classList.remove("hidden");
+    setTimeout(() => reason?.focus?.(), 0);
+  }
+
+  function closeCreateModal() {
+    const m = $("createModal");
+    if (!m) return;
+    m.classList.add("hidden");
+  }
+
+  function applyAdminVisibility() {
+    document.querySelectorAll('[data-adminonly="1"]').forEach(el => {
+      el.classList.toggle("hidden", !state.isAdmin);
+    });
+
+    if (!state.isAdmin && state.topTab !== "my") {
+      state.topTab = "my";
+    }
+  }
+
+  function getFilteredReports() {
+    let list = [...state.reports];
+
+    if (state.topTab === "my" && state.myServerId != null) {
+      list = list.filter(r => Number(r.reporterId) === Number(state.myServerId));
+    }
+
+    const showResolved = $("chkShowResolved")?.checked;
+    const status = $("selStatus")?.value || "all";
+    const priority = $("selPriority")?.value || "all";
+    const q = ($("txtSearch")?.value || "").trim().toLowerCase();
+
+    if (!showResolved) list = list.filter(r => !r.resolved);
+
+    if (status === "open") list = list.filter(r => !r.resolved);
+    if (status === "resolved") list = list.filter(r => !!r.resolved);
+
+    if (priority !== "all") {
+      list = list.filter(r => (String(r.priority || "normal").toLowerCase() === priority));
+    }
+
+    if (q) {
+      list = list.filter(r => {
+        const a = String(r.targetName || "").toLowerCase();
+        const b = String(r.reporterName || "").toLowerCase();
+        return a.includes(q) || b.includes(q) || String(r.id || "").includes(q);
+      });
+    }
+
+    list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+    return list;
+  }
+
+  function renderReportList() {
+    const listEl = $("reportList");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    const list = getFilteredReports();
+    $("emptyList")?.classList.toggle("hidden", list.length !== 0);
+
+    for (const r of list) {
+      const item = document.createElement("div");
+      item.className = "reportItem" + (Number(r.id) === Number(state.selectedReportId) ? " isActive" : "");
+      item.dataset.id = r.id;
+
+      const resolvedBadge = r.resolved
+        ? `<span class="badge green"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:999px;background:rgba(34,197,94,.95);display:inline-block;"></span>Resolved</span></span>`
+        : "";
+
+      const pri = String(r.priority || "Normal");
+      const priBadge = `<span class="badge blue">${escapeHtml(pri.charAt(0).toUpperCase() + pri.slice(1))}</span>`;
+
+      item.innerHTML = `
+        <div class="reportItemTop">
+          <div class="reportItemId">Report #${escapeHtml(r.id)}</div>
+          <div class="badges">${resolvedBadge}${priBadge}</div>
+        </div>
+        <div class="reportItemSub">
+          <span class="pill">${escapeHtml(r.category || "General")}</span>
+          <span class="pill">${escapeHtml(r.time || "")}</span>
+        </div>
+      `;
+
+      item.addEventListener("click", () => selectReport(r.id));
+      listEl.appendChild(item);
+    }
+
+    if (!state.selectedReportId && list.length) {
+      selectReport(list[0].id, false);
+    }
+
+    updateStats();
+  }
+
+  function selectReport(id, focusReportView = true) {
+    state.selectedReportId = id;
+
+    const clear = () => {
+      $("chipId").textContent = "#—";
+      $("chipResolved").classList.add("hidden");
+      $("chipPriority").textContent = "—";
+      $("metaReporter").textContent = "—";
+      $("metaTarget").textContent = "—";
+      $("metaCategory").textContent = "—";
+      $("metaTime").textContent = "—";
+      $("txtReason").value = "";
+      $("chatLog").innerHTML = "";
+      $("chatEmpty").classList.remove("hidden");
+      if ($("notesInput")) {
+        $("notesInput").value = "";
+        $("notesInput").disabled = true;
+      }
+      $("btnResolve").disabled = true;
+      $("btnDelete").disabled = true;
+      $("btnClaim").disabled = true;
+      setAvatar($("metaReporterAvatar"), "", "");
+      setAvatar($("metaTargetAvatar"), "", "");
+    };
+
+    if (!id) {
+      clear();
+      renderReportList();
+      return;
+    }
+
+    const list = getFilteredReports();
+    const r = list.find(x => Number(x.id) === Number(id)) || state.reports.find(x => Number(x.id) === Number(id));
+    if (!r) {
+      clear();
+      renderReportList();
+      return;
+    }
+
+    $("chipId").textContent = `#${r.id}`;
+    $("chipResolved").classList.toggle("hidden", !r.resolved);
+    $("chipPriority").textContent = (r.priority || "Normal");
+
+    $("metaReporter").textContent = (r.reporterName || `ID ${r.reporterId ?? "?"}`);
+    $("metaTarget").textContent = (r.targetName || (r.targetId ? `ID ${r.targetId}` : "—"));
+    $("metaCategory").textContent = (r.category || "General");
+    $("metaTime").textContent = (r.time || "");
+    $("txtReason").value = (r.reason || "");
+
+    setAvatar($("metaReporterAvatar"), r.reporterDiscord, (r.reporterAvatarUrl || r.reporterAvatar));
+    setAvatar($("metaTargetAvatar"), r.targetDiscord, (r.targetAvatarUrl || r.targetAvatar));
+
+    const chatLog = $("chatLog");
+    const chatEmpty = $("chatEmpty");
+    chatLog.innerHTML = "";
+
+    const chat = Array.isArray(r.chat) ? r.chat : [];
+    if (!chat.length) {
+      chatEmpty.classList.remove("hidden");
+    } else {
+      chatEmpty.classList.add("hidden");
+
+      for (const m of chat) {
+        const wrap = document.createElement("div");
+        wrap.className = "chatMsg" + (Number(m.byId) === Number(state.myServerId) ? " me" : "");
+
+        const row = document.createElement("div");
+        row.className = "chatRow";
+
+        const av = document.createElement("img");
+        av.className = "avatar sm";
+        av.alt = "";
+
+        const did = (m.byDiscordId || m.byDiscordID || m.discord || "");
+        const aurl = (m.avatarUrl || m.byAvatarUrl || m.byAvatar || m.avatar || "");
+        setAvatar(av, did, aurl);
+
+        const main = document.createElement("div");
+        main.className = "chatMain";
+
+        const meta = document.createElement("div");
+        meta.className = "chatMeta";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = m.byName || "Unknown";
+        meta.appendChild(nameSpan);
+
+        if (m.isStaff) {
+          const badge = document.createElement("span");
+          badge.className = "staffTag";
+          badge.innerHTML = `<span class="check">✅</span> Staff`;
+          meta.appendChild(badge);
+        }
+
+        const time = document.createElement("span");
+        time.textContent = ` • ${m.time || ""}`;
+        meta.appendChild(time);
+
+        const bubble = document.createElement("div");
+        bubble.className = "chatBubble";
+        bubble.textContent = m.message || "";
+
+        main.appendChild(meta);
+        main.appendChild(bubble);
+
+        row.appendChild(av);
+        row.appendChild(main);
+
+        wrap.appendChild(row);
+        chatLog.appendChild(wrap);
+      }
+
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    const notesEl = $("notesInput");
+    if (notesEl) {
+      notesEl.value = (r.notes || "");
+      notesEl.disabled = !state.isAdmin;
+    }
+
+    const adminMode = state.isAdmin && state.topTab === "admin";
+    $("btnResolve").disabled = !adminMode || !!r.resolved;
+    $("btnDelete").disabled = !adminMode;
+
+    const claimedByOther = !!r.claimedById && Number(r.claimedById) !== Number(state.myServerId);
+    $("btnClaim").disabled = !adminMode || !!r.resolved || claimedByOther;
+
+    const claimLabel = $("btnClaim")?.querySelector(".btnLabel");
+    if (claimLabel && adminMode) {
+      claimLabel.textContent = r.claimedById ? "Claimed" : "Claim";
+    }
+
+    if (focusReportView) setView("report");
+    renderReportList();
+  }
+
+  function renderPlayers() {
+    const wrap = $("playersList");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+
+    const list = [...state.players];
+    list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+
+    for (const p of list) {
+      const row = document.createElement("div");
+      row.className = "playerRow" + (Number(p.id) === Number(state.selectedPlayerId) ? " isActive" : "");
+      row.innerHTML = `
+        <div>
+          <div class="name">${escapeHtml(p.name || ("Player " + p.id))}</div>
+          <div class="sid">#${escapeHtml(p.id)}</div>
+        </div>
+        <div class="sid">${p.discord ? "✅" : ""}</div>
+      `;
+      row.addEventListener("click", () => selectPlayer(p.id));
+      wrap.appendChild(row);
+    }
+
+    renderMoneyTargets();
+  }
+
+  function selectPlayer(id) {
+    state.selectedPlayerId = id;
+    const p = state.players.find(x => Number(x.id) === Number(id));
+    $("playerName").textContent = p ? (p.name || ("Player " + p.id)) : "Select a player";
+    $("playerSid").textContent = p ? ("Server ID: " + p.id) : "—";
+    $("playerDiscord").textContent = p?.discord ? p.discord : "—";
+
+    const enabled = !!p;
+    $("btnFetchDiscord").disabled = !enabled;
+    $("btnTeleport").disabled = !enabled;
+    $("btnBring").disabled = !enabled;
+    $("btnFreeze").disabled = !enabled;
+    $("btnKick").disabled = !enabled;
+
+    renderPlayers();
+  }
+
+  function renderMoneyTargets() {
+    const sel = $("moneyTarget");
+    if (!sel) return;
+
+    const current = sel.value;
+    sel.innerHTML = "";
+
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = state.players.length ? "Select..." : "Load players first";
+    sel.appendChild(opt0);
+
+    for (const p of state.players) {
+      const opt = document.createElement("option");
+      opt.value = String(p.id);
+      opt.textContent = `${p.name || "Player"} (#${p.id})`;
+      sel.appendChild(opt);
+    }
+
+    if (current) sel.value = current;
+  }
+
+  function cfgDeptKey(row) {
+    return String(row.id || "").toLowerCase();
+  }
+
+  function renderConfiguredDepartments() {
+    const container = $("cfgDeptRows");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const q = ($("cfgDeptSearch")?.value || "").trim().toLowerCase();
+    let rows = [...state.configuredDepartments];
+
+    if (q) {
+      rows = rows.filter(r =>
+        String(r.id || "").toLowerCase().includes(q) ||
+        String(r.label || "").toLowerCase().includes(q) ||
+        String(r.paycheck ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    $("cfgDeptEmpty")?.classList.toggle("hidden", rows.length !== 0);
+
+    for (const r of rows) {
+      const key = cfgDeptKey(r);
+      const row = document.createElement("div");
+      row.className = "deptRow deptCfg" + (key === state.selectedConfiguredDeptId ? " isActive" : "");
+      row.dataset.key = key;
+      row.innerHTML = `
+        <div>${escapeHtml(r.id || "")}</div>
+        <div>${escapeHtml(r.label || "")}</div>
+        <div class="right">${escapeHtml(r.paycheck ?? 0)}</div>
+        <div>${r.canUseAOP ? "Yes" : "No"}</div>
+        <div>${r.canUsePrio ? "Yes" : "No"}</div>
+        <div>${r.enabled !== false ? "Yes" : "No"}</div>
+      `;
+      row.addEventListener("click", () => {
+        state.selectedConfiguredDeptId = key;
+        $("cfgDeptId").value = r.id || "";
+        $("cfgDeptLabel").value = r.label || "";
+        $("cfgDeptPay").value = Number(r.paycheck ?? 0);
+        $("cfgDeptAop").checked = !!r.canUseAOP;
+        $("cfgDeptPrio").checked = !!r.canUsePrio;
+        $("cfgDeptEnabled").checked = r.enabled !== false;
+        renderConfiguredDepartments();
+      });
+      container.appendChild(row);
+    }
+  }
+
+  function deptKey(row) {
+    return `${row.discordid || ""}|${row.department || ""}`;
+  }
+
+  function renderDepartments() {
+    const container = $("deptRows");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const q = ($("deptSearch").value || "").trim().toLowerCase();
+    let rows = [...state.departments];
+
+    if (q) {
+      rows = rows.filter(r =>
+        String(r.discordid || "").toLowerCase().includes(q) ||
+        String(r.charid || "").toLowerCase().includes(q) ||
+        String(r.department || "").toLowerCase().includes(q) ||
+        String(r.paycheck || "").toLowerCase().includes(q)
+      );
+    }
+
+    $("deptEmpty").classList.toggle("hidden", rows.length !== 0);
+
+    for (const r of rows) {
+      const key = deptKey(r);
+      const row = document.createElement("div");
+      row.className = "deptRow" + (key === state.selectedDeptKey ? " isActive" : "");
+      row.dataset.key = key;
+      row.innerHTML = `
+        <div>${escapeHtml(r.discordid || "")}</div>
+        <div>${escapeHtml(r.charid || "")}</div>
+        <div>${escapeHtml(r.department || "")}</div>
+        <div class="right">${escapeHtml(r.paycheck ?? 0)}</div>
+      `;
+      row.addEventListener("click", () => {
+        state.selectedDeptKey = key;
+        $("deptDiscord").value = r.discordid || "";
+        $("deptChar").value = r.charid || "";
+        $("deptName").value = r.department || "";
+        $("deptPay").value = Number(r.paycheck ?? 0);
+        renderDepartments();
+      });
+      container.appendChild(row);
+    }
+
+    updateStats();
+  }
+
+  function setTopTab(tab, preserveView) {
+    state.topTab = tab;
+
+    document.querySelectorAll(".topTab").forEach(b => {
+      b.classList.toggle("isActive", b.dataset.toptab === tab);
+    });
+
+    $("sideTitle").textContent = tab === "admin" ? "Admin Panel" : (tab === "stats" ? "Statistics" : "My Reports");
+    $("btnCreateReport").classList.toggle("hidden", tab === "stats");
+
+    if (!preserveView) {
+      if (tab === "stats") setView("stats");
+      else setView("report");
+    }
+
+    renderReportList();
+  }
+
+  function setView(view) {
+    state.view = view;
+
+    document.querySelectorAll(".bottomTab").forEach(b => {
+      b.classList.toggle("isActive", b.dataset.view === view);
+    });
+
+    $("viewReport").classList.toggle("hidden", view !== "report");
+    $("viewPlayers").classList.toggle("hidden", view !== "players");
+    $("viewMoney").classList.toggle("hidden", view !== "money");
+    $("viewDepartments").classList.toggle("hidden", view !== "departments");
+    $("viewStats").classList.toggle("hidden", view !== "stats");
+    $("viewAnnounce").classList.toggle("hidden", view !== "announce");
+    $("viewNotify").classList.toggle("hidden", view !== "notify");
+
+    const title = {
+      report: "Report",
+      players: "Players",
+      money: "Money Operations",
+      departments: "Departments",
+      announce: "Announcements",
+      notify: "Notify Player",
+      stats: "Statistics",
+    }[view] || "Report";
+
+    const header = $("panelHeader");
+    if (header) {
+      const t = header.querySelector(".panelTitle");
+      if (t) t.textContent = title;
+    }
+
+    $("bottomHint").textContent =
+      view === "report" ? "Select a report to enable actions." :
+      view === "players" ? "Select a player to enable actions." :
+      view === "money" ? "Choose a target & operation." :
+      view === "departments" ? "Click a row to edit quickly." :
+      view === "announce" ? "Build an announcement and broadcast it." :
+      view === "notify" ? "Pick a player and send a UI notification." :
+      "Stats are derived from cache.";
+  }
+
+  function updateStats() {
+    const total = state.reports.length;
+    const resolved = state.reports.filter(r => !!r.resolved).length;
+    const open = total - resolved;
+
+    if ($("statTotal")) $("statTotal").textContent = String(total);
+    if ($("statResolved")) $("statResolved").textContent = String(resolved);
+    if ($("statOpen")) $("statOpen").textContent = String(open);
+    if ($("statDepts")) $("statDepts").textContent = String(state.departments.length);
+  }
+
+  function hexToRgba(hex, alpha01){
+    const h = String(hex||"").replace("#","").trim();
+    const full = h.length === 3 ? h.split("").map(x=>x+x).join("") : h.padEnd(6,"0").slice(0,6);
+    const r = parseInt(full.slice(0,2),16) || 0;
+    const g = parseInt(full.slice(2,4),16) || 0;
+    const b = parseInt(full.slice(4,6),16) || 0;
+    const a = Math.max(0, Math.min(1, Number(alpha01||0)));
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function pickPreset(preset){
+    const p = String(preset||"info");
+    if (p === "good") return { bar:"rgba(34,197,94,.92)", bg:"#0b1220" };
+    if (p === "warn") return { bar:"rgba(245,158,11,.95)", bg:"#120f08" };
+    if (p === "bad")  return { bar:"rgba(57,112,230,.95)", bg:"#081426" };
+    return { bar:"rgba(59,130,246,.92)", bg:"#0b1020" };
+  }
+
+  function getNotif(prefix){
+    const icon = ($(prefix+"Icon")?.value || "").trim() || (prefix==="ann" ? "📣" : "🔔");
+    const title = ($(prefix+"Title")?.value || "").trim();
+    const message = ($(prefix+"Message")?.value || "").trim();
+    const preset = ($(prefix+"Preset")?.value || "info");
+    const pos = ($(prefix+"Pos")?.value || "top-right");
+    const fontRaw = ($(prefix+"Font")?.value || "Inter");
+    const font = fontRaw === "system" ? "var(--font)" : fontRaw;
+    const size = Number($(prefix+"Size")?.value || 16);
+    const textHex = ($(prefix+"Text")?.value || "#ffffff");
+    const bgHex = ($(prefix+"Bg")?.value || "#111827");
+    const bgA = Math.max(0, Math.min(100, Number($(prefix+"BgA")?.value || 86))) / 100;
+    const borderHex = ($(prefix+"Border")?.value || "#ffffff");
+    const borderA = Math.max(0, Math.min(100, Number($(prefix+"BorderA")?.value || 12))) / 100;
+    const img = ($(prefix+"Img")?.value || "").trim();
+    const footer = ($(prefix+"Footer")?.value || "").trim();
+    const dur = Math.max(0, Number($(prefix+"Dur")?.value || 6000));
+    const bar = String($(prefix+"Bar")?.value || "1") === "1";
+
+    const presetPick = pickPreset(preset);
+    return {
+      icon, title, message,
+      preset,
+      position: pos,
+      font,
+      fontSize: Math.max(12, Math.min(28, size)),
+      textColor: textHex,
+      bgColor: hexToRgba(bgHex || presetPick.bg, bgA),
+      borderColor: hexToRgba(borderHex, borderA),
+      image: img || "",
+      footer: footer || "",
+      duration: dur,
+      progress: bar,
+      barColor: presetPick.bar,
+    };
+  }
+
+  function renderPreview(prefix){
+    const box = $(prefix === "ann" ? "annPreviewBox" : "notPreviewBox");
+    if (!box) return;
+
+    const n = getNotif(prefix);
+    box.innerHTML = "";
+    box.appendChild(buildNotifCard(n, true));
+  }
+
+  function ensureStack(pos){
+    const overlay = $("notifyOverlay");
+    if (!overlay) return null;
+    let st = overlay.querySelector(`.notifStack[data-pos="${pos}"]`);
+    if (!st){
+      st = document.createElement("div");
+      st.className = "notifStack";
+      st.dataset.pos = pos;
+      overlay.appendChild(st);
+    }
+    return st;
+  }
+
+  function buildNotifCard(n, isPreview){
+    const card = document.createElement("div");
+    card.className = "notifCard";
+    card.style.background = n.bgColor;
+    card.style.borderColor = n.borderColor;
+
+    const inner = document.createElement("div");
+    inner.className = "notifInner";
+    inner.style.fontFamily = n.font;
+    inner.style.color = n.textColor;
+
+    if (n.image){
+      const img = document.createElement("div");
+      img.className = "notifImg";
+      img.style.backgroundImage = `url("${n.image.replaceAll('"','%22')}")`;
+      inner.appendChild(img);
+    }
+
+    const main = document.createElement("div");
+    main.className = "notifMain";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "notifTitleRow";
+    titleRow.style.fontSize = `${n.fontSize}px`;
+
+    const ico = document.createElement("div");
+    ico.className = "notifIcon";
+    ico.textContent = n.icon || "";
+    titleRow.appendChild(ico);
+
+    const t = document.createElement("div");
+    t.className = "notifTitle";
+    t.textContent = n.title || (isPreview ? "Preview Title" : "");
+    titleRow.appendChild(t);
+
+    main.appendChild(titleRow);
+
+    if (n.message || isPreview){
+      const msg = document.createElement("div");
+      msg.className = "notifMsg";
+      msg.style.fontSize = `${Math.max(12, n.fontSize - 2)}px`;
+      msg.textContent = n.message || (isPreview ? "Preview message body…" : "");
+      main.appendChild(msg);
+    }
+
+    if (n.footer){
+      const f = document.createElement("div");
+      f.className = "notifFooter";
+      f.textContent = n.footer;
+      main.appendChild(f);
+    }
+
+    inner.appendChild(main);
+    card.appendChild(inner);
+
+    if (n.progress && n.duration > 0){
+      const bar = document.createElement("div");
+      bar.className = "notifBar";
+      const i = document.createElement("i");
+      i.style.background = n.barColor || "rgba(59,130,246,.85)";
+      i.style.animationDuration = `${n.duration}ms`;
+      bar.appendChild(i);
+      card.appendChild(bar);
+    }
+
+    return card;
+  }
+
+  function pushOverlayNotif(n){
+    const pos = n.position || "top-right";
+    const st = ensureStack(pos);
+    if (!st) return;
+
+    const card = buildNotifCard(n, false);
+    st.appendChild(card);
+
+    const ms = Math.max(800, Number(n.duration || 6000));
+    setTimeout(() => {
+      card.style.opacity = "0";
+      card.style.transform = "translateY(8px)";
+      card.style.transition = "220ms ease";
+      setTimeout(() => card.remove(), 240);
+    }, ms);
+  }
+
+  function isEditableTarget(el) {
+    if (!el) return false;
+    const tag = String(el.tagName || "").toUpperCase();
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable === true;
+  }
+
+  function wire() {
+    applyShellPrefs();
+    initShellDragResize();
+
+    $("btnClose")?.addEventListener("click", () => close());
+    document.addEventListener("keydown", (e) => {
+      if (!state.open) return;
+      if (isEditableTarget(e.target)) return;
+      if (e.key === "Escape") {
+        const m = $("createModal");
+        if (m && !m.classList.contains("hidden")) {
+          closeCreateModal();
+          return;
+        }
+        close();
+      }
+    });
+
+    const createModal = $("createModal");
+    if (createModal) {
+      $("btnCreateReport")?.addEventListener("click", () => openCreateModal());
+      $("btnCreateClose")?.addEventListener("click", closeCreateModal);
+      createModal.querySelectorAll("[data-close='1']").forEach(el => {
+        el.addEventListener("click", closeCreateModal);
+      });
+
+      $("btnCreateSubmit")?.addEventListener("click", async () => {
+        const reason = ($("createReason").value || "").trim();
+        const targetRaw = ($("createTarget").value || "").trim();
+        const category = ($("createCategory").value || "General").trim();
+        const priority = String($("createPriority").value || "normal").trim().toLowerCase();
+
+        const targetId = targetRaw ? Number(targetRaw) : undefined;
+        if (!reason || reason.length < 3) {
+          toast("Reason required", "Tell us what happened.", "bad");
+          return;
+        }
+
+        const res = await postNui("createReport", { targetId, reason, category, priority });
+        if (res && res.ok) {
+          closeCreateModal();
+          toast("Report created", `Report #${res.report?.id ?? ""}`, "good");
+
+          if (res.report) {
+            state.reports = [res.report, ...state.reports.filter(r => Number(r.id) !== Number(res.report.id))];
+            renderReportList();
+            selectReport(res.report.id, true);
+          } else {
+            await postNui("getReports", {});
+          }
+        } else {
+          toast("Create failed", res?.error || "", "bad");
+        }
+      });
+    }
+
+    document.querySelectorAll(".topTab").forEach(btn => {
+      btn.addEventListener("click", () => setTopTab(btn.dataset.toptab));
+    });
+
+    document.querySelectorAll(".bottomTab").forEach(btn => {
+      btn.addEventListener("click", () => setView(btn.dataset.view));
+    });
+
+    $("chkShowResolved")?.addEventListener("change", renderReportList);
+    $("selStatus")?.addEventListener("change", renderReportList);
+    $("selPriority")?.addEventListener("change", renderReportList);
+    $("txtSearch")?.addEventListener("input", renderReportList);
+
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(x => x.classList.remove("isActive"));
+        btn.classList.add("isActive");
+        const sub = btn.dataset.subtab;
+        $("subChat")?.classList.toggle("hidden", sub !== "chat");
+        $("subNotes")?.classList.toggle("hidden", sub !== "notes");
+      });
+    });
+
+    $("btnResolve")?.addEventListener("click", async () => {
+      const id = state.selectedReportId;
+      if (!id) return;
+      const res = await postNui("resolveReport", { id });
+      if (res?.ok) toast("Resolved", `Report #${id}`, "good");
+      else toast("Resolve failed", res?.error || "", "bad");
+    });
+
+    $("btnDelete")?.addEventListener("click", async () => {
+      const id = state.selectedReportId;
+      if (!id) return;
+      const res = await postNui("deleteReport", { id });
+      if (res?.ok) toast("Deleted", `Report #${id}`, "good");
+      else toast("Delete failed", res?.error || "", "bad");
+    });
+
+    $("btnClaim")?.addEventListener("click", async () => {
+      if (!state.isAdmin) return toast("Admin-only", "", "bad");
+      const id = state.selectedReportId;
+      if (!id) return;
+      const res = await postNui("claimReport", { id });
+      if (res && res.ok) toast("Claimed", `Report #${id}`, "good");
+      else toast("Claim failed", res?.error || "", "bad");
+    });
+
+    $("btnSendChat")?.addEventListener("click", async () => {
+      const id = Number(state.selectedReportId || 0);
+      if (!id) return;
+
+      const input = $("chatInput");
+      const msg = (input?.value || "").trim();
+      if (!msg) return;
+
+      const btn = $("btnSendChat");
+      if (btn) btn.disabled = true;
+
+      const res = await postNui("sendChat", { id, message: msg, msg });
+
+      if (btn) btn.disabled = false;
+
+      if (res && res.ok) {
+        if (input) input.value = "";
+        const r = state.reports.find(x => Number(x.id) === Number(id));
+        if (r) r.chat = res.chat || r.chat || [];
+        selectReport(id);
+      } else {
+        toast("Send failed", res?.error || "Unknown error (missing NUI callback?)", "bad");
+      }
+    });
+
+    $("chatInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        $("btnSendChat")?.click();
+      }
+    });
+
+    $("btnSaveNotes")?.addEventListener("click", async () => {
+      if (!state.isAdmin) return toast("Admin-only", "", "bad");
+      const id = state.selectedReportId;
+      if (!id) return;
+      const notes = $("notesInput")?.value || "";
+      const res = await postNui("saveNotes", { id, notes });
+      if (res && res.ok) toast("Notes saved", `Report #${id}`, "good");
+      else toast("Save failed", res?.error || "", "bad");
+    });
+
+    $("btnLoadPlayers")?.addEventListener("click", async () => {
+      toast("Loading players...", "", "good", 1100);
+      await postNui("getPlayers", {});
+    });
+
+    $("btnFetchDiscord")?.addEventListener("click", async () => {
+      const p = state.players.find(x => Number(x.id) === Number(state.selectedPlayerId));
+      if (!p) return;
+      await postNui("requestPlayerDiscord", { target: p.id });
+      toast("Discord requested", `Player #${p.id}`, "good", 1200);
+    });
+
+    $("btnTeleport")?.addEventListener("click", () => doPlayerAction("teleport"));
+    $("btnBring")?.addEventListener("click", () => doPlayerAction("bring"));
+    $("btnFreeze")?.addEventListener("click", () => doPlayerAction("freeze"));
+    $("btnKick")?.addEventListener("click", () => doPlayerAction("kick"));
+
+    async function doPlayerAction(action) {
+      const p = state.players.find(x => Number(x.id) === Number(state.selectedPlayerId));
+      if (!p) return;
+      await postNui(action, { target: p.id });
+      toast("Action sent", `${action} → #${p.id}`, "good", 1200);
+    }
+
+    $("btnMoneyLoadPlayers")?.addEventListener("click", async () => {
+      toast("Loading players...", "", "good", 1100);
+      await postNui("getPlayers", {});
+    });
+
+    document.querySelectorAll(".quick").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const delta = Number(btn.dataset.delta || 0);
+        const v = Number($("moneyAmount").value || 0);
+        $("moneyAmount").value = String(v + delta);
+      });
+    });
+
+    $("btnRunMoney")?.addEventListener("click", async () => {
+      const target = Number($("moneyTarget").value || 0);
+      const op = $("moneyOp").value;
+      const amount = Number($("moneyAmount").value || 0);
+      const extra = ($("moneyExtra").value || "").trim();
+
+      if (!target) { toast("Select a target", "", "bad"); return; }
+
+      const res = await postNui("moneyOp", { op, target, amount, extra: extra || undefined });
+      if (res?.ok) toast("Money operation sent", `${op} → #${target} (${amount})`, "good", 1600);
+      else toast("Money op failed", res?.error || "", "bad");
+    });
+
+    $("btnRefreshDepartments")?.addEventListener("click", async () => {
+      const cfg = await postNui("getConfiguredDepartments", {});
+      if (cfg && Array.isArray(cfg.departments)) {
+        state.configuredDepartments = cfg.departments;
+        renderConfiguredDepartments();
+      }
+
+      const r = await postNui("getDepartments", {});
+      if (r && Array.isArray(r.departments)) {
+        state.departments = r.departments;
+        renderDepartments();
+      }
+      toast("Refreshing…", "Department config + DB rows refreshed.", "good", 1200);
+    });
+
+    $("deptSearch")?.addEventListener("input", renderDepartments);
+    $("cfgDeptSearch")?.addEventListener("input", renderConfiguredDepartments);
+
+    $("btnCfgDeptSave")?.addEventListener("click", async () => {
+      const data = getCfgDeptForm();
+      if (!data.id || !data.label) { toast("Missing fields", "Department ID + Label are required.", "bad"); return; }
+      const res = await postNui("upsertConfiguredDepartment", data);
+      if (res?.ok) {
+        state.configuredDepartments = Array.isArray(res.departments) ? res.departments : state.configuredDepartments;
+        renderConfiguredDepartments();
+        toast("Config saved", `${data.label}`, "good", 1600);
+      } else {
+        toast("Save failed", res?.error || "", "bad");
+      }
+    });
+
+    $("btnCfgDeptRemove")?.addEventListener("click", async () => {
+      const id = ($("cfgDeptId").value || "").trim().toLowerCase();
+      if (!id) { toast("Missing fields", "Department ID is required.", "bad"); return; }
+      const res = await postNui("removeConfiguredDepartment", { id });
+      if (res?.ok) {
+        state.configuredDepartments = Array.isArray(res.departments) ? res.departments : state.configuredDepartments.filter(x => String(x.id || "").toLowerCase() !== id);
+        if (state.selectedConfiguredDeptId === id) state.selectedConfiguredDeptId = null;
+        renderConfiguredDepartments();
+        toast("Config removed", id, "good", 1600);
+      } else {
+        toast("Remove failed", res?.error || "", "bad");
+      }
+    });
+
+    $("btnDeptCreate")?.addEventListener("click", async () => {
+      const data = getDeptForm();
+      if (!data.discordid || !data.department) { toast("Missing fields", "Discord ID + Department are required.", "bad"); return; }
+      const res = await postNui("createDepartment", data);
+      if (res?.ok) toast("Upsert sent", `${data.department}`, "good", 1600);
+      else toast("Upsert failed", res?.error || "", "bad");
+    });
+
+    $("btnDeptModify")?.addEventListener("click", async () => {
+      const data = getDeptForm();
+      if (!data.discordid || !data.department) { toast("Missing fields", "Discord ID + Department are required.", "bad"); return; }
+      const res = await postNui("modifyDepartment", data);
+      if (res?.ok) toast("Modify sent", `${data.department}`, "good", 1600);
+      else toast("Modify failed", res?.error || "", "bad");
+    });
+
+    $("btnDeptRemove")?.addEventListener("click", async () => {
+      const discordid = ($("deptDiscord").value || "").trim();
+      const department = ($("deptName").value || "").trim();
+      if (!discordid || !department) { toast("Missing fields", "Discord ID + Department are required.", "bad"); return; }
+      const res = await postNui("removeDepartment", { discordid, department });
+      if (res?.ok) toast("Remove sent", `${department}`, "good", 1600);
+      else toast("Remove failed", res?.error || "", "bad");
+    });
+
+    ["annIcon","annTitle","annMessage","annPreset","annPos","annFont","annSize","annText","annBg","annBgA","annBorder","annBorderA","annImg","annFooter","annDur","annBar"]
+      .forEach(id => $(id)?.addEventListener("input", () => renderPreview("ann")));
+    ["notTarget","notIcon","notTitle","notMessage","notPreset","notPos","notFont","notSize","notText","notBg","notBgA","notBorder","notBorderA","notImg","notFooter","notDur","notBar"]
+      .forEach(id => $(id)?.addEventListener("input", () => renderPreview("not")));
+
+    $("btnAnnPreview")?.addEventListener("click", () => {
+      renderPreview("ann");
+      pushOverlayNotif(getNotif("ann"));
+    });
+
+    $("btnNotPreview")?.addEventListener("click", () => {
+      renderPreview("not");
+      pushOverlayNotif(getNotif("not"));
+    });
+
+    $("btnAnnClear")?.addEventListener("click", () => {
+      ["annTitle","annMessage","annImg","annFooter"].forEach(id => { if ($(id)) $(id).value = ""; });
+      renderPreview("ann");
+    });
+
+    $("btnNotClear")?.addEventListener("click", () => {
+      ["notTitle","notMessage","notImg","notFooter"].forEach(id => { if ($(id)) $(id).value = ""; });
+      renderPreview("not");
+    });
+
+    $("btnNotLoadPlayers")?.addEventListener("click", async () => {
+      toast("Loading players.", "", "good", 1100);
+      await postNui("getPlayers", {});
+    });
+
+    $("btnAnnSend")?.addEventListener("click", async () => {
+      const n = getNotif("ann");
+      if (!n.title && !n.message) { toast("Missing content", "Add a title or message.", "bad"); return; }
+
+      const res = await postNui("adminAnnounce", { notif: n });
+      if (res?.ok) toast("Announcement sent", "Broadcasted to everyone.", "good", 1600);
+      else toast("Announcement failed", res?.error || "", "bad");
+    });
+
+    $("btnNotSend")?.addEventListener("click", async () => {
+      const target = Number($("notTarget")?.value || 0);
+      if (!target) { toast("Select a target", "", "bad"); return; }
+
+      const n = getNotif("not");
+      if (!n.title && !n.message) { toast("Missing content", "Add a title or message.", "bad"); return; }
+
+      const res = await postNui("notifyPlayer", { target, notif: n });
+      if (res?.ok) toast("Notification sent", `Sent to #${target}`, "good", 1600);
+      else toast("Notify failed", res?.error || "", "bad");
+    });
+
+    function getDeptForm() {
+      const discordid = ($("deptDiscord").value || "").trim();
+      const charid = ($("deptChar").value || "").trim();
+      const department = ($("deptName").value || "").trim();
+      const paycheck = Number($("deptPay").value || 0);
+      return { discordid, charid, department, paycheck };
+    }
+
+    function getCfgDeptForm() {
+      const id = ($("cfgDeptId").value || "").trim().toLowerCase();
+      const label = ($("cfgDeptLabel").value || "").trim();
+      const paycheck = Number($("cfgDeptPay").value || 0);
+      const canUseAOP = !!$("cfgDeptAop")?.checked;
+      const canUsePrio = !!$("cfgDeptPrio")?.checked;
+      const enabled = !!$("cfgDeptEnabled")?.checked;
+      return { id, label, paycheck, canUseAOP, canUsePrio, enabled };
+    }
+  }
+
+  async function open(payload = {}) {
+    const firstOpen = !state._openedOnce;
+    state._openedOnce = true;
+
+    state.open = true;
+    state.myServerId = payload?.myServerId ?? null;
+    state.isAdmin = !!payload?.isAdmin;
+
+    applyAdminVisibility();
+
+    let desiredTop = state.topTab || (state.isAdmin ? "admin" : "my");
+    if (!state.isAdmin && desiredTop === "admin") desiredTop = "my";
+    if (firstOpen) desiredTop = state.isAdmin ? "admin" : "my";
+
+    setTopTab(desiredTop, !firstOpen);
+    setView(firstOpen ? "report" : (state.view || "report"));
+
+    await postNui("openMenu", {});
+
+    const rep = await postNui("getReports", {});
+    state.reports = rep?.reports || [];
+
+    const prevSel = state.selectedReportId;
+    renderReportList();
+
+    if (prevSel && state.reports.some(x => Number(x.id) === Number(prevSel))) {
+      selectReport(prevSel, false);
+    } else if (state.reports.length) {
+      selectReport(state.reports[0].id);
+    } else {
+      state.selectedReportId = null;
+      if ($("txtReason")) $("txtReason").value = "";
+      if ($("chatLog")) $("chatLog").innerHTML = "";
+      $("chatEmpty")?.classList.remove("hidden");
+    }
+
+    if (state.isAdmin) {
+      const cfgDep = await postNui("getConfiguredDepartments", {});
+      state.configuredDepartments = cfgDep?.departments || [];
+      renderConfiguredDepartments();
+
+      const dep = await postNui("getDepartments", {});
+      state.departments = dep?.departments || [];
+      renderDepartments();
+    } else {
+      state.configuredDepartments = [];
+      renderConfiguredDepartments();
+      state.departments = [];
+      renderDepartments();
+    }
+
+    $("app")?.classList.remove("hidden");
+  }
+
+  async function close() {
+    state.open = false;
+    $("app")?.classList.add("hidden");
+    await postNui("closeMenu", {});
+  }
+
+  window.addEventListener("message", (event) => {
+    const msg = event.data || {};
+    if (!msg.action) return;
+
+    if (msg.action === "openMenu") {
+      open(msg.payload || {});
+      return;
+    }
+
+    if (msg.action === "notify") {
+      const n = msg.payload || msg.notif || msg || {};
+      pushOverlayNotif(n);
+      return;
+    }
+
+    if (msg.action === "loadReports") {
+      state.reports = Array.isArray(msg.reports) ? msg.reports : [];
+      renderReportList();
+      return;
+    }
+
+    if (msg.action === "newReport") {
+      if (msg.report) {
+        state.reports = [msg.report, ...state.reports.filter(r => Number(r.id) !== Number(msg.report.id))];
+        renderReportList();
+        if (!state.selectedReportId) selectReport(msg.report.id, false);
+      }
+      return;
+    }
+
+    if (msg.action === "updateReport") {
+      const id = Number(msg.id);
+      const rep = state.reports.find(r => Number(r.id) === id);
+      if (rep) rep.resolved = !!msg.resolved;
+      renderReportList();
+      if (state.selectedReportId === id) selectReport(id, false);
+      return;
+    }
+
+    if (msg.action === "upsertReport") {
+      const rep = msg.report;
+      if (rep) {
+        state.reports = [rep, ...state.reports.filter(r => Number(r.id) !== Number(rep.id))];
+        renderReportList();
+        if (state.selectedReportId === Number(rep.id)) selectReport(rep.id, false);
+      }
+      return;
+    }
+
+    if (msg.action === "removeReport") {
+      const id = Number(msg.id);
+      state.reports = state.reports.filter(r => Number(r.id) !== id);
+      if (state.selectedReportId === id) state.selectedReportId = null;
+      renderReportList();
+      return;
+    }
+
+    if (msg.action === "reportScreenshot") {
+      const id = Number(msg.id);
+      const rep = state.reports.find(r => Number(r.id) === id);
+      if (rep) rep.screenshotDataUrl = msg.image;
+      return;
+    }
+
+    if (msg.action === "loadPlayers") {
+      state.players = Array.isArray(msg.players) ? msg.players : [];
+      renderPlayers();
+      renderMoneyTargets();
+      const sel = $("notTarget");
+      if (sel) {
+        sel.innerHTML = `<option value="0">Select a player…</option>`;
+        for (const p of state.players) {
+          const id = Number(p.id || 0);
+          if (!id) continue;
+          const name = String(p.name || `Player ${id}`);
+          const opt = document.createElement("option");
+          opt.value = String(id);
+          opt.textContent = `#${id} — ${name}`;
+          sel.appendChild(opt);
+        }
+      }
+      return;
+    }
+
+    if (msg.action === "playerDiscord") {
+      const target = Number(msg.target);
+      const p = state.players.find(x => Number(x.id) === Number(target));
+      if (p) p.discord = msg.discord || "";
+      if (state.selectedPlayerId === target) $("playerDiscord").textContent = p?.discord ? p.discord : "—";
+      renderPlayers();
+      return;
+    }
+
+    if (msg.action === "loadConfiguredDepartments") {
+      state.configuredDepartments = Array.isArray(msg.departments) ? msg.departments : [];
+      renderConfiguredDepartments();
+      return;
+    }
+
+    if (msg.action === "loadDepartments") {
+      state.departments = Array.isArray(msg.departments) ? msg.departments : [];
+      renderDepartments();
+      return;
+    }
+  });
+
+  wire();
+  $("app")?.classList.add("hidden");
+})();
+  </script>
+</body>
+</html>

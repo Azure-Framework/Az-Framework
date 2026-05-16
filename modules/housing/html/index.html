@@ -1,0 +1,2133 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>az_housing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://kit.fontawesome.com/a2e0e6a56d.js" crossorigin="anonymous"></script>
+
+  <style>
+    
+
+
+
+
+
+
+    :root{
+      --bg0: rgba(6, 10, 14, .70);
+      --bg1: rgba(10, 16, 22, .72);
+      --glass: rgba(18, 26, 34, .62);
+      --glass2: rgba(18, 26, 34, .45);
+
+      --line: rgba(255,255,255,.10);
+      --line2: rgba(255,255,255,.16);
+
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.45);
+
+      --accent: #4bb6ff;   
+      --accent2:#2a85ff;
+
+      --ok:#41d18b;
+      --warn:#f6c56b;
+      --bad:#ff5f63;
+
+      --r: 18px;
+      --r2: 24px;
+      --t: 220ms cubic-bezier(.2,.85,.2,1);
+      --t2: 340ms cubic-bezier(.2,.85,.2,1);
+    }
+
+    *{ box-sizing:border-box; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    html,body{ height:100%; margin:0; overflow:hidden; background:transparent; color:var(--text); }
+    body{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+
+    
+    #app{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      pointer-events:none;
+
+      opacity:0;
+      transform: translateY(10px) scale(.992);
+      transition: opacity var(--t2), transform var(--t2);
+    }
+    #app.hidden{ display:none; }
+    #app.open{
+      opacity:1;
+      transform: translateY(0) scale(1);
+    }
+
+    
+    .bg{
+      position:fixed;
+      inset:0;
+      background:
+        radial-gradient(1200px 800px at 50% 40%, rgba(0,0,0,.18), rgba(0,0,0,.55)),
+        linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.35));
+      pointer-events:none;
+    }
+
+    
+    .shell{
+      width: min(1320px, 96vw);
+      height: min(820px, 94vh);
+      pointer-events:auto;
+      overflow:hidden;
+      border-radius: var(--r2);
+      border:1px solid var(--line2);
+
+      background:
+        linear-gradient(180deg, rgba(18,26,34,.78), rgba(10,16,22,.70)),
+        radial-gradient(1200px 720px at 20% 0%, rgba(75,182,255,.14), transparent 55%),
+        radial-gradient(1200px 720px at 90% 15%, rgba(42,133,255,.10), transparent 55%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      position:relative;
+    }
+
+    
+    .chrome{
+      height:52px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 14px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+
+    .chromeLeft{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:110px;
+    }
+
+    .dots{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .dot{
+      width:12px; height:12px; border-radius:999px;
+      background: rgba(255,255,255,.14);
+      border:1px solid rgba(0,0,0,.28);
+      box-shadow:none;
+    }
+    .dot.red{ background:#ff5f57; border-color: rgba(0,0,0,.22); }
+    .dot.yellow{ background:#febc2e; border-color: rgba(0,0,0,.22); }
+    .dot.green{ background:#28c840; border-color: rgba(0,0,0,.22); }
+
+    .chromeCenter{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      min-width:0;
+    }
+
+    .urlPill{
+      max-width:min(520px, 70vw);
+      width:520px;
+      height:28px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: rgba(255,255,255,.72);
+      font-size:12px;
+      letter-spacing:.2px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      padding:0 12px;
+    }
+
+    .chromeRight{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:140px;
+      justify-content:flex-end;
+    }
+
+    .iconBtn{
+      width:34px; height:34px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color: rgba(255,255,255,.82);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      transition: transform var(--t), background var(--t), border var(--t), opacity var(--t);
+      user-select:none;
+    }
+    .iconBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,.18);
+      background: rgba(0,0,0,.28);
+    }
+    .iconBtn:active{ transform: translateY(0) scale(.99); }
+
+    
+    .hero{
+      padding:18px 18px 10px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:0;
+    }
+    .brand .big{
+      font-weight:900;
+      font-size:38px;
+      letter-spacing:1px;
+      text-transform:uppercase;
+      line-height:1;
+    }
+    .brand .small{
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:3px;
+      text-transform:uppercase;
+      color: rgba(75,182,255,.95);
+      opacity:.95;
+    }
+
+    .heroRight{
+      text-align:right;
+      max-width:50%;
+      min-width:0;
+    }
+    .heroRight .title{
+      font-weight:900;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      font-size:18px;
+    }
+    .heroRight .sub{
+      margin-top:4px;
+      color: var(--muted);
+      font-size:13px;
+      line-height:1.2;
+    }
+
+    
+    .controls{
+      padding:10px 18px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+
+    
+    .tabs{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .tab{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.70);
+      border-radius:999px;
+      padding:10px 14px;
+      cursor:pointer;
+      transition: transform var(--t), background var(--t), border var(--t), color var(--t);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+      font-size:13px;
+      font-weight:700;
+    }
+    .tab i{ color: rgba(255,255,255,.55); }
+    .tab:hover{
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,.18);
+      background: rgba(0,0,0,.26);
+      color: rgba(255,255,255,.86);
+    }
+    .tab.active{
+      border-color: rgba(75,182,255,.55);
+      background: rgba(75,182,255,.14);
+      color: rgba(255,255,255,.92);
+    }
+    .tab.active i{ color: rgba(75,182,255,.95); }
+
+    .rightControls{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      min-width:0;
+    }
+
+    .search{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 12px;
+      height:40px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      transition: border var(--t), background var(--t), transform var(--t);
+      min-width:min(420px, 48vw);
+      max-width:620px;
+    }
+    .search i{ color: rgba(255,255,255,.55); }
+    .search input{
+      width:100%;
+      background:transparent;
+      border:0;
+      outline:none;
+      color: rgba(255,255,255,.90);
+      padding:10px 0;
+      min-width:0;
+    }
+    .search:focus-within{
+      transform: translateY(-1px);
+      border-color: rgba(75,182,255,.55);
+      background: rgba(0,0,0,.24);
+    }
+
+    .pill{
+      height:40px;
+      display:flex;
+      align-items:center;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.78);
+      font-size:13px;
+      max-width:280px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .select{
+      height:40px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.82);
+      outline:none;
+      padding:0 14px;
+      cursor:pointer;
+      transition: transform var(--t), border var(--t), background var(--t);
+    }
+    .select:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.18); background: rgba(0,0,0,.24); }
+    .select:focus{ border-color: rgba(75,182,255,.55); }
+
+    
+    .content{
+      flex:1;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .main{
+      flex:1;
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .mainHead{ display:none; } 
+    .mainTitle, .mainSubtitle{ display:none; }
+
+    .grid{
+      flex:1;
+      min-height:0;
+      overflow:auto;
+      padding:14px 18px 0;
+      overscroll-behavior: contain;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:14px;
+      padding-bottom:16px;
+    }
+
+    @media (max-width: 1200px){
+      .cards{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .heroRight{ max-width:60%; }
+      .search{ min-width:min(360px, 60vw); }
+    }
+    @media (max-width: 860px){
+      .cards{ grid-template-columns: 1fr; }
+      .hero{ flex-direction:column; align-items:flex-start; }
+      .heroRight{ text-align:left; max-width:100%; }
+      .rightControls{ justify-content:flex-start; }
+      .search{ min-width:0; width:100%; }
+      .pill{ max-width:100%; }
+    }
+
+    
+    .card{
+      position:relative;
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      overflow:hidden;
+      cursor:pointer;
+      transition: transform var(--t), border var(--t), background var(--t);
+      min-width:0;
+    }
+
+    .card:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.18);
+      background: rgba(0,0,0,.26);
+    }
+    .card.selected{
+      border-color: rgba(75,182,255,.55);
+      background: rgba(75,182,255,.10);
+    }
+
+    
+    .cardPhoto{
+      height:140px;
+      background:
+        radial-gradient(380px 160px at 70% 30%, rgba(75,182,255,.18), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));
+      position:relative;
+    }
+
+    
+    .cardPhoto.hasImg{
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .cardPhoto::after{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, transparent 45%, rgba(0,0,0,.70)),
+        radial-gradient(560px 220px at 20% 0%, rgba(0,0,0,.25), transparent 55%);
+      pointer-events:none;
+    }
+
+    
+    .stamp{
+      position:absolute;
+      left:14px; top:12px;
+      z-index:2;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      text-transform:uppercase;
+      letter-spacing:.8px;
+    }
+    .stamp .s1{ font-weight:900; font-size:16px; }
+    .stamp .s2{
+      font-weight:900;
+      font-size:10px;
+      letter-spacing:4px;
+      color: rgba(75,182,255,.95);
+    }
+
+    
+    .photoIcon{
+      position:absolute;
+      right:14px; top:12px;
+      z-index:2;
+      width:34px; height:34px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      display:grid;
+      place-items:center;
+      color: rgba(255,255,255,.72);
+    }
+
+    .cardBody{
+      padding:12px 14px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .cardTop{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      min-width:0;
+    }
+    .cardTitle{
+      font-weight:900;
+      font-size:16px;
+      line-height:1.1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .cardSub{
+      margin-top:5px;
+      font-size:11px;
+      color: rgba(255,255,255,.62);
+      letter-spacing:.8px;
+      text-transform:uppercase;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .badge{
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.74);
+      padding:8px 10px;
+      font-size:12px;
+      font-weight:800;
+      white-space:nowrap;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .badge.ok{ border-color: rgba(65,209,139,.35); color: rgba(65,209,139,.95); }
+    .badge.warn{ border-color: rgba(246,197,107,.35); color: rgba(246,197,107,.95); }
+    .badge.bad{ border-color: rgba(255,95,99,.35); color: rgba(255,95,99,.95); }
+
+    .meta{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:12px;
+      color: rgba(255,255,255,.70);
+    }
+    .meta span{ color: rgba(255,255,255,.52); }
+    .meta b{ color: rgba(255,255,255,.88); font-weight:800; }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+
+    .btn{
+      height:36px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.86);
+      padding:0 12px;
+      cursor:pointer;
+      transition: transform var(--t), background var(--t), border var(--t), opacity var(--t);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.2px;
+    }
+    .btn i{ color: rgba(255,255,255,.70); }
+    .btn:hover{
+      transform: translateY(-1px);
+      background: rgba(0,0,0,.26);
+      border-color: rgba(255,255,255,.18);
+    }
+    .btn:active{ transform: translateY(0) scale(.99); }
+
+    .btn.primary{
+      border-color: rgba(75,182,255,.45);
+      background: rgba(75,182,255,.14);
+    }
+    .btn.primary i{ color: rgba(75,182,255,.95); }
+
+    .btn.danger{
+      border-color: rgba(255,95,99,.38);
+      background: rgba(255,95,99,.10);
+    }
+    .btn.danger i{ color: rgba(255,95,99,.95); }
+
+    .btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    
+    .footerBar{
+      padding:12px 18px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      border-top:1px solid rgba(255,255,255,.06);
+      background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.16));
+    }
+    .footerHint{
+      color: rgba(255,255,255,.58);
+      font-size:12px;
+    }
+    .closeBtn{
+      height:38px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.86);
+      padding:0 16px;
+      cursor:pointer;
+      font-weight:900;
+      transition: transform var(--t), background var(--t), border var(--t);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .closeBtn:hover{
+      transform: translateY(-1px);
+      background: rgba(0,0,0,.26);
+      border-color: rgba(255,255,255,.18);
+    }
+
+    
+    .toast{
+      position:absolute;
+      left:18px;
+      bottom:76px;
+      z-index:40;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.28);
+      color: rgba(255,255,255,.80);
+      font-size:12px;
+      opacity:0;
+      transform: translateY(8px);
+      transition: opacity var(--t), transform var(--t);
+      pointer-events:none;
+      max-width:min(520px, 70vw);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .toast.show{ opacity:1; transform: translateY(0); }
+
+    
+    .modalWrap{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:60;
+      background: rgba(0,0,0,.22);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+
+      opacity:0;
+      pointer-events:none;
+      transition: opacity var(--t2);
+    }
+    .modalWrap.show{ opacity:1; pointer-events:auto; }
+
+    .modalCard{
+      width: min(1040px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      display:flex;
+      flex-direction:column;
+      border-radius: 22px;
+      border:1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, rgba(18,26,34,.86), rgba(10,16,22,.76));
+      overflow:hidden;
+      min-height:0;
+      transform: translateY(10px) scale(.992);
+      transition: transform var(--t2);
+    }
+    .modalWrap.show .modalCard{ transform: translateY(0) scale(1); }
+
+    .modalHead{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+    }
+    .modalTitle{ font-weight:900; text-transform:uppercase; letter-spacing:.6px; }
+    .modalSub{ margin-top:4px; color: rgba(255,255,255,.62); font-size:12px; }
+    .modalHeadLeft{ display:flex; flex-direction:column; min-width:0; }
+
+    .segTabs{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    .segTab{
+      height:34px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.72);
+      padding:0 12px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      font-weight:800;
+      transition: transform var(--t), background var(--t), border var(--t), color var(--t);
+      user-select:none;
+    }
+    .segTab:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.18); background: rgba(0,0,0,.24); color: rgba(255,255,255,.86); }
+    .segTab.active{ border-color: rgba(75,182,255,.55); background: rgba(75,182,255,.14); color: rgba(255,255,255,.92); }
+    .segTab.active i{ color: rgba(75,182,255,.95); }
+
+    .modalBody{
+      padding:14px;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      flex:1;
+      min-height:0;
+      overscroll-behavior: contain;
+    }
+
+    .glass{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 18px;
+    }
+
+    .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    @media (max-width: 900px){ .row2{ grid-template-columns:1fr; } }
+
+    .box{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 18px;
+      padding:14px;
+    }
+    .boxTitle{ font-weight:900; }
+    .boxHint{ color: rgba(255,255,255,.62); font-size:12px; margin-top:4px; }
+    .boxBody{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+
+    .fieldRow{ display:flex; gap:10px; flex-wrap:wrap; }
+    .fieldRow input,
+    .fieldRow textarea,
+    .fieldRow select{
+      flex:1;
+      min-width:220px;
+      height:40px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.88);
+      padding:0 12px;
+      outline:none;
+      transition: transform var(--t), border var(--t), background var(--t);
+    }
+    .fieldRow textarea{ height:auto; min-height:96px; padding:10px 12px; }
+    .fieldRow input:focus,
+    .fieldRow textarea:focus,
+    .fieldRow select:focus{
+      transform: translateY(-1px);
+      border-color: rgba(75,182,255,.55);
+      background: rgba(0,0,0,.24);
+    }
+
+    
+    .grid::-webkit-scrollbar,
+    .modalBody::-webkit-scrollbar{ width:10px; height:10px; }
+    .grid::-webkit-scrollbar-thumb,
+    .modalBody::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,.14);
+      border-radius:999px;
+      border:2px solid rgba(0,0,0,.18);
+    }
+    .grid::-webkit-scrollbar-track,
+    .modalBody::-webkit-scrollbar-track{ background: transparent; }
+
+
+    .imgGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:12px;
+    }
+    @media (max-width: 900px){ .imgGrid{ grid-template-columns: 1fr; } }
+
+    .imgTile{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      border-radius: 16px;
+      overflow:hidden;
+    }
+    .imgTile .ph{
+      height:140px;
+      background: rgba(0,0,0,.22);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .imgTile .ph img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .imgTile .bd{
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .smallHint{ color: rgba(255,255,255,.62); font-size:12px; }
+
+    @media (prefers-reduced-motion: reduce){
+      *{ transition:none !important; animation:none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" class="hidden">
+    <div class="bg"></div>
+
+    <div class="shell">
+      
+      <div class="chrome">
+        <div class="chromeLeft">
+          <div class="dots" aria-hidden="true">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+        </div>
+
+        <div class="chromeCenter">
+          <div class="urlPill" title="www.dynasty8-realestate.net">www.dynasty8-realestate.net</div>
+        </div>
+
+        <div class="chromeRight">
+          <button class="iconBtn" id="btnRefresh" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button class="iconBtn" id="btnClose" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      
+      <div class="hero">
+        <div class="brand">
+          <div class="big">DYNASTY 8</div>
+          <div class="small">REAL ESTATE</div>
+        </div>
+
+        <div class="heroRight">
+          <div class="title">PROPERTY MANAGEMENT SERVICE</div>
+          <div class="sub">Select a property — buy, rent, or manage access & upgrades.</div>
+        </div>
+      </div>
+
+      
+      <div class="controls">
+        <div class="tabs">
+          <button class="tab active" data-tab="browse"><i class="fa-solid fa-star"></i><span>Featured</span></button>
+          <button class="tab" data-tab="my"><i class="fa-solid fa-house"></i><span>Owned</span></button>
+          <button class="tab" data-tab="rentals"><i class="fa-solid fa-key"></i><span>Rented</span></button>
+          <button class="tab" data-tab="agent" id="tabAgent"><i class="fa-solid fa-id-badge"></i><span>Agent</span></button>
+                  <button class="tab" data-tab="admin" id="tabAdmin"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
+</div>
+
+        <div class="rightControls">
+          <div class="search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="search" type="text" placeholder="Search name / interior..." />
+          </div>
+
+          <div class="pill" id="housePill">No property selected</div>
+
+          <select id="filter" class="select" title="Filter">
+            <option value="all">All</option>
+            <option value="sale">For Sale</option>
+            <option value="rent">For Rent</option>
+          </select>
+        </div>
+      </div>
+
+      
+      <main class="content">
+        <section class="main">
+          <div class="grid">
+            <div class="cards" id="cards"></div>
+          </div>
+
+          <div class="footerBar">
+            <div class="footerHint">Select a property and use actions (Enter / Knock / Lock / Manage).</div>
+            <button class="closeBtn" id="bottomClose">
+              <i class="fa-solid fa-xmark"></i><span>Close</span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  
+  <div class="modalWrap" id="mgrModal">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div class="modalHeadLeft">
+          <div class="modalTitle" id="mgrTitle">Property Manager</div>
+          <div class="modalSub" id="mgrSub">Loading...</div>
+        </div>
+        <div class="modalHeadRight">
+          <button class="btn" id="mgrClose"><i class="fa-solid fa-xmark"></i><span>Close</span></button>
+        </div>
+      </div>
+
+      <div class="segTabs">
+        <button class="segTab active" data-mtab="overview"><i class="fa-solid fa-circle-info"></i><span>Overview</span></button>
+        <button class="segTab" data-mtab="rental"><i class="fa-solid fa-hand-holding-dollar"></i><span>Rental</span></button>
+        <button class="segTab" data-mtab="mailbox"><i class="fa-solid fa-envelope"></i><span>Mailbox</span></button>
+        <button class="segTab" data-mtab="upgrades"><i class="fa-solid fa-arrow-up-right-dots"></i><span>Upgrades</span></button>
+        <button class="segTab" data-mtab="furniture"><i class="fa-solid fa-couch"></i><span>Furniture</span></button>
+        <button class="segTab" data-mtab="images"><i class="fa-solid fa-image"></i><span>Images</span></button>
+
+      </div>
+
+      <div class="modalBody" id="mgrBody"></div>
+    </div>
+  </div>
+
+  <script>
+    
+
+    const APP = document.getElementById('app');
+    const cardsEl = document.getElementById('cards');
+    const toastEl = document.getElementById('toast');
+    const housePill = document.getElementById('housePill');
+    const btnClose = document.getElementById('btnClose');
+    const btnRefresh = document.getElementById('btnRefresh');
+    const bottomClose = document.getElementById('bottomClose');
+    const searchEl = document.getElementById('search');
+    const filterEl = document.getElementById('filter');
+    const tabAgentEl = document.getElementById('tabAgent');
+    const tabAdminEl = document.getElementById('tabAdmin');
+
+    const mgrModal = document.getElementById('mgrModal');
+    const mgrClose = document.getElementById('mgrClose');
+    const mgrTitle = document.getElementById('mgrTitle');
+    const mgrSub = document.getElementById('mgrSub');
+    const mgrBody = document.getElementById('mgrBody');
+
+    const state = {
+      open: false,
+      payload: null,
+      tab: 'browse',
+      search: '',
+      filter: 'all',
+      selectedHouseId: null,
+      manager: { open: false, houseId: null, tab: 'overview', extras: null }
+    };
+
+    function setToast(text) {
+      toastEl.textContent = text || '';
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+    async function nuiAction(action, data = {}) {
+      try {
+        const res = await fetch(`https://${(window.__azFrameworkResource || GetParentResourceName())}/nuiAction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+          body: JSON.stringify({ action, data })
+        });
+
+        const json = await res.json().catch(() => null);
+        return json || { ok: false, error: 'bad_json' };
+      } catch (e) {
+        return { ok: false, error: 'fetch_failed', message: String(e) };
+      }
+    }
+
+
+    function money(n) {
+      n = Number(n || 0);
+      return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    }
+
+    function getHouse(houseId) {
+      const hid = Number(houseId);
+      return (state.payload?.houses || []).find(h => Number(h.id) === hid);
+    }
+
+    function accessFor(houseId) {
+      const hid = Number(houseId);
+      const p = state.payload;
+      if (!p) return { can:false, owned:false, key:false, tenant:false };
+
+      const owned = !!(p.owned && (p.owned[hid] || p.owned[String(hid)]));
+      const key   = !!(p.keys  && (p.keys[hid]  || p.keys[String(hid)]));
+      const tenant= !!(p.myRentals && (p.myRentals[hid] || p.myRentals[String(hid)]));
+      const can = owned || key || tenant;
+      return { can, owned, key, tenant };
+    }
+
+    function normalizePayload(p) {
+      if (!p) return p;
+      if (p.houses && !Array.isArray(p.houses) && typeof p.houses === 'object') p.houses = Object.values(p.houses);
+      if (p.doors && !Array.isArray(p.doors) && typeof p.doors === 'object') p.doors = Object.values(p.doors);
+      if (p.garages && !Array.isArray(p.garages) && typeof p.garages === 'object') p.garages = Object.values(p.garages);
+      if (p.rentals && !Array.isArray(p.rentals) && typeof p.rentals === 'object') p.rentals = Object.values(p.rentals);
+
+      p.owned = p.owned || {};
+      p.keys = p.keys || {};
+      p.myRentals = p.myRentals || {};
+      p.rentalsByHouse = p.rentalsByHouse || {};
+
+      if (Array.isArray(p.rentals)) {
+        const curKeys = p.rentalsByHouse && typeof p.rentalsByHouse === 'object' ? Object.keys(p.rentalsByHouse) : [];
+        if (!curKeys.length) {
+          p.rentalsByHouse = {};
+          for (const r of p.rentals) {
+            const hid = Number(r.house_id || r.houseId);
+            if (!Number.isNaN(hid)) p.rentalsByHouse[hid] = r;
+          }
+        }
+      }
+
+      const isBlankIdent = (v) => {
+        if (v === null || v === undefined) return true;
+        const s = String(v).trim().toLowerCase();
+        return s === '' || s === '0' || s === 'null' || s === 'none' || s === 'false' || s === 'nil' || s === 'n/a' || s === 'na' || s === 'undefined';
+      };
+
+      const toBool = (v) => {
+        if (v === true) return true;
+        if (v === false) return false;
+        const n = Number(v);
+        if (!Number.isNaN(n)) return n === 1;
+        const s = String(v || '').trim().toLowerCase();
+        return s === 'true' || s === 'yes' || s === 'y' || s === 'on';
+      };
+
+      const rentIsListed = (rentRow) => {
+        if (!rentRow) return false;
+        if (Object.prototype.hasOwnProperty.call(rentRow, 'is_listed')) return toBool(rentRow.is_listed);
+        const st = String(rentRow.status || '').trim().toLowerCase();
+        if (['listed','available','open','active'].includes(st)) return true;
+        const tenant = rentRow.tenant_identifier ?? rentRow.tenantIdentifier ?? rentRow.tenant;
+        const hasTenant = !isBlankIdent(tenant);
+        return !hasTenant && Number(rentRow.rent_per_week || rentRow.rentPerWeek || 0) > 0;
+      };
+
+      (p.houses || []).forEach(h => {
+        const hid = Number(h.id);
+        const rent = p.rentalsByHouse ? p.rentalsByHouse[hid] : null;
+
+        const tenantIdent = rent ? (rent.tenant_identifier ?? rent.tenantIdentifier ?? rent.tenant) : null;
+        const hasTenant = !!(rent && !isBlankIdent(tenantIdent));
+
+        const dbForRent = toBool(h.for_rent);
+        const dbForSale = toBool(h.for_sale);
+
+        const isListed = rentIsListed(rent);
+        h.is_rented = hasTenant;
+        h.for_rent = (dbForRent || isListed) && !hasTenant;
+
+        const unowned = isBlankIdent(h.owner_identifier);
+        h.for_sale = !h.is_rented && !h.for_rent && (dbForSale || unowned);
+
+        if (rent) {
+          h.rent_per_week = Number(rent.rent_per_week || rent.rentPerWeek || 0);
+          h.deposit = Number(rent.deposit || 0);
+        }
+      });
+
+      return p;
+    }
+
+    function setSelected(houseId) {
+      state.selectedHouseId = houseId ? Number(houseId) : null;
+      if (state.selectedHouseId) {
+        const h = getHouse(state.selectedHouseId);
+        housePill.textContent = h ? `Selected: ${h.name}` : `Selected: #${state.selectedHouseId}`;
+      } else {
+        housePill.textContent = 'No property selected';
+      }
+      renderCards();
+    }
+
+    function setTab(tab) {
+      state.tab = tab;
+      document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+      renderCards();
+    }
+
+    function applyFilter(list) {
+      const q = (state.search || '').trim().toLowerCase();
+      const f = state.filter;
+      return list.filter(h => {
+        const hay = `${h.name || ''} ${h.interior || ''}`.toLowerCase();
+        const nameOk = !q || hay.includes(q);
+        if (!nameOk) return false;
+        if (f === 'sale') return !!h.for_sale;
+        if (f === 'rent') return !!h.for_rent;
+        return true;
+      });
+    }
+
+    function badgeForListing(h) {
+      if (h.is_rented) return `<span class="badge"><i class="fa-solid fa-user"></i>Rented</span>`;
+      if (h.for_rent) return `<span class="badge warn"><i class="fa-solid fa-key"></i>For Rent</span>`;
+      if (h.for_sale) return `<span class="badge ok"><i class="fa-solid fa-tag"></i>For Sale</span>`;
+      return `<span class="badge"><i class="fa-regular fa-circle"></i>Private</span>`;
+    }
+
+    function lockBadge(h) {
+      if (h.locked) return `<span class="badge warn"><i class="fa-solid fa-lock"></i>Locked</span>`;
+      return `<span class="badge ok"><i class="fa-solid fa-lock-open"></i>Open</span>`;
+    }
+
+    function parseImageData(raw) {
+      if (!raw) return null;
+      if (typeof raw === 'object') return raw;
+      try { return JSON.parse(String(raw)); } catch { return null; }
+    }
+
+    function getPrimaryImageUrl(h) {
+      if (!h) return null;
+
+      // 1) Fast path: DB cached URL column
+      const direct = h.image_url ?? h.imageUrl ?? null;
+      if (direct && String(direct).trim()) return String(direct).trim();
+
+      // 2) Fallback: parse image_data JSON
+      const data = parseImageData(h.image_data ?? h.imageData);
+      if (!data) return null;
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      const primaryId = data.primaryId ?? data.primaryImageId ?? null;
+
+      let primary = null;
+      if (primaryId !== null) {
+        primary = items.find(it => Number(it.id) === Number(primaryId)) || null;
+      }
+      if (!primary && items.length) primary = items[0];
+      if (!primary) return null;
+
+      const url = primary.url ?? primary.image_url ?? primary.imageUrl ?? null;
+      if (url && String(url).trim()) return String(url).trim();
+
+      // Data-uri fallback (only if stored)
+      if (primary.data && primary.mime) {
+        return `data:${primary.mime};base64,${primary.data}`;
+      }
+      return null;
+    }
+
+    function renderCards() {
+      const p = state.payload;
+      if (!p) return;
+
+      let list = [...(p.houses || [])];
+
+      // Tabs:
+      // - Featured: properties you *don't* already have access to (owner/key/tenant)
+      
+      
+      
+      
+      if (state.tab === 'browse') {
+        list = list.filter(h => !accessFor(h.id).can); 
+      } else if (state.tab === 'my') {
+        list = list.filter(h => accessFor(h.id).owned);
+      } else if (state.tab === 'rentals') {
+        list = list.filter(h => accessFor(h.id).tenant);
+      } else if (state.tab === 'admin') {
+        
+      } else if (state.tab === 'agent') {
+        list = []; 
+      }
+
+      list = applyFilter(list);
+
+      cardsEl.innerHTML = '';
+
+      for (const h of list) {
+        const selected = Number(h.id) === Number(state.selectedHouseId);
+        const acc = accessFor(h.id);
+        const rental = p.rentalsByHouse && p.rentalsByHouse[Number(h.id)] ? p.rentalsByHouse[Number(h.id)] : null;
+
+        const status = badgeForListing(h);
+        const lock = lockBadge(h);
+
+        const priceLine = h.for_rent
+          ? `<b>$${money(h.rent_per_week)}</b> <span>/ wk</span>`
+          : (h.for_sale ? `<b>$${money(h.price)}</b>` : `<span>—</span>`);
+
+        const canBuy = !!h.for_sale && !acc.can;
+        const canApply = !!h.for_rent && !acc.can;
+
+        const canManage = acc.can || !!p.isAdmin;
+        const manageBtn = canManage
+          ? `<button class="btn" data-act="manage"><i class="fa-solid fa-gear"></i><span>Manage</span></button>`
+          : '';
+
+        const buyBtn = (state.tab === 'browse' && canBuy)
+          ? `<button class="btn primary" data-act="buy"><i class="fa-solid fa-cart-shopping"></i><span>Buy</span></button>`
+          : '';
+
+        const applyBtn = (state.tab === 'browse' && canApply)
+          ? `<button class="btn primary" data-act="apply"><i class="fa-solid fa-file-signature"></i><span>Apply</span></button>`
+          : '';
+
+        const el = document.createElement('div');
+        el.className = `card ${selected ? 'selected' : ''}`;
+        el.addEventListener('click', () => setSelected(h.id));
+
+        const cover = getPrimaryImageUrl(h);
+        const photoClass = cover ? 'cardPhoto hasImg' : 'cardPhoto';
+        const photoStyle = cover ? `style="background-image:url('${escapeHtml(cover)}')"` : '';
+
+        el.innerHTML = `
+          <div class="${photoClass}" ${photoStyle}>
+            <div class="stamp">
+              <div class="s1">DYNASTY 8</div>
+              <div class="s2">REAL ESTATE</div>
+            </div>
+            <div class="photoIcon" title="Property">
+              <i class="fa-solid fa-house"></i>
+            </div>
+          </div>
+
+          <div class="cardBody">
+            <div class="cardTop">
+              <div style="min-width:0">
+                <div class="cardTitle">${escapeHtml(h.name || `House #${h.id}`)}</div>
+                <div class="cardSub">${escapeHtml(h.interior || 'INTERIOR')} • ID ${h.id}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+                ${status}
+                ${lock}
+              </div>
+            </div>
+
+            <div class="meta">
+              <div><span>${h.for_rent ? 'Rent' : (h.for_sale ? 'Price' : 'Price')}</span> ${priceLine}</div>
+              <div><span>Tenant</span> <b>${rental ? escapeHtml(rental.tenant_name || rental.tenant_identifier || 'Yes') : '—'}</b></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" data-act="enter"><i class="fa-solid fa-door-open"></i><span>Enter</span></button>
+              <button class="btn" data-act="knock"><i class="fa-solid fa-hand"></i><span>Knock</span></button>
+              <button class="btn" data-act="lock"><i class="fa-solid fa-lock"></i><span>Lock</span></button>
+              ${buyBtn}
+              ${applyBtn}
+              ${manageBtn}
+            </div>
+          </div>
+        `;
+
+        el.querySelectorAll('button[data-act]').forEach(btn => {
+          btn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            setSelected(h.id);
+            const act = btn.dataset.act;
+
+            if (act === 'enter') {
+              await nuiAction('enter', { houseId: h.id });
+            } else if (act === 'knock') {
+              await nuiAction('knock', { houseId: h.id });
+              setToast('Knocked.');
+            } else if (act === 'lock') {
+              await nuiAction('toggleLock', { houseId: h.id });
+              await refresh();
+            } else if (act === 'manage') {
+              openManager(h.id, 'overview');
+            } else if (act === 'buy') {
+              await nuiAction('buy', { houseId: h.id });
+              await refresh();
+            } else if (act === 'apply') {
+              const msg = prompt('Optional message to landlord/agent (why you want to rent):', '') || '';
+              await nuiAction('applyRent', { houseId: h.id, message: msg });
+              setToast('Application submitted.');
+            }
+          });
+        });
+
+        cardsEl.appendChild(el);
+      }
+
+      if (!list.length) {
+        cardsEl.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">No properties to show.</div>`;
+      }
+    }
+
+    async function refresh() {
+      const p = await nuiAction('refresh', {});
+      if (p && p.ok) {
+        state.payload = normalizePayload(p);
+
+        tabAgentEl.style.display = (p.isAgent || p.isAdmin || p.isAgentRole) ? '' : 'none';
+        tabAdminEl.style.display = (p.isAdmin) ? '' : 'none';
+
+        if (state.tab === 'admin' && !p.isAdmin) state.tab = 'browse';
+
+        if (!state.selectedHouseId) state.selectedHouseId = p.houseFocus || null;
+        setSelected(state.selectedHouseId);
+
+        if (state.manager.open && state.manager.houseId) {
+          await loadManagerExtras(state.manager.houseId);
+        }
+      }
+      renderCards();
+    }
+
+    function showModal(show) {
+      mgrModal.classList.toggle('show', !!show);
+      state.manager.open = !!show;
+    }
+
+    function setManagerTab(tab) {
+      state.manager.tab = tab;
+      mgrModal.querySelectorAll('.segTab').forEach(b => b.classList.toggle('active', b.dataset.mtab === tab));
+      renderManager();
+    }
+
+    async function loadManagerExtras(houseId) {
+      const res = await nuiAction('loadHouseExtras', { houseId });
+      state.manager.extras = res || null;
+    }
+
+    async function openManager(houseId, tab = 'overview') {
+      const h = getHouse(houseId);
+      state.manager.houseId = Number(houseId);
+      state.manager.tab = tab;
+      state.manager.extras = null;
+
+      mgrTitle.textContent = h ? (h.name || `House #${houseId}`) : `House #${houseId}`;
+      mgrSub.textContent = h ? `ID #${h.id} • Interior: ${h.interior || 'n/a'}` : 'Loading...';
+      mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Loading...</div>`;
+
+      showModal(true);
+      setManagerTab(tab);
+      await loadManagerExtras(houseId);
+      renderManager();
+    }
+
+    function renderManager() {
+      const houseId = state.manager.houseId;
+      const h = getHouse(houseId);
+      const p = state.payload;
+      const extras = state.manager.extras;
+      const acc = accessFor(houseId);
+
+      if (!h) {
+        mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Invalid house.</div>`;
+        return;
+      }
+
+      if (!extras) {
+        mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Loading...</div>`;
+        return;
+      }
+
+      const mtab = state.manager.tab;
+      const rmap = state.payload?.rentalsByHouse || {};
+      const rental = rmap[houseId] || null;
+      const tenant = rental && rental.tenant_identifier ? String(rental.tenant_identifier) : '';
+      const canOwnerManage = !!(acc.owned || p.isAdmin);
+
+      if (mtab === 'overview') {
+        mgrBody.innerHTML = `
+          <div class="row2">
+            <div class="box">
+              <div class="boxTitle">Access</div>
+              <div class="boxHint">What you can do here</div>
+              <div class="boxBody">
+                <div style="color:rgba(255,255,255,.72)"><b>Owner:</b> ${acc.owned ? 'Yes' : 'No'}</div>
+                <div style="color:rgba(255,255,255,.72)"><b>Key:</b> ${acc.key ? 'Yes' : 'No'}</div>
+                <div style="color:rgba(255,255,255,.72)"><b>Tenant:</b> ${acc.tenant ? 'Yes' : 'No'}</div>
+              </div>
+            </div>
+
+            <div class="box">
+              <div class="boxTitle">Actions</div>
+              <div class="boxHint">Door actions</div>
+              <div class="boxBody">
+                <button class="btn primary" id="mgrEnter"><i class="fa-solid fa-door-open"></i><span>Enter</span></button>
+                <button class="btn" id="mgrLock"><i class="fa-solid fa-lock"></i><span>Toggle Lock</span></button>
+                <button class="btn" id="mgrKnock"><i class="fa-solid fa-hand"></i><span>Knock</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="box">
+            <div class="boxTitle">Rental</div>
+            <div class="boxHint">Owner/admin can list for rent</div>
+            <div class="boxBody">
+              <div style="color:rgba(255,255,255,.72)"><b>Status:</b> ${tenant ? 'Rented' : (rental && (rental.is_listed === 1 || rental.is_listed === true) ? 'Listed' : 'Not listed')}</div>
+              <div style="color:rgba(255,255,255,.72)"><b>Rent / week:</b> ${rental ? ('$' + money(rental.rent_per_week || 0)) : '—'}</div>
+              <div style="color:rgba(255,255,255,.72)"><b>Deposit:</b> ${rental ? ('$' + money(rental.deposit || 0)) : '—'}</div>
+              ${tenant ? `<div style="color:rgba(255,255,255,.62)">Tenant identifier: <b>${escapeHtml(tenant)}</b></div>` : ''}
+              <button class="btn ${canOwnerManage ? 'primary' : ''}" id="mgrRentalBtn" ${canOwnerManage ? '' : 'disabled'}>
+                <i class="fa-solid fa-hand-holding-dollar"></i><span>${canOwnerManage ? 'Open Rental Tools' : 'Owner Only'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="box">
+            <div class="boxTitle">Sell / Transfer</div>
+            <div class="boxHint">Transfer ownership to another online player</div>
+            <div class="boxBody">
+              <div class="fieldRow">
+                <input id="sellTarget" type="number" min="1" step="1" placeholder="Target Player ID (server id)" />
+              </div>
+              <div class="fieldRow">
+                <input id="sellPrice" type="number" min="0" step="1" value="${Number(h.price || 0)}" placeholder="Sale price" />
+              </div>
+              <button class="btn danger" id="sellBtn" ${canOwnerManage ? '' : 'disabled'}>
+                <i class="fa-solid fa-right-left"></i><span>${canOwnerManage ? 'Sell to Player' : 'Owner Only'}</span>
+              </button>
+              <div style="color:rgba(255,255,255,.62)">Buyer must be online. Active rentals may block sale.</div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('mgrEnter').onclick = async () => { await nuiAction('enter', { houseId }); };
+        document.getElementById('mgrLock').onclick  = async () => { await nuiAction('toggleLock', { houseId }); await refresh(); };
+        document.getElementById('mgrKnock').onclick = async () => { await nuiAction('knock', { houseId }); setToast('Knocked.'); };
+
+        const rb = document.getElementById('mgrRentalBtn');
+        if (rb) rb.onclick = () => setManagerTab('rental');
+
+        const sb = document.getElementById('sellBtn');
+        if (sb) sb.onclick = async () => {
+          const targetSrc = Number(document.getElementById('sellTarget').value || 0);
+          const price = Number(document.getElementById('sellPrice').value || 0);
+          if (!targetSrc) { setToast('Enter a target player ID.'); return; }
+          await nuiAction('sellToPlayer', { houseId, targetSrc, price });
+          await refresh();
+          setToast('Sale complete.');
+          showModal(false);
+        };
+
+        return;
+      }
+
+      if (mtab === 'rental') {
+        if (!canOwnerManage) {
+          mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Only the owner (or an admin) can manage rentals.</div>`;
+          return;
+        }
+
+        const listed = rental && (rental.is_listed === 1 || rental.is_listed === true);
+        const defaults = state.payload?.uiConfig?.rentalDefaults || { rentPerWeek: 0, deposit: 0 };
+        const curRent = rental ? (rental.rent_per_week || 0) : (defaults.rentPerWeek || 0);
+        const curDep  = rental ? (rental.deposit || 0) : (defaults.deposit || 0);
+
+        const disableList = !!tenant;
+        const disableUnlist = !!tenant;
+
+        mgrBody.innerHTML = `
+          <div class="row2">
+            <div class="box">
+              <div class="boxTitle">Rental Listing</div>
+              <div class="boxHint">Set weekly rent + deposit, then list it</div>
+              <div class="boxBody">
+                <div style="color:rgba(255,255,255,.72)"><b>Status:</b> ${tenant ? 'Rented' : (listed ? 'Listed' : 'Not listed')}</div>
+                ${tenant ? `<div style="color:rgba(255,255,255,.62)">Tenant identifier: <b>${escapeHtml(tenant)}</b></div>` : ''}
+
+                <div class="fieldRow">
+                  <input id="rentPerWeek" type="number" min="0" step="1" value="${Number(curRent) || 0}" placeholder="Weekly rent" />
+                </div>
+                <div class="fieldRow">
+                  <input id="rentDeposit" type="number" min="0" step="1" value="${Number(curDep) || 0}" placeholder="Deposit" />
+                </div>
+
+                <div class="row2" style="margin-top:10px">
+                  <button class="btn primary" id="rentList" ${disableList ? 'disabled' : ''}>
+                    <i class="fa-solid fa-list"></i><span>${listed ? 'Update Listing' : 'List For Rent'}</span>
+                  </button>
+                  <button class="btn danger" id="rentUnlist" ${(!listed || disableUnlist) ? 'disabled' : ''}>
+                    <i class="fa-solid fa-ban"></i><span>Unlist</span>
+                  </button>
+                </div>
+
+                ${tenant ? `<div style="color:rgba(255,255,255,.62)">Active tenant locks listing changes.</div>` : ''}
+              </div>
+            </div>
+
+            <div class="box">
+              <div class="boxTitle">Direct lease (Owner)</div>
+              <div class="boxHint">Rent directly to an online player</div>
+              <div class="boxBody">
+                <div class="fieldRow">
+                  <input id="leaseTarget" type="number" min="1" step="1" placeholder="Target Player ID (server id)" />
+                </div>
+
+                <div class="row2" style="gap:10px">
+                  <input id="leaseRent" type="number" min="0" step="1" value="${Number(curRent) || 0}" placeholder="Weekly rent" />
+                  <input id="leaseDep" type="number" min="0" step="1" value="${Number(curDep) || 0}" placeholder="Deposit" />
+                </div>
+
+                <button class="btn primary" id="leaseBtn" ${tenant ? 'disabled' : ''}>
+                  <i class="fa-solid fa-user-plus"></i><span>${tenant ? 'End lease first' : 'Create Lease'}</span>
+                </button>
+
+                <div style="color:rgba(255,255,255,.62)">Charge mode: <b>Instant (Rent + Deposit)</b></div>
+                <div style="color:rgba(255,255,255,.62)">Tenant receives an <b>enter</b> key automatically.</div>
+
+                ${tenant ? `
+                  <div style="height:8px"></div>
+                  <button class="btn danger" id="leaseEnd">
+                    <i class="fa-solid fa-user-slash"></i><span>End Lease</span>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+
+        const listBtn = document.getElementById('rentList');
+        const unBtn = document.getElementById('rentUnlist');
+
+        if (listBtn) listBtn.onclick = async () => {
+          const rentPerWeek = Number(document.getElementById('rentPerWeek').value || 0);
+          const deposit = Number(document.getElementById('rentDeposit').value || 0);
+          await nuiAction('listForRent', { houseId, rentPerWeek, deposit });
+          await refresh();
+          setToast('Updated rental listing.');
+        };
+        if (unBtn) unBtn.onclick = async () => {
+          await nuiAction('unlistRent', { houseId });
+          await refresh();
+          setToast('Unlisted.');
+        };
+
+        const leaseBtn = document.getElementById('leaseBtn');
+        if (leaseBtn) leaseBtn.onclick = async () => {
+          const targetSrc = Number(document.getElementById('leaseTarget').value || 0);
+          const rentPerWeek = Number(document.getElementById('leaseRent').value || 0);
+          const deposit = Number(document.getElementById('leaseDep').value || 0);
+          if (!targetSrc) { setToast('Enter a target player ID.'); return; }
+          await nuiAction('rentToPlayer', { houseId, targetSrc, rentPerWeek, deposit });
+          await refresh();
+          setToast('Lease created.');
+        };
+
+        const endBtn = document.getElementById('leaseEnd');
+        if (endBtn) endBtn.onclick = async () => {
+          if (!confirm('End this tenant\'s lease now?')) return;
+          await nuiAction('endLease', { houseId });
+          await refresh();
+          setToast('Lease ended.');
+        };
+
+        return;
+      }
+
+      if (mtab === 'mailbox') {
+        const mb = extras.mailbox;
+        if (!mb || !mb.ok) {
+          mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Mailbox unavailable: ${escapeHtml(mb?.error || 'No access')}</div>`;
+          return;
+        }
+
+        const msgs = mb.messages || [];
+
+        mgrBody.innerHTML = `
+          <div class="row2">
+            <div class="box">
+              <div class="boxTitle">Compose</div>
+              <div class="boxHint">Send a message to this property's mailbox</div>
+              <div class="boxBody">
+                <div class="fieldRow">
+                  <input id="mailSubj" placeholder="Subject" maxlength="64" />
+                </div>
+                <div class="fieldRow">
+                  <textarea id="mailBody" placeholder="Write a message..." maxlength="1200"></textarea>
+                </div>
+                <button class="btn primary" id="mailSend"><i class="fa-solid fa-paper-plane"></i><span>Send</span></button>
+                <div style="color:rgba(255,255,255,.62)">Capacity: <b>${mb.unread}/${mb.capacity}</b> unread/total</div>
+              </div>
+            </div>
+
+            <div class="box">
+              <div class="boxTitle">Inbox</div>
+              <div class="boxHint">Toggle read/unread, or delete</div>
+              <div class="boxBody">
+                <div class="list" id="mailList" style="display:flex;flex-direction:column;gap:10px"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const listEl = document.getElementById('mailList');
+        if (!msgs.length) {
+          listEl.innerHTML = `<div class="glass" style="padding:12px;color:rgba(255,255,255,.70)">No messages.</div>`;
+        } else {
+          listEl.innerHTML = '';
+          msgs.forEach(m => {
+            const read = (m.is_read === 1 || m.is_read === true);
+            const it = document.createElement('div');
+            it.className = 'glass';
+            it.style.padding = '12px';
+            it.innerHTML = `
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div style="min-width:0">
+                  <div style="font-weight:900">${escapeHtml(m.subject || 'Message')}</div>
+                  <div style="margin-top:6px;color:rgba(255,255,255,.62);white-space:pre-wrap">${escapeHtml('From: ' + (m.sender_name || 'Unknown') + '\n' + (m.body || ''))}</div>
+                </div>
+                <span class="badge ${read ? 'ok' : 'warn'}"><i class="fa-solid ${read ? 'fa-eye' : 'fa-eye-slash'}"></i>${read ? 'Read' : 'Unread'}</span>
+              </div>
+              <div class="actions" style="margin-top:10px">
+                <button class="btn" data-act="toggle"><i class="fa-solid fa-eye"></i><span>${read ? 'Mark Unread' : 'Mark Read'}</span></button>
+                <button class="btn danger" data-act="del"><i class="fa-solid fa-trash"></i><span>Delete</span></button>
+              </div>
+            `;
+
+            it.querySelector('[data-act="toggle"]').onclick = async () => {
+              await nuiAction('markMailRead', { houseId, mailId: m.id, isRead: !read });
+              await loadManagerExtras(houseId);
+              renderManager();
+            };
+            it.querySelector('[data-act="del"]').onclick = async () => {
+              await nuiAction('deleteMail', { houseId, mailId: m.id });
+              await loadManagerExtras(houseId);
+              renderManager();
+            };
+
+            listEl.appendChild(it);
+          });
+        }
+
+        document.getElementById('mailSend').onclick = async () => {
+          const subject = document.getElementById('mailSubj').value.trim() || 'Message';
+          const body = document.getElementById('mailBody').value.trim();
+          if (!body) { setToast('Write a message first.'); return; }
+          await nuiAction('sendMail', { houseId, subject, body });
+          document.getElementById('mailBody').value = '';
+          setToast('Sent.');
+          await loadManagerExtras(houseId);
+          renderManager();
+        };
+
+        return;
+      }
+
+      if (mtab === 'upgrades') {
+        const up = extras.upgrades;
+        if (!up || !up.ok) {
+          mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Upgrades unavailable: ${escapeHtml(up?.error || 'No access')}</div>`;
+          return;
+        }
+
+        const canManage = !!up.canManage;
+
+        const upgradeNextInfo = (type) => {
+          const levels = state.payload?.uiConfig?.upgradesLevels?.[type] || [];
+          const u = state.manager.extras?.upgrades?.upgrades || {};
+          const cur = Number(u[`${type}_level`] || 0);
+          const next = cur + 1;
+          if (next > levels.length - 1) return { max: true, cur, next, price: 0, adds: {} };
+          const nextCfg = levels[next] || {};
+          const adds = Object.assign({}, nextCfg);
+          delete adds.price;
+          return { max: false, cur, next, price: Number(nextCfg.price || 0), adds };
+        };
+
+        const types = [
+          { key: 'mailbox', label: 'Mailbox', icon: 'fa-envelope' },
+          { key: 'decor', label: 'Decor', icon: 'fa-couch' },
+          { key: 'storage', label: 'Storage', icon: 'fa-box-archive' },
+        ];
+
+        const boxes = types.map(t => {
+          const info = upgradeNextInfo(t.key);
+          const eff = Object.entries(info.adds)
+            .filter(([k]) => k !== 'price')
+            .map(([k,v]) => `<div style="color:rgba(255,255,255,.70)"><b>${escapeHtml(k)}:</b> ${escapeHtml(String(v))}</div>`)
+            .join('') || `<div style="color:rgba(255,255,255,.62)">No effect data</div>`;
+
+          const btn = (!info.max && canManage)
+            ? `<button class="btn primary" data-up="${t.key}"><i class="fa-solid fa-cart-shopping"></i><span>Buy Next • $${money(info.price)}</span></button>`
+            : `<button class="btn" disabled><i class="fa-solid fa-lock"></i><span>${info.max ? 'Max Level' : 'Owner Only'}</span></button>`;
+
+          return `
+            <div class="box">
+              <div class="boxTitle"><i class="fa-solid ${t.icon}"></i> ${t.label}</div>
+              <div class="boxHint">Current Level: <b>${info.cur}</b></div>
+              <div class="boxBody">
+                ${btn}
+                <div style="color:rgba(255,255,255,.62);margin-top:6px">Next Level Effects</div>
+                ${eff}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        mgrBody.innerHTML = `<div class="row2">${boxes}</div>`;
+
+        mgrBody.querySelectorAll('button[data-up]').forEach(b => {
+          b.onclick = async () => {
+            const type = b.dataset.up;
+            await nuiAction('buyUpgrade', { houseId, upType: type });
+            await loadManagerExtras(houseId);
+            renderManager();
+          };
+        });
+
+        if (!canManage) {
+          mgrBody.insertAdjacentHTML('beforeend', `<div class="glass" style="padding:14px;color:rgba(255,255,255,.72)">Only the owner (or admin) can purchase upgrades.</div>`);
+        }
+
+        return;
+      }
+
+      if (mtab === 'furniture') {
+        const fu = extras.furniture;
+        if (!fu || !fu.ok) {
+          mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Furniture unavailable: ${escapeHtml(fu?.error || 'No access')}</div>`;
+          return;
+        }
+
+        const catalog = state.payload?.uiConfig?.furnitureCatalog || [];
+        const options = catalog.map(x => `<option value="${escapeHtml(x.model)}">${escapeHtml(x.label || x.model)}</option>`).join('');
+        const list = fu.furniture || [];
+
+        mgrBody.innerHTML = `
+          <div class="row2">
+            <div class="box">
+              <div class="boxTitle">Place Furniture</div>
+              <div class="boxHint">Starts in-world placement mode (UI closes)</div>
+              <div class="boxBody">
+                <div class="fieldRow">
+                  <select id="furnSelect" style="height:40px">${options}</select>
+                </div>
+                <div class="fieldRow">
+                  <input id="furnCustom" placeholder="Or type a prop model (optional)" />
+                </div>
+                <button class="btn primary" id="furnPlace"><i class="fa-solid fa-plus"></i><span>Start Placement</span></button>
+                <div style="color:rgba(255,255,255,.62)">Limit: <b>${list.length}/${fu.limit}</b></div>
+              </div>
+            </div>
+
+            <div class="box">
+              <div class="boxTitle">Placed Items</div>
+              <div class="boxHint">Remove items from inside the property</div>
+              <div class="boxBody">
+                <div class="list" id="furnList" style="display:flex;flex-direction:column;gap:10px"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const furnList = document.getElementById('furnList');
+        if (!list.length) {
+          furnList.innerHTML = `<div class="glass" style="padding:12px;color:rgba(255,255,255,.70)">No furniture placed.</div>`;
+        } else {
+          furnList.innerHTML = '';
+          list.forEach(f => {
+            const it = document.createElement('div');
+            it.className = 'glass';
+            it.style.padding = '12px';
+            it.innerHTML = `
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div>
+                  <div style="font-weight:900">${escapeHtml(f.model || 'prop')}</div>
+                  <div style="margin-top:6px;color:rgba(255,255,255,.62)">${Number(f.x).toFixed(1)}, ${Number(f.y).toFixed(1)}, ${Number(f.z).toFixed(1)}</div>
+                </div>
+                <span class="badge"><i class="fa-solid fa-hashtag"></i>${escapeHtml(f.id)}</span>
+              </div>
+              <div class="actions" style="margin-top:10px">
+                <button class="btn danger" data-act="del"><i class="fa-solid fa-trash"></i><span>Remove</span></button>
+              </div>
+            `;
+            it.querySelector('[data-act="del"]').onclick = async () => {
+              await nuiAction('removeFurniture', { houseId, furnId: f.id });
+              await loadManagerExtras(houseId);
+              renderManager();
+            };
+            furnList.appendChild(it);
+          });
+        }
+
+        document.getElementById('furnPlace').onclick = async () => {
+          const custom = document.getElementById('furnCustom').value.trim();
+          const pick = document.getElementById('furnSelect').value;
+          const model = custom || pick;
+          if (!model) { setToast('Pick a model.'); return; }
+          await nuiAction('startFurnish', { houseId, model });
+          
+        };
+
+        return;
+      }
+
+      if (mtab === 'images') {
+        if (!canOwnerManage) {
+          mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Only the owner (or admin) can manage images.</div>`;
+          return;
+        }
+
+        const imgsObj = extras.images || {};
+        const imgs = Array.isArray(imgsObj.items) ? imgsObj.items : (Array.isArray(extras.images) ? extras.images : []);
+        const primaryId = (extras.primaryImageId ?? imgsObj.primaryImageId ?? null);
+
+
+
+        mgrBody.innerHTML = `
+          <div class="row2">
+            <div class="box">
+              <div class="boxTitle">Upload Image</div>
+              <div class="boxHint">Upload a JPG/PNG (sent to server) or add by URL</div>
+              <div class="boxBody">
+                <div class="fieldRow">
+                  <input id="imgCaption" placeholder="Caption (optional)" maxlength="80" />
+                </div>
+
+                <div class="fieldRow">
+                  <input id="imgUrl" placeholder="Image URL (optional)" />
+                </div>
+
+                <div class="fieldRow">
+                  <input id="imgFile" type="file" accept="image/*" />
+                </div>
+
+                <button class="btn primary" id="imgUploadBtn">
+                  <i class="fa-solid fa-upload"></i><span>Add Image</span>
+                </button>
+
+                <div class="smallHint">
+                  If you pick a file, it will be base64 encoded and sent to Lua → server callback.
+                </div>
+              </div>
+            </div>
+
+            <div class="box">
+              <div class="boxTitle">Gallery</div>
+              <div class="boxHint">${imgs.length} image(s)</div>
+              <div class="boxBody">
+                <div class="imgGrid" id="imgGrid"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        
+        const grid = document.getElementById('imgGrid');
+        if (!imgs.length) {
+          grid.innerHTML = `<div class="glass" style="padding:12px;color:rgba(255,255,255,.70)">No images yet.</div>`;
+        } else {
+          grid.innerHTML = '';
+          imgs.forEach(im => {
+            const id = im.id ?? im.image_id ?? im.imageId;
+
+            const url =
+              im.url ?? im.image_url ?? im.imageUrl ??
+              (im.data && im.mime ? `data:${im.mime};base64,${im.data}` : null);
+
+            const cap = im.title ?? im.caption ?? im.name ?? '';
+
+            const isPrimary = (primaryId !== null && Number(primaryId) === Number(id)) || (im.is_primary === 1 || im.is_primary === true);
+
+            const tile = document.createElement('div');
+            tile.className = 'imgTile';
+            tile.innerHTML = `
+              <div class="ph">
+                ${url ? `<img src="${escapeHtml(url)}" alt="house image" />` : `<div class="smallHint">No URL</div>`}
+              </div>
+              <div class="bd">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                  <div style="min-width:0">
+                    <div style="font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(cap || 'Image')}</div>
+                    <div class="smallHint">ID: ${escapeHtml(String(id ?? 'n/a'))}</div>
+                  </div>
+                  <span class="badge ${isPrimary ? 'ok' : ''}">
+                    <i class="fa-solid fa-star"></i>${isPrimary ? 'Primary' : 'Image'}
+                  </span>
+                </div>
+
+                <div class="actions">
+                  <button class="btn" data-act="setPrimary" ${isPrimary ? 'disabled' : ''}>
+                    <i class="fa-solid fa-star"></i><span>Set Primary</span>
+                  </button>
+                  <button class="btn danger" data-act="del">
+                    <i class="fa-solid fa-trash"></i><span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            `;
+
+            tile.querySelector('[data-act="del"]').onclick = async () => {
+              if (!confirm('Delete this image?')) return;
+              const res = await nuiAction('deleteHouseImage', { houseId, imageId: id });
+              if (!res || res.ok === false) {
+                setToast(`Delete failed: ${res?.error || 'no_response'}`);
+                return;
+              }
+              if (res.queued) {
+                setToast('Deleting...');
+                return;
+              }
+              await loadManagerExtras(houseId);
+              renderManager();
+              setToast('Deleted.');
+            };
+
+            tile.querySelector('[data-act="setPrimary"]').onclick = async () => {
+              
+              
+              const res = await nuiAction('addHouseImage', { houseId, payload: { setPrimaryId: id } });
+              if (!res || res.ok === false) {
+                setToast(`Update failed: ${res?.error || 'no_response'}`);
+                return;
+              }
+              if (res.queued) {
+                setToast('Updating primary...');
+                return;
+              }
+              await loadManagerExtras(houseId);
+              renderManager();
+              setToast('Primary updated.');
+            };
+
+            grid.appendChild(tile);
+          });
+        }
+
+        async function fileToDataUrl(file) {
+          return await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result || ''));
+            r.onerror = reject;
+            r.readAsDataURL(file);
+          });
+        }
+
+        document.getElementById('imgUploadBtn').onclick = async () => {
+          const caption = document.getElementById('imgCaption').value.trim();
+          const url = document.getElementById('imgUrl').value.trim();
+          const file = document.getElementById('imgFile').files?.[0] || null;
+
+          if (!url && !file) { setToast('Provide a URL or select a file.'); return; }
+
+          const payload = {
+            title: caption,     
+            caption: caption    
+          };
+
+          if (url) {
+            payload.url = url;
+          } else {
+            const dataUrl = await fileToDataUrl(file);
+
+            
+            const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+            if (!m) { setToast('Invalid image data.'); return; }
+
+            payload.dataUrl = dataUrl; 
+            payload.mime = m[1];
+            payload.data = m[2];       
+            payload.filename = file.name || 'upload.png';
+          }
+
+          const res = await nuiAction('addHouseImage', { houseId, payload });
+
+          if (!res || res.ok === false) {
+            setToast(`Upload failed: ${res?.error || 'no_response'}`);
+            return;
+          }
+
+          
+          if (res.queued) {
+            setToast('Uploading...');
+            return;
+          }
+
+          await loadManagerExtras(houseId);
+          renderManager();
+          setToast('Added.');
+        };
+
+        return;
+      }
+
+
+      
+      mgrBody.innerHTML = `<div class="glass" style="padding:16px;color:rgba(255,255,255,.72)">Not implemented.</div>`;
+    }
+
+    function isEditableTarget(el) {
+      if (!el) return false;
+      const tag = String(el.tagName || "").toUpperCase();
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable === true;
+    }
+
+    
+    btnClose.onclick = () => nuiAction('close', {});
+    bottomClose.onclick = () => nuiAction('close', {});
+    btnRefresh.onclick = () => refresh();
+
+    mgrClose.onclick = () => showModal(false);
+
+    window.addEventListener('keydown', (e) => {
+      if (isEditableTarget(e.target)) return;
+      if (e.key === 'Escape') {
+        if (state.manager.open) showModal(false);
+        else nuiAction('close', {});
+      }
+    });
+
+    
+    mgrModal.querySelectorAll('.segTab').forEach(b => {
+      b.onclick = () => setManagerTab(b.dataset.mtab);
+    });
+
+    
+    document.querySelectorAll('.tab').forEach(el => {
+      el.addEventListener('click', () => setTab(el.dataset.tab));
+    });
+
+    searchEl.addEventListener('input', () => {
+      state.search = searchEl.value;
+      renderCards();
+    });
+    filterEl.addEventListener('change', () => {
+      state.filter = filterEl.value;
+      renderCards();
+    });
+
+    
+    window.addEventListener('message', async (event) => {
+      const msg = event.data || {};
+
+      if (msg.type === 'azfw_set_resource' && msg.resource) { window.__azFrameworkResource = msg.resource; return; }
+      if (msg.type === 'open' || msg.type === 'azhousing_open') {
+        APP.classList.remove('hidden');
+        APP.classList.add('open');
+
+        state.open = true;
+        state.payload = normalizePayload(msg.payload);
+
+        tabAgentEl.style.display = (state.payload.isAgent || state.payload.isAdmin || state.payload.isAgentRole) ? '' : 'none';
+        tabAdminEl.style.display = (state.payload.isAdmin) ? '' : 'none';
+
+        state.tab = 'browse';
+        state.search = '';
+        state.filter = 'all';
+        searchEl.value = '';
+        filterEl.value = 'all';
+
+        const focus = state.payload.houseFocus || null;
+        setSelected(focus);
+        setTab('browse');
+
+        const dtab = state.payload.defaultTab;
+        if (dtab && focus) openManager(focus, dtab);
+
+        return;
+      }
+
+      if (msg.type === 'close' || msg.type === 'azhousing_close') {
+        APP.classList.remove('open');
+        APP.classList.add('hidden');
+        state.open = false;
+        state.payload = null;
+        showModal(false);
+        return;
+      }
+
+      if (msg.type === 'update' || msg.type === 'azhousing_update') {
+        state.payload = normalizePayload(msg.payload);
+        tabAgentEl.style.display = (state.payload.isAgent || state.payload.isAdmin || state.payload.isAgentRole) ? '' : 'none';
+        tabAdminEl.style.display = (state.payload.isAdmin) ? '' : 'none';
+        renderCards();
+        return;
+      }
+
+      if (msg.type === 'mailChanged') {
+        if (state.manager.open && state.manager.houseId && Number(state.manager.houseId) === Number(msg.houseId)) {
+          await loadManagerExtras(state.manager.houseId);
+          if (state.manager.tab === 'mailbox') renderManager();
+        }
+        return;
+      }
+
+      if (msg.type === 'upgradesChanged') {
+        if (state.manager.open && state.manager.houseId && Number(state.manager.houseId) === Number(msg.houseId)) {
+          await loadManagerExtras(state.manager.houseId);
+          if (state.manager.tab === 'upgrades' || state.manager.tab === 'overview') renderManager();
+        }
+        return;
+      }
+
+      if (msg.type === 'imagesChanged') {
+        
+        if (state.manager.open && state.manager.houseId && Number(state.manager.houseId) === Number(msg.houseId)) {
+          await loadManagerExtras(state.manager.houseId);
+          if (state.manager.tab === 'images') renderManager();
+        }
+        
+        await refresh();
+        return;
+      }
+    });
+
+    
+    showModal(false);
+  </script>
+</body>
+</html>
+

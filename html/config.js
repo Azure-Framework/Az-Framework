@@ -1,10 +1,8 @@
-// html/config.js
 console.log('[HUD][config.js] loaded');
 
 window.hudConfig = {
-  // Kentucky diner / robbery poster palette
-  accentColor:   '#ff5c1f',                         // diner neon orange
-  accent2:       '#ffb21f',                         // warm roleplay gold
+  accentColor:   '#3970e6',                         // Azure blue
+  accent2:       '#5bc0ff',                         // bright Azure blue
   textPrimary:   '#f5efe6',                         // warm off-white
   textSecondary: '#b8b0a5',                         // dusty muted tan/gray
 
