@@ -37,7 +37,7 @@ Start inventory, targeting, vMenu, MDT, phone, jobs, and other gameplay resource
 
 ## Compatibility Bridges
 
-KSRP-Core bridge resources are published as Az-Framework bridge repos for servers that still run QBCore, qb-inventory, qb-target, ESX, or ND-style resources.
+Az-Framework bridge resources are published as standalone bridge repos for servers that still run QBCore, qb-inventory, qb-target, ESX, or ND-style resources.
 
 ```cfg
 ensure Az-Framework

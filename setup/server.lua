@@ -128,18 +128,29 @@ end
 local function appearanceCheck(checks)
   local state = GetResourceState("fivem-appearance")
   if state ~= "started" then
-    addCheck(checks, "fivem-appearance", "fivem-appearance", "error", state, true)
+    addCheck(checks, "fivem-appearance", "fivem-appearance", "warn", state, false)
     return
   end
 
   local hasGame = LoadResourceFile("fivem-appearance", "game/dist/index.js")
   local hasUi = LoadResourceFile("fivem-appearance", "web/dist/index.html")
   if not hasGame or not hasUi then
-    addCheck(checks, "fivem-appearance", "fivem-appearance", "error", "started, but release build files are missing", true)
+    addCheck(checks, "fivem-appearance", "fivem-appearance", "warn", "started, but release build files are missing", false)
     return
   end
 
-  addCheck(checks, "fivem-appearance", "fivem-appearance", "ok", "started with release build files", true)
+  addCheck(checks, "fivem-appearance", "fivem-appearance", "ok", "started with release build files", false)
+end
+
+local function convarCheck(checks, id, label, convarName, required)
+  local value = GetConvar(convarName, "")
+  local configured = value ~= nil and value ~= ""
+  addCheck(checks, id, label, configured and "ok" or (required and "error" or "warn"), configured and "configured" or "not configured", required)
+end
+
+local function permissionCheck(checks, src)
+  local setupOk = src == 0 or IsPlayerAceAllowed(src, "azframework.setup") or IsPlayerAceAllowed(src, "azadmin.use") or IsPlayerAceAllowed(src, "command.framework")
+  addCheck(checks, "admin_roles", "Admin roles", setupOk and "ok" or "warn", setupOk and "admin/setup permission detected" or "add azframework.setup or azadmin.use to your admin group", false)
 end
 
 local function tableChecks(checks, cb)
@@ -181,6 +192,9 @@ local function buildPayload(src, reason, cb)
     local conn = GetConvar("mysql_connection_string", "")
     addCheck(checks, "mysql_connection_string", "Database connection string", conn ~= "" and "ok" or "error", conn ~= "" and "configured" or "missing", true)
     addCheck(checks, "admin", "Admin permission", isAdmin(src) and "ok" or "warn", isAdmin(src) and "admin detected" or "not an admin", false)
+    permissionCheck(checks, src)
+    convarCheck(checks, "discord_bot_token", "Discord bot token", "DISCORD_BOT_TOKEN", false)
+    convarCheck(checks, "discord_guild_id", "Discord guild ID", "DISCORD_GUILD_ID", false)
 
     tableChecks(checks, function()
       local completeReady = true

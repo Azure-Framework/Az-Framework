@@ -164,6 +164,9 @@ local function applyHudAndMinimap()
   pcall(function() DisplayHud(true) end)
   pcall(function() DisplayRadar(true) end)
   pcall(function() SetRadarBigmapEnabled(false, false) end)
+  pcall(function() SetBigmapActive(false, false) end)
+  pcall(function() SetMinimapClipType(0) end)
+  pcall(function() SetRadarAsExteriorThisFrame() end)
 end
 
 local _hudMinimapRestoreToken = 0
@@ -1675,19 +1678,16 @@ local function beginPreSpawnAppearanceFlow(charid)
     __allowCustomizeNow = false
     __preSpawnCustomizeBusy = false
     __continueToSpawnAfterCustomizeCid = nil
-    setSpawnedInWorld(false, "pre_spawn_appearance_open_failed")
-    setStage(STAGE_BOOT, "pre_spawn_appearance_open_failed")
     if lib and lib.notify then
       lib.notify({
         title = 'Appearance',
-        description = 'Could not open appearance customization for this new character.',
-        type = 'error'
+        description = 'Appearance customization is unavailable. Continuing to spawn.',
+        type = 'inform'
       })
     end
-    SetTimeout(150, function()
-      openAzfwUI(cachedChars)
-    end)
-    return false
+    __pendingNewCharPreSpawnAppearanceCid = nil
+    continueToSpawnSelectorAfterAppearance(charid)
+    return true
   end
 
   return true

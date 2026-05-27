@@ -1,6 +1,6 @@
 # Az-Framework Bridge Guide
 
-Az-Framework bridge resources live in the KSRP-Core folder locally and are published as standalone bridge repositories in the Azure-Framework GitHub organization.
+Az-Framework bridge resources are published as standalone bridge repositories in the Azure-Framework GitHub organization.
 
 Docs: https://madebyazure.com/framework/  
 Discord: https://discord.gg/tBg2U6CTHE

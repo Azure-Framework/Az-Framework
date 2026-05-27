@@ -3,6 +3,24 @@ if Config.Enabled == false then return end
 
 local mutedPlayers = {}
 
+CreateThread(function()
+    if Config.StopStockChat == false then return end
+    Wait(1500)
+    if GetResourceState('chat') == 'started' then
+        ExecuteCommand('stop chat')
+        print('^2[Az-Chat]^7 Stopped stock chat resource so Az-Chat owns the T key and chat UI.')
+    end
+end)
+
+AddEventHandler('onResourceStart', function(resourceName)
+    if Config.StopStockChat == false or resourceName ~= 'chat' then return end
+    SetTimeout(250, function()
+        if GetResourceState('chat') == 'started' then
+            ExecuteCommand('stop chat')
+        end
+    end)
+end)
+
 local function trim(str)
     return (tostring(str or ''):gsub('^%s+', ''):gsub('%s+$', ''))
 end

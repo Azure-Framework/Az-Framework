@@ -35,19 +35,22 @@ local function setRadarVisible(visible)
   pcall(function() DisplayRadar(visible == true) end)
   if visible == true then
     pcall(function() SetRadarBigmapEnabled(false, false) end)
+    pcall(function() SetBigmapActive(false, false) end)
+    pcall(function() SetMinimapClipType(0) end)
+    pcall(function() SetRadarAsExteriorThisFrame() end)
   end
 end
 
 local function startRadarEnforcer()
   if radarEnforceThread then return end
   radarEnforceThread = CreateThread(function()
-    local fastUntil = GetGameTimer() + 8000
+    local fastUntil = GetGameTimer() + 30000
     while gameplayReady do
       setRadarVisible(true)
       if GetGameTimer() < fastUntil then
         Wait(0)
       else
-        Wait(250)
+        Wait(500)
       end
     end
     if not gameplayReady then
@@ -75,6 +78,17 @@ end
 RegisterNetEvent('az-fw:client:setGameplayReady')
 AddEventHandler('az-fw:client:setGameplayReady', function(state, reason)
   setGameplayReady(state == true, reason or 'event')
+end)
+
+CreateThread(function()
+  while true do
+    if gameplayReady then
+      setRadarVisible(true)
+      Wait(1000)
+    else
+      Wait(1250)
+    end
+  end
 end)
 
 _G.AzClientCoreExports = _G.AzClientCoreExports or {}

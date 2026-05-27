@@ -14,6 +14,7 @@ Config.UseProximity = false
 Config.ProximityRange = 24.0
 Config.ShowPlayerIdInAdminDM = true
 Config.WarnIfStockChatRunning = true
+Config.StopStockChat = true
 Config.DisableNativeTextChat = true
 Config.DefaultModeLabel = 'CHAT'
 Config.DefaultVisibilityMode = 'always'

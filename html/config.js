@@ -11,6 +11,6 @@ window.hudConfig = {
   hudRadius: '12px',
   hudShadow: '0 8px 30px rgba(0,0,0,0.78)',
 
-  discordInvite: 'https://discord.gg/QWWWV6Zyaa',
-  serverLogoURL: 'https://impimg.com/images/Stoic-2026-03-24_04-58-46-69c21a0691b9e8.73930861.png'
+  discordInvite: 'https://discord.gg/tBg2U6CTHE',
+  serverLogoURL: './logo.png'
 };

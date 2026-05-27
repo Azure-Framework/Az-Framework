@@ -62,8 +62,8 @@
       hudPadding: '10px 14px',
       hudRadius: '12px',
       hudShadow: '0 8px 30px rgba(30,60,110,0.14)',
-      discordInvite: 'discord.gg/QWWWV6Zyaa',
-      serverLogoURL: ''
+      discordInvite: 'discord.gg/tBg2U6CTHE',
+      serverLogoURL: './logo.png'
     };
 
     function normalizeRaw(val) {
@@ -555,7 +555,11 @@
     .azfw-setup-kicker{ color:#5ec2ff; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
     .azfw-setup-title{ margin:0; font-size:34px; line-height:1.08; letter-spacing:0; }
     .azfw-setup-copy{ margin:12px 0 0; color:#b8d2ec; line-height:1.55; max-width:760px; }
-    .azfw-setup-body{ padding:24px 30px; overflow:auto; flex:1; }
+    .azfw-setup-body{ padding:24px 30px; overflow:auto; flex:1; scrollbar-width:thin; scrollbar-color:rgba(83,199,255,0.82) rgba(5,15,28,0.66); }
+    .azfw-setup-body::-webkit-scrollbar{ width:10px; }
+    .azfw-setup-body::-webkit-scrollbar-track{ background:rgba(5,15,28,0.66); border-left:1px solid rgba(255,255,255,0.06); }
+    .azfw-setup-body::-webkit-scrollbar-thumb{ background:linear-gradient(180deg, rgba(83,199,255,0.96), rgba(35,141,255,0.78)); border-radius:999px; border:2px solid rgba(5,15,28,0.76); }
+    .azfw-setup-body::-webkit-scrollbar-thumb:hover{ background:linear-gradient(180deg, #7ad7ff, #3aa5ff); }
     .azfw-setup-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
     .azfw-setup-check{ min-height:86px; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.09); background:rgba(255,255,255,0.045); }
     .azfw-setup-check.ok{ border-color:rgba(56,211,139,0.34); background:rgba(32,152,94,0.10); }
@@ -602,7 +606,7 @@
       <div class="hud-icon"><i class="bi bi-chat-dots"></i></div>
       <div class="hud-content">
         <div class="hud-label">Discord</div>
-        <div class="hud-value" id="discordDisplay">discord.gg/QWWWV6Zyaa</div>
+        <div class="hud-value" id="discordDisplay">discord.gg/tBg2U6CTHE</div>
       </div>
     </div>
 
@@ -1957,7 +1961,7 @@
         },
         {
           title: 'Server Details',
-          copy: 'Save the public-facing details admins should see when they return to this setup screen.',
+          copy: 'Save the public details and the admin/Discord values your framework resources depend on.',
           render: function () {
             const s = azfwSetup.payload.settings || {};
             const safe = function (v) { return String(v || '').replace(/[&<>"']/g, function (m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]; }); };
@@ -1966,6 +1970,10 @@
               '<div class="azfw-setup-field"><label>Discord</label><input id="azfwSetupDiscord" value="' + safe(s.discord) + '" placeholder="https://discord.gg/tBg2U6CTHE"></div>' +
               '<div class="azfw-setup-field"><label>Docs</label><input id="azfwSetupDocs" value="' + safe(s.docs || 'https://madebyazure.com/framework/') + '"></div>' +
               '<div class="azfw-setup-field"><label>Appearance Resource</label><input id="azfwSetupAppearance" value="' + safe(s.appearance || 'fivem-appearance') + '"></div>' +
+              '<div class="azfw-setup-field"><label>Discord Bot Token Convar</label><input id="azfwSetupBotToken" value="' + safe(s.botTokenConvar || 'DISCORD_BOT_TOKEN') + '"></div>' +
+              '<div class="azfw-setup-field"><label>Discord Guild ID Convar</label><input id="azfwSetupGuildId" value="' + safe(s.guildIdConvar || 'DISCORD_GUILD_ID') + '"></div>' +
+              '<div class="azfw-setup-field"><label>Admin ACE</label><input id="azfwSetupAdminAce" value="' + safe(s.adminAce || 'azframework.setup') + '"></div>' +
+              '<div class="azfw-setup-field"><label>Admin Principal</label><input id="azfwSetupAdminPrincipal" value="' + safe(s.adminPrincipal || 'group.admin') + '"></div>' +
             '</div>';
           }
         },
@@ -1997,7 +2005,11 @@
         serverName: 'azfwSetupServerName',
         discord: 'azfwSetupDiscord',
         docs: 'azfwSetupDocs',
-        appearance: 'azfwSetupAppearance'
+        appearance: 'azfwSetupAppearance',
+        botTokenConvar: 'azfwSetupBotToken',
+        guildIdConvar: 'azfwSetupGuildId',
+        adminAce: 'azfwSetupAdminAce',
+        adminPrincipal: 'azfwSetupAdminPrincipal'
       };
       Object.keys(map).forEach(function (key) {
         const el = document.getElementById(map[key]);

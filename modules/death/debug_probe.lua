@@ -4,7 +4,7 @@ if DeathCfg.Enabled == false then return end
 local RES = GetCurrentResourceName()
 _G.AzDeathProbeLoaded = true
 
-local probeDebug = true
+local probeDebug = false
 local probeForceFallback = true
 local probeLastFatalAt = 0
 local probeLastReason = 'none'
@@ -37,6 +37,7 @@ local function say(msg)
 end
 
 local function status(label)
+  if not probeDebug then return end
   local ped = PlayerPedId()
   local exists = ped ~= 0 and DoesEntityExist(ped)
   local hp = exists and GetEntityHealth(ped) or -1
@@ -60,8 +61,10 @@ local function status(label)
   slog(msg)
 end
 
-print(("^2[%s PROBE]^7 Death probe loaded"):format(RES))
-chat('Death probe loaded.')
+if probeDebug then
+  print(("^2[%s PROBE]^7 Death probe loaded"):format(RES))
+  chat('Death probe loaded.')
+end
 
 local function disableSpawnmanagerAutoRespawn()
   if GetResourceState('spawnmanager') ~= 'started' then return end
