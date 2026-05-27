@@ -28,6 +28,35 @@ local function isMergedCharacterUiMode()
 end
 
 local gameplayReady = false
+local radarEnforceThread = nil
+
+local function setRadarVisible(visible)
+  pcall(function() DisplayHud(visible == true) end)
+  pcall(function() DisplayRadar(visible == true) end)
+  if visible == true then
+    pcall(function() SetRadarBigmapEnabled(false, false) end)
+  end
+end
+
+local function startRadarEnforcer()
+  if radarEnforceThread then return end
+  radarEnforceThread = CreateThread(function()
+    local fastUntil = GetGameTimer() + 8000
+    while gameplayReady do
+      setRadarVisible(true)
+      if GetGameTimer() < fastUntil then
+        Wait(0)
+      else
+        Wait(250)
+      end
+    end
+    if not gameplayReady then
+      setRadarVisible(false)
+    end
+    radarEnforceThread = nil
+  end)
+end
+
 local function setGameplayReady(state, reason)
   gameplayReady = state == true
   pcall(function()
@@ -35,6 +64,8 @@ local function setGameplayReady(state, reason)
       LocalPlayer.state:set('azfwGameplayReady', gameplayReady, false)
     end
   end)
+  setRadarVisible(gameplayReady)
+  if gameplayReady then startRadarEnforcer() end
   sendNui({ action = 'setHudVisible', visible = gameplayReady and ((Config.Modules or {}).HUD ~= false) })
   if Config and Config.Debug then
     safePrint(("gameplayReady=%s reason=%s"):format(tostring(gameplayReady), tostring(reason or 'unknown')))

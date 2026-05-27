@@ -866,10 +866,16 @@
 
     function syncHudVisibility() {
       const hudEl = document.getElementById('hudContainer');
-      if (!hudEl) return;
+      const mapHud = document.getElementById('mapHudContainer');
+      const notifications = document.getElementById('hudNotifications');
+      if (!hudEl && !mapHud) return;
       const st = window.azHudShellState || {};
       const blocked = st.characterUiVisible || st.spawnUiVisible;
-      hudEl.classList.toggle('hud-disabled', !(st.gameplayHudVisible && !blocked));
+      const enabledBySettings = uiSettings.hudEnabled !== false;
+      const visible = st.gameplayHudVisible && !blocked && enabledBySettings;
+      if (hudEl) hudEl.classList.toggle('hud-disabled', !visible);
+      if (mapHud) mapHud.classList.toggle('hud-disabled', !visible);
+      if (notifications) notifications.style.opacity = visible ? '1' : '0';
     }
 
     function setGameplayHudVisible(visible) {
@@ -1269,11 +1275,9 @@
     function applyUiSettings() {
       const opacity = clamp(uiSettings.opacity, 25, 100);
       document.documentElement.style.setProperty('--hud-opacity', String(opacity / 100));
-      hud.classList.toggle('hud-disabled', !uiSettings.hudEnabled);
-      if (mapHud) mapHud.classList.toggle('hud-disabled', !uiSettings.hudEnabled);
-      notifications.style.opacity = uiSettings.hudEnabled ? '1' : '0';
       hudOpacityValue.textContent = `${opacity}%`;
       refreshFeatureDrivenCards();
+      syncHudVisibility();
     }
 
     function snapshotCurrentState() {

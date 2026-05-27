@@ -508,7 +508,7 @@ end, false)
 RegisterCommand('-azchat_visibility_cycle', function()
 end, false)
 
-RegisterKeyMapping('azchat_open', 'Open Az Chat', 'keyboard', tostring(Config.OpenKey or 't'))
+RegisterKeyMapping('+azchat', 'Open Az Chat', 'keyboard', tostring(Config.OpenKey or 't'))
 RegisterKeyMapping('+azchat_visibility_cycle', 'Cycle Az Chat Visibility', 'keyboard', Config.VisibilityCycleKey or 'SEMICOLON')
 
 RegisterNUICallback('azchat:ready', function(_, cb)
@@ -646,7 +646,7 @@ CreateThread(function()
         if Config.UseOpenControlFallback == true and not chatOpen and not IsPauseMenuActive() then
             Wait(0)
             local control = tonumber(Config.OpenControl) or 245
-            if IsControlJustReleased(0, control) or IsDisabledControlJustReleased(0, control) then
+            if IsControlJustPressed(0, control) or IsDisabledControlJustPressed(0, control) or IsControlJustReleased(0, control) or IsDisabledControlJustReleased(0, control) then
                 openChat('')
                 Wait(150)
             end

@@ -4,7 +4,7 @@ local Config = Config.Chat
 Config.Enabled = Config.Enabled ~= false
 
 Config.OpenKey = 't'
-Config.UseOpenControlFallback = false
+Config.UseOpenControlFallback = true
 Config.OpenControl = 245
 Config.VisibilityCycleKey = 'SEMICOLON'
 Config.CommandPrefix = '/'
