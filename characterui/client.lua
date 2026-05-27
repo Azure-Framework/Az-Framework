@@ -1059,8 +1059,20 @@ local function openCustomizationForChar(charid, contextTag)
   if not res or not exports[res] then return false end
 
   if nuiOpen or spawnNuiOpen then
-    dprint("CUSTOMIZE blocked (menu open) ctx=%s nuiOpen=%s spawnNuiOpen=%s", tostring(contextTag), tostring(nuiOpen), tostring(spawnNuiOpen))
-    return false
+    if tostring(contextTag or "") ~= "new_character_pre_spawn" then
+      dprint("CUSTOMIZE blocked (menu open) ctx=%s nuiOpen=%s spawnNuiOpen=%s", tostring(contextTag), tostring(nuiOpen), tostring(spawnNuiOpen))
+      return false
+    end
+
+    dprint("CUSTOMIZE[%s] hiding character UI before appearance open", tostring(contextTag))
+    nuiOpen = false
+    spawnNuiOpen = false
+    setNuiOwner(nil)
+    nuiSend({ type = "azfw_close_ui" })
+    nuiSend({ type = "azfw_visibility", open = false })
+    nuiSend({ type = "hard_hide_all" })
+    SetNuiFocus(false, false)
+    Wait(250)
   end
 
   if not __allowCustomizeNow then
@@ -1094,7 +1106,7 @@ local function openCustomizationForChar(charid, contextTag)
 
   dprint("CUSTOMIZE[%s] opening cid=%s", tostring(contextTag or "ctx"), tostring(charid))
 
-  local okCall = pcall(function()
+  local okCall, callErr = pcall(function()
     exports[res]:startPlayerCustomization(function(appearance)
       __customizing = false
 
@@ -1134,7 +1146,7 @@ local function openCustomizationForChar(charid, contextTag)
 
   if not okCall then
     __customizing = false
-    dprint("CUSTOMIZE[%s] failed: startPlayerCustomization missing/errored", tostring(contextTag or "ctx"))
+    dprint("CUSTOMIZE[%s] failed: startPlayerCustomization missing/errored resource=%s err=%s", tostring(contextTag or "ctx"), tostring(res), tostring(callErr))
     return false
   end
 
@@ -1856,6 +1868,12 @@ AddEventHandler("azfw:characterui:open", function(chars)
   TriggerServerEvent("azfw:request_characters")
   if not nuiOpen and not spawnNuiOpen then
     openAzfwUI(cachedChars)
+  end
+end)
+
+AddEventHandler("azfw:setup:closedLocal", function()
+  if (nuiOpen or spawnNuiOpen) and nuiOwner then
+    hardResetFocus()
   end
 end)
 

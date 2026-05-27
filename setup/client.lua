@@ -28,6 +28,7 @@ RegisterNetEvent("azfw:setup:close", function()
   setupOpen = false
   SetNuiFocus(false, false)
   sendSetupMessage({ action = "azfw_setup_close" })
+  TriggerEvent("azfw:setup:closedLocal")
 end)
 
 CreateThread(function()
@@ -48,6 +49,7 @@ if type(RegisterNUICallback) == "function" then
   RegisterNUICallback("azfw_setup_close", function(data, cb)
     setupOpen = false
     SetNuiFocus(false, false)
+    TriggerEvent("azfw:setup:closedLocal")
     TriggerServerEvent("azfw:setup:close", data or {})
     if cb then cb({ ok = true }) end
   end)

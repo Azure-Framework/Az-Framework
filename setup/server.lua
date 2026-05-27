@@ -125,6 +125,23 @@ local function resourceCheck(checks, name, label, required)
   addCheck(checks, name, label or name, ok and "ok" or (required and "error" or "warn"), ok and "started" or state, required)
 end
 
+local function appearanceCheck(checks)
+  local state = GetResourceState("fivem-appearance")
+  if state ~= "started" then
+    addCheck(checks, "fivem-appearance", "fivem-appearance", "error", state, true)
+    return
+  end
+
+  local hasGame = LoadResourceFile("fivem-appearance", "game/dist/index.js")
+  local hasUi = LoadResourceFile("fivem-appearance", "web/dist/index.html")
+  if not hasGame or not hasUi then
+    addCheck(checks, "fivem-appearance", "fivem-appearance", "error", "started, but release build files are missing", true)
+    return
+  end
+
+  addCheck(checks, "fivem-appearance", "fivem-appearance", "ok", "started with release build files", true)
+end
+
 local function tableChecks(checks, cb)
   local needed = {
     az_framework_setup = "Setup state",
@@ -152,7 +169,7 @@ local function buildPayload(src, reason, cb)
     resourceCheck(checks, "ox_lib", "ox_lib", true)
     resourceCheck(checks, "ox_target", "ox_target", false)
     resourceCheck(checks, "ox_inventory", "ox_inventory", false)
-    resourceCheck(checks, "fivem-appearance", "fivem-appearance", true)
+    appearanceCheck(checks)
     resourceCheck(checks, "AMenu", "AMenu", false)
     resourceCheck(checks, "AMenu-Bridge", "AMenu-Bridge", false)
     resourceCheck(checks, "qb-core", "qb-core bridge folder", false)
@@ -254,7 +271,7 @@ RegisterNetEvent("azfw:setup:action", function(data)
         end
         saveSetup("settings", type(data.settings) == "table" and data.settings or payload.settings or {}, src, function()
           saveSetup("completed", true, src, function()
-            openFor(src, "completed")
+            TriggerClientEvent("azfw:setup:close", src)
           end)
         end)
       end)
