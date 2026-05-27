@@ -1098,6 +1098,7 @@ CREATE TABLE IF NOT EXISTS `user_inventory` (
 CREATE TABLE IF NOT EXISTS `user_vehicles` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `discordid` varchar(255) NOT NULL,
+  `charid` varchar(64) DEFAULT NULL,
   `plate` varchar(20) NOT NULL,
   `model` varchar(50) NOT NULL,
   `x` double NOT NULL,
@@ -1117,13 +1118,15 @@ CREATE TABLE IF NOT EXISTS `user_vehicles` (
   UNIQUE KEY `uq_vehicle` (`discordid`,`plate`),
   UNIQUE KEY `idx_user_vehicles__discordid_plate_` (`discordid`,`plate`),
   KEY `idx_discord` (`discordid`),
-  KEY `idx_user_vehicles__discordid_` (`discordid`)
+  KEY `idx_user_vehicles__discordid_` (`discordid`),
+  KEY `idx_user_vehicles_discordid_charid` (`discordid`,`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 [[
 CREATE TABLE IF NOT EXISTS `user_vehicle_insurance` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `discordid` varchar(32) NOT NULL,
+  `charid` varchar(64) DEFAULT NULL,
   `plate` varchar(16) NOT NULL,
   `policy_type` varchar(16) NOT NULL DEFAULT 'standard',
   `premium` int(11) NOT NULL DEFAULT 0,
@@ -1132,13 +1135,15 @@ CREATE TABLE IF NOT EXISTS `user_vehicle_insurance` (
   `next_payment_at` int(10) unsigned NOT NULL DEFAULT 0,
   `active` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_discord_plate` (`discordid`,`plate`)
+  UNIQUE KEY `uniq_discord_plate` (`discordid`,`plate`),
+  KEY `idx_user_vehicle_insurance_discordid_charid` (`discordid`,`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 [[
 CREATE TABLE IF NOT EXISTS `user_vehicle_claims` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `discordid` varchar(32) NOT NULL,
+  `charid` varchar(64) DEFAULT NULL,
   `plate` varchar(16) NOT NULL,
   `policy_type` varchar(16) NOT NULL,
   `deductible_charged` int(11) NOT NULL DEFAULT 0,
@@ -1146,7 +1151,8 @@ CREATE TABLE IF NOT EXISTS `user_vehicle_claims` (
   `filed_at` int(10) unsigned NOT NULL,
   `status` varchar(16) NOT NULL DEFAULT 'approved',
   PRIMARY KEY (`id`),
-  KEY `idx_discord` (`discordid`)
+  KEY `idx_discord` (`discordid`),
+  KEY `idx_user_vehicle_claims_discordid_charid` (`discordid`,`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ]],
 
