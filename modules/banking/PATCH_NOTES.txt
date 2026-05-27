@@ -1,0 +1,34 @@
+Az-Banking upgraded application pass
+
+What was improved
+- Rebuilt the NUI into a cleaner banking application layout with a full overview, transfer hub, cashflow tools, investment page, and better activity log presentation.
+- Added true player-to-player transfers that can be funded from wallet cash or a bank account.
+- Added recipient routing so transfers can land in the target player's checking account or wallet cash.
+- Added online recipient list / quick-pay actions inside the banking app.
+- Fixed deposits and withdrawals so the selected account is respected instead of always forcing checking.
+- Improved internal transfer flow for wallet <-> account and account <-> account movement.
+- Added investment products with configurable return rates, funding sources, maturity times, and payout collection.
+- Added richer transaction logging for deposits, withdrawals, player transfers, investment opens, investment payouts, and ATM robbery payouts.
+- Improved monthly summary logic so internal money movement does not inflate income / expense totals.
+- Cleaned the client script by removing duplicate callback registrations and restoring a working generic NUI relay.
+
+Files changed
+- client.lua
+- server.lua
+- config.lua
+- ui/index.html
+- RUNME-UPDATE.sql
+
+Notes
+- A new `econ_investments` table is created automatically by the resource, but the SQL update file also includes it for manual installs.
+- Investment products are configured in `config.lua` under `Config.InvestmentPlans`.
+- Player-to-player transfers support online players through the recipient list and offline/manual transfers through CharID entry.
+- This package was updated statically in the container and was not live-tested inside a running FiveM server.
+
+
+[UI Hotfix - Resize + Performance]
+- Reworked NUI sizing to scale the full banking app with the viewport instead of disappearing off-screen on resize.
+- Added viewport sync logic for window changes and drag-resize handle updates.
+- Reduced expensive blur/background intensity for smoother rendering.
+- Disabled chart animations and throttled chart resize calls.
+- Removed duplicate getData refresh on open to reduce NUI churn.

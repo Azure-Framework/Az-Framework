@@ -1,0 +1,1337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>State Bank</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060910;
+  --panel:#0d1422;
+  --panel-2:#111b2c;
+  --panel-3:#101726;
+  --soft:#162235;
+  --ink:#eaf2ff;
+  --muted:#8da0bc;
+  --line:rgba(255,255,255,.07);
+  --cyan:#55ccff;
+  --cyan-2:#2f89ff;
+  --green:#75e4a6;
+  --red:#ff8a8a;
+  --amber:#ffc166;
+  --violet:#9c8cff;
+  --shadow:0 20px 60px rgba(0,0,0,.42);
+  --radius:22px;
+  --radius-sm:16px;
+  --app-w: 1420px;
+  --app-h: 860px;
+  --app-safe-margin: 28px;
+  --app-scale: 1;
+  --app-user-scale: 1;
+  --app-final-scale: 1;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  display:none;
+  overflow:hidden;
+  font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;
+  color:var(--ink);
+  background:transparent;
+}
+body:before{
+  content:'';
+  position:fixed; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(85,204,255,.14), transparent 24%),
+    radial-gradient(circle at 84% 12%, rgba(156,140,255,.14), transparent 28%),
+    radial-gradient(circle at 76% 82%, rgba(117,228,166,.08), transparent 22%),
+    linear-gradient(180deg, rgba(5,9,16,.58), rgba(5,9,16,.76));
+}
+.app{
+  position:fixed;
+  left:50%;
+  top:50%;
+  width:var(--app-w);
+  height:var(--app-h);
+  transform:translate(-50%, -50%) scale(var(--app-final-scale));
+  transform-origin:center center;
+  display:grid;
+  grid-template-columns:280px 1fr;
+  gap:18px;
+  padding:18px;
+  border-radius:28px;
+  background:rgba(7,11,18,.9);
+  overflow:hidden;
+  will-change:transform;
+}
+
+.sidebar,.main-shell{min-height:0}
+@media (max-width: 1320px){
+  .app{grid-template-columns:240px 1fr}
+  .hero,.overview-grid,.form-grid{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width: 980px){
+  .app{grid-template-columns:1fr}
+  .topbar{flex-direction:column;align-items:flex-start}
+  .accounts-grid,.row-2{grid-template-columns:1fr}
+  .online-list{max-height:160px}
+}
+.sidebar{
+  display:flex; flex-direction:column; gap:18px;
+  padding:18px;
+  border-radius:24px;
+  background:linear-gradient(180deg, rgba(14,21,35,.96), rgba(9,14,24,.96));
+  border:1px solid var(--line);
+}
+.brand-card{
+  padding:18px;
+  border-radius:20px;
+  background:linear-gradient(160deg, rgba(85,204,255,.13), rgba(156,140,255,.08));
+  border:1px solid rgba(85,204,255,.18);
+}
+.brand-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.brand-badge{
+  width:42px;height:42px;border-radius:14px;
+  display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--cyan),var(--cyan-2));
+  color:#05101c;font-size:18px;
+  box-shadow:0 10px 24px rgba(85,204,255,.2);
+}
+.brand-title{font-size:18px;font-weight:800;letter-spacing:.3px}
+.brand-sub{font-size:12px;color:var(--muted)}
+.me-card,.mini-card{
+  padding:14px 16px;
+  border-radius:18px;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--line);
+}
+.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em}
+.big-num{font-size:28px;font-weight:800;margin-top:6px}
+.nav{display:grid;gap:8px}
+.tab{
+  all:unset; cursor:pointer;
+  display:flex; align-items:center; gap:12px;
+  padding:14px 16px;
+  border-radius:16px;
+  color:var(--ink);
+  opacity:.78;
+}
+.tab i{width:18px;text-align:center}
+.tab:hover{opacity:1;background:rgba(255,255,255,.04)}
+.tab.active{
+  opacity:1;
+  background:linear-gradient(90deg, rgba(85,204,255,.18), rgba(85,204,255,.05));
+  border:1px solid rgba(85,204,255,.16);
+}
+.online-list{display:grid;gap:10px;max-height:230px;overflow:auto;padding-right:4px}
+.person-chip{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line);
+}
+.person-meta{display:flex;gap:10px;align-items:center;min-width:0}
+.avatar{
+  width:34px;height:34px;border-radius:12px;display:grid;place-items:center;
+  background:rgba(85,204,255,.12);color:var(--cyan);font-weight:700;flex:0 0 auto;
+}
+.person-meta .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person-meta .sub{font-size:11px;color:var(--muted)}
+.quick-btn{
+  all:unset; cursor:pointer;
+  padding:6px 10px;border-radius:10px;background:rgba(85,204,255,.12);color:var(--cyan);font-size:12px;font-weight:700;
+}
+.main-shell{
+  display:grid; grid-template-rows:auto 1fr; gap:18px;
+}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:18px 22px;
+  border-radius:24px;
+  background:linear-gradient(180deg, rgba(15,22,35,.95), rgba(12,18,30,.95));
+  border:1px solid var(--line);
+}
+.topbar .title{font-size:24px;font-weight:800;letter-spacing:.3px}
+.topbar .sub{color:var(--muted);font-size:13px}
+.top-actions{display:flex;gap:10px;align-items:center}
+.pill{
+  padding:9px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:12px;
+  background:rgba(255,255,255,.03)
+}
+.page-wrap{position:relative;min-height:0;overflow:hidden}
+.page{
+  display:none; height:100%; overflow:auto; padding-right:4px; padding-bottom:22px;
+  overscroll-behavior:contain;
+}
+.page.active{display:block}
+.grid{display:grid;gap:18px}
+.hero{
+  display:grid;grid-template-columns:1.45fr .95fr;gap:18px;
+}
+.hero-main,.hero-side,.panel,.stat,.account,.product,.form-card,.activity-card,.summary-card{
+  border-radius:24px;
+  border:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(16,24,39,.95), rgba(12,18,30,.95));
+}
+.hero-main{padding:24px;position:relative;overflow:hidden}
+.hero-main:before{
+  content:'';position:absolute;right:-80px;top:-60px;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle, rgba(85,204,255,.22), transparent 58%);
+}
+.hero-main:after{
+  content:'';position:absolute;left:-80px;bottom:-100px;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle, rgba(156,140,255,.16), transparent 60%);
+}
+.hero-top{display:flex;justify-content:space-between;gap:18px;position:relative;z-index:1}
+.hero-top .left{max-width:420px}
+.hero-title{font-size:34px;font-weight:800;line-height:1.08;margin:10px 0 6px}
+.hero-copy{color:var(--muted);font-size:14px;line-height:1.55}
+.hero-balance{font-size:42px;font-weight:800;margin-top:22px;position:relative;z-index:1}
+.hero-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;position:relative;z-index:1}
+.action-btn{
+  all:unset;cursor:pointer;padding:12px 16px;border-radius:14px;font-weight:700;font-size:13px;
+}
+.action-btn.primary{background:linear-gradient(135deg,var(--cyan),var(--cyan-2));color:#07111b}
+.action-btn.ghost{border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.hero-side{padding:20px;display:grid;gap:14px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.stat{padding:18px}
+.stat .label{font-size:12px;letter-spacing:.08em}
+.stat .value{margin-top:10px;font-size:28px;font-weight:800}
+.stat .delta{margin-top:8px;color:var(--muted);font-size:12px}
+.accounts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.account{padding:20px;position:relative;overflow:hidden}
+.account:before{
+  content:'';position:absolute;right:-60px;top:-50px;width:180px;height:180px;border-radius:50%;opacity:.28;
+}
+.account.checking:before{background:radial-gradient(circle, rgba(85,204,255,.7), transparent 55%)}
+.account.savings:before{background:radial-gradient(circle, rgba(117,228,166,.7), transparent 55%)}
+.account .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.account .name{font-size:18px;font-weight:800}
+.account .meta{font-size:12px;color:var(--muted);margin-top:8px}
+.account .amount{font-size:30px;font-weight:800;margin-top:20px}
+.card-mini{padding:5px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted)}
+.overview-grid{display:grid;grid-template-columns:1.25fr .95fr;gap:18px}
+.panel{padding:18px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}
+.panel-title{font-size:18px;font-weight:800}
+.panel-sub{font-size:12px;color:var(--muted)}
+.chart-wrap{height:290px}
+.right-stack{display:grid;gap:18px}
+.activity-list{display:grid;gap:10px;max-height:360px;overflow:auto;padding-right:4px}
+.activity-item{
+  display:flex;justify-content:space-between;gap:16px;padding:14px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--line)
+}
+.activity-left{display:flex;gap:12px;min-width:0}
+.type-icon{
+  width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:0 0 auto;background:rgba(85,204,255,.12);color:var(--cyan)
+}
+.activity-copy .title{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-copy .meta{font-size:12px;color:var(--muted);margin-top:4px}
+.amount{font-weight:800;white-space:nowrap}
+.amount.pos{color:var(--green)}
+.amount.neg{color:var(--red)}
+.amount.neutral{color:var(--amber)}
+.form-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+.form-card,.summary-card,.product,.activity-card{padding:20px}
+.form-card .header,.summary-card .header,.activity-card .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.header h3{margin:0;font-size:20px}
+.header p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+.field{display:grid;gap:8px;margin-bottom:14px}
+.field label{font-size:12px;color:var(--muted);font-weight:600}
+.input,select,textarea{
+  width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:#0a101a;color:var(--ink);outline:none;
+  font:inherit;
+}
+textarea{resize:none;min-height:94px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.btn{
+  all:unset;cursor:pointer;padding:13px 16px;border-radius:14px;font-weight:800;font-size:13px;text-align:center;
+}
+.btn.primary{background:linear-gradient(135deg,var(--cyan),var(--cyan-2));color:#07111b}
+.btn.secondary{border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12px;color:var(--muted)}
+.helper-list{display:grid;gap:10px}
+.helper{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line);font-size:13px;color:var(--muted);line-height:1.55}
+.products{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.product{position:relative;overflow:hidden}
+.product:before{content:'';position:absolute;inset:-30% auto auto -10%;width:140px;height:140px;border-radius:50%;background:var(--accent, rgba(85,204,255,.2));filter:blur(24px);opacity:.22}
+.product h4{margin:0 0 8px;font-size:20px}
+.product p{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.55}
+.product .price{font-size:28px;font-weight:800;margin:14px 0 6px}
+.table-wrap{overflow:auto}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:14px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+.table th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.status{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.03);border:1px solid var(--line);font-size:12px}
+.status.live{color:var(--cyan)}
+.status.matured{color:var(--green)}
+.status.closed{color:var(--muted)}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap}
+.filter{
+  all:unset;cursor:pointer;padding:8px 12px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);background:rgba(255,255,255,.03)
+}
+.filter.active{color:var(--ink);border-color:rgba(85,204,255,.22);background:rgba(85,204,255,.10)}
+.empty{padding:18px;border-radius:16px;background:rgba(255,255,255,.03);border:1px dashed var(--line);color:var(--muted);font-size:13px;text-align:center}
+.toasts{position:absolute;top:0;right:0;display:grid;gap:10px;z-index:5}
+.toast{
+  min-width:240px;max-width:360px;padding:12px 14px;border-radius:16px;border:1px solid var(--line);
+  background:rgba(11,18,30,.98);display:flex;gap:12px;align-items:flex-start;box-shadow:var(--shadow)
+}
+.toast.success{border-left:4px solid var(--green)}
+.toast.error{border-left:4px solid var(--red)}
+.toast.info{border-left:4px solid var(--cyan)}
+.resize{position:absolute;right:10px;bottom:10px;width:28px;height:28px;border:none;border-radius:10px;background:rgba(255,255,255,.06);color:var(--muted);cursor:pointer}
+.app.is-compact{grid-template-columns:240px 1fr}
+.app.is-compact .hero,.app.is-compact .overview-grid,.app.is-compact .form-grid{grid-template-columns:1fr}
+.app.is-compact .stat-row{grid-template-columns:repeat(2,1fr)}
+.app.is-compact .products{grid-template-columns:1fr}
+.app.is-stacked{grid-template-columns:1fr;overflow:auto}
+.app.is-stacked .sidebar{order:2}
+.app.is-stacked .main-shell{order:1}
+.app.is-stacked .topbar{flex-direction:column;align-items:flex-start}
+.app.is-stacked .accounts-grid,.app.is-stacked .row-2,.app.is-stacked .hero,.app.is-stacked .overview-grid,.app.is-stacked .form-grid{grid-template-columns:1fr}
+.app.is-stacked .online-list{max-height:160px}
+.app.is-stacked .stat-row{grid-template-columns:1fr 1fr}
+.app.is-tight .stat-row,.app.is-tight .accounts-grid,.app.is-tight .row-2{grid-template-columns:1fr}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+@media (max-width:1450px){
+  .hero,.overview-grid,.form-grid{grid-template-columns:1fr}
+  .products{grid-template-columns:1fr}
+}
+@media (max-width:1120px){
+  .app{grid-template-columns:1fr;inset:18px;overflow:auto}
+  .sidebar{order:2}
+  .main-shell{order:1}
+  .stat-row,.accounts-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body tabindex="-1">
+<div class="app" role="dialog" aria-modal="true">
+  <aside class="sidebar">
+    <div class="brand-card">
+      <div class="brand-top">
+        <div>
+          <div class="brand-title" id="brandName">State Bank</div>
+          <div class="brand-sub" id="brandSupport">Premium digital banking</div>
+        </div>
+        <div class="brand-badge"><i class="fa-solid fa-building-columns"></i></div>
+      </div>
+      <div class="label">Client</div>
+      <div style="font-weight:800;font-size:18px;margin-top:6px" id="playerName">Citizen</div>
+      <div class="brand-sub" id="playerId">CharID —</div>
+    </div>
+
+    <div class="me-card">
+      <div class="label">Net Worth</div>
+      <div class="big-num" id="sideNetWorth">$0.00</div>
+      <div class="brand-sub" style="margin-top:6px">Cash, banking, and live investment value</div>
+    </div>
+
+    <div class="nav">
+      <button class="tab active" data-target="page-overview"><i class="fa-solid fa-grid-2"></i>Overview</button>
+      <button class="tab" data-target="page-transfer"><i class="fa-solid fa-right-left"></i>Transfers</button>
+      <button class="tab" data-target="page-cashflow"><i class="fa-solid fa-wallet"></i>Cashflow</button>
+      <button class="tab" data-target="page-invest"><i class="fa-solid fa-chart-line"></i>Investments</button>
+      <button class="tab" data-target="page-activity"><i class="fa-regular fa-clock"></i>Activity</button>
+    </div>
+
+    <div class="mini-card" style="display:grid;gap:12px;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div class="label">Online Recipients</div>
+          <div class="brand-sub">Quick-send to nearby players in your server session</div>
+        </div>
+        <div class="chip" id="recipientCount">0 live</div>
+      </div>
+      <div class="online-list" id="onlinePlayers"></div>
+    </div>
+  </aside>
+
+  <section class="main-shell">
+    <div class="topbar">
+      <div>
+        <div class="title">Banking Application</div>
+        <div class="sub">Modern account management, instant P2P transfers, investments, and detailed activity logs</div>
+      </div>
+      <div class="top-actions">
+        <button class="btn secondary" id="closeBankUi" type="button"><i class="fa-solid fa-xmark"></i> Close</button><div class="pill">ESC to close</div>
+        <div class="pill" id="monthSummary">This Month $0.00</div>
+      </div>
+    </div>
+
+    <div class="page-wrap">
+      <div class="toasts" id="toasts"></div>
+
+      <div class="page active" id="page-overview">
+        <div class="grid">
+          <div class="hero">
+            <section class="hero-main">
+              <div class="hero-top">
+                <div class="left">
+                  <div class="label">Primary dashboard</div>
+                  <div class="hero-title">All your money flows in one clean banking app.</div>
+                  <div class="hero-copy">Track wallet funds, move money between accounts, send instant player-to-player payments, and manage investments without leaving a single screen.</div>
+                </div>
+                <div class="chips">
+                  <span class="chip" id="heroAccounts">0 accounts</span>
+                  <span class="chip" id="heroInvestments">0 positions</span>
+                </div>
+              </div>
+              <div class="hero-balance" id="heroNetWorth">$0.00</div>
+              <div class="hero-actions">
+                <button class="action-btn primary" data-jump="page-transfer">Send Money</button>
+                <button class="action-btn ghost" data-jump="page-cashflow">Deposit / Withdraw</button>
+                <button class="action-btn ghost" data-jump="page-invest">Open Investment</button>
+              </div>
+            </section>
+
+            <section class="hero-side">
+              <div class="summary-card" style="padding:16px">
+                <div class="label">Wallet Cash</div>
+                <div class="big-num" id="walletCash">$0.00</div>
+                <div class="brand-sub">Physical cash currently on-hand</div>
+              </div>
+              <div class="summary-card" style="padding:16px">
+                <div class="label">Banked Funds</div>
+                <div class="big-num" id="bankFunds">$0.00</div>
+                <div class="brand-sub">Checking + savings balances</div>
+              </div>
+              <div class="summary-card" style="padding:16px">
+                <div class="label">Portfolio Value</div>
+                <div class="big-num" id="portfolioValue">$0.00</div>
+                <div class="brand-sub">Current value of active positions</div>
+              </div>
+            </section>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat"><div class="label">Cash</div><div class="value" id="statCash">$0.00</div><div class="delta">Wallet balance</div></div>
+            <div class="stat"><div class="label">Checking</div><div class="value" id="statChecking">$0.00</div><div class="delta">Main spending account</div></div>
+            <div class="stat"><div class="label">Savings</div><div class="value" id="statSavings">$0.00</div><div class="delta">Reserved funds</div></div>
+            <div class="stat"><div class="label">Month Change</div><div class="value" id="statMonth">$0.00</div><div class="delta">Income minus outflow</div></div>
+          </div>
+
+          <div class="accounts-grid">
+            <section class="account checking">
+              <div class="head">
+                <div>
+                  <div class="name">Checking Account</div>
+                  <div class="meta">Spending, transfers, and investment funding</div>
+                </div>
+                <div class="card-mini" id="checkingAccountNo">—</div>
+              </div>
+              <div class="amount" id="checkingAmount">$0.00</div>
+            </section>
+            <section class="account savings">
+              <div class="head">
+                <div>
+                  <div class="name">Savings Account</div>
+                  <div class="meta">Long-term reserve and secure storage</div>
+                </div>
+                <div class="card-mini" id="savingsAccountNo">—</div>
+              </div>
+              <div class="amount" id="savingsAmount">$0.00</div>
+            </section>
+          </div>
+
+          <div class="overview-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Cashflow Trend</div>
+                  <div class="panel-sub">Last 30 days of net movement</div>
+                </div>
+              </div>
+              <div class="chart-wrap"><canvas id="netChart"></canvas></div>
+            </section>
+            <div class="right-stack">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="panel-title">Balance Split</div>
+                    <div class="panel-sub">Wallet, checking, savings, portfolio</div>
+                  </div>
+                </div>
+                <div class="chart-wrap" style="height:240px"><canvas id="splitChart"></canvas></div>
+              </section>
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="panel-title">Recent Activity</div>
+                    <div class="panel-sub">Instant log visibility for every banking action</div>
+                  </div>
+                </div>
+                <div class="activity-list" id="recentActivity"></div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-transfer">
+        <div class="form-grid">
+          <section class="form-card">
+            <div class="header">
+              <div>
+                <h3>Player to Player Transfer</h3>
+                <p>Send from your wallet or bank account directly to another player's wallet or checking account.</p>
+              </div>
+              <span class="status live">Instant</span>
+            </div>
+            <div class="field">
+              <label>Recipient</label>
+              <select id="playerRecipient"></select>
+            </div>
+            <div class="field">
+              <label>Manual CharID (optional fallback)</label>
+              <input class="input" id="manualRecipient" type="text" placeholder="Use only if the recipient is offline or not listed"/>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Send From</label>
+                <select id="playerTransferSource"></select>
+              </div>
+              <div class="field">
+                <label>Recipient Destination</label>
+                <select id="playerTransferDestination">
+                  <option value="checking">Checking Account</option>
+                  <option value="wallet">Wallet Cash</option>
+                </select>
+              </div>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Amount</label>
+                <input class="input" id="playerTransferAmount" type="number" min="1" placeholder="5000"/>
+              </div>
+              <div class="field">
+                <label>Description</label>
+                <input class="input" id="playerTransferNote" type="text" placeholder="Rent, payroll, payment, debt, etc."/>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="sendPlayerTransfer">Send Transfer</button>
+              <button class="btn secondary" id="clearPlayerTransfer">Clear</button>
+            </div>
+          </section>
+
+          <section class="summary-card">
+            <div class="header">
+              <div>
+                <h3>Internal Movement</h3>
+                <p>Move money between wallet, checking, and savings with better account routing.</p>
+              </div>
+              <span class="status live">In-app</span>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>From</label>
+                <select id="internalFrom"></select>
+              </div>
+              <div class="field">
+                <label>To</label>
+                <select id="internalTo"></select>
+              </div>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Amount</label>
+                <input class="input" id="internalAmount" type="number" min="1" placeholder="2500"/>
+              </div>
+              <div class="field">
+                <label>Memo</label>
+                <input class="input" id="internalNote" type="text" placeholder="Move reserve funds"/>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn primary" id="sendInternalTransfer">Move Funds</button>
+            </div>
+            <div style="height:16px"></div>
+            <div class="helper-list">
+              <div class="helper">P2P transfers now support <b>wallet or account</b> funding.</div>
+              <div class="helper">Recipient can receive into <b>checking</b> or <b>wallet cash</b>.</div>
+              <div class="helper">Every transfer writes a cleaner activity trail for both sides.</div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="page-cashflow">
+        <div class="form-grid">
+          <section class="form-card">
+            <div class="header">
+              <div>
+                <h3>Deposit Cash</h3>
+                <p>Deposit wallet cash into any available bank account.</p>
+              </div>
+              <span class="status live">Cash → Bank</span>
+            </div>
+            <div class="field">
+              <label>Deposit To</label>
+              <select id="depositTo"></select>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Amount</label>
+                <input class="input" id="depositAmount" type="number" min="1" placeholder="1500"/>
+              </div>
+              <div class="field">
+                <label>Description</label>
+                <input class="input" id="depositNote" type="text" placeholder="Counter deposit"/>
+              </div>
+            </div>
+            <div class="btn-row"><button class="btn primary" id="submitDeposit">Confirm Deposit</button></div>
+          </section>
+
+          <section class="form-card">
+            <div class="header">
+              <div>
+                <h3>Withdraw Cash</h3>
+                <p>Withdraw from checking or savings directly into wallet cash.</p>
+              </div>
+              <span class="status live">Bank → Cash</span>
+            </div>
+            <div class="field">
+              <label>Withdraw From</label>
+              <select id="withdrawFrom"></select>
+            </div>
+            <div class="row-2">
+              <div class="field">
+                <label>Amount</label>
+                <input class="input" id="withdrawAmount" type="number" min="1" placeholder="1500"/>
+              </div>
+              <div class="field">
+                <label>Description</label>
+                <input class="input" id="withdrawNote" type="text" placeholder="ATM cash out"/>
+              </div>
+            </div>
+            <div class="btn-row"><button class="btn primary" id="submitWithdraw">Confirm Withdrawal</button></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="page-invest">
+        <div class="grid">
+          <div class="products" id="productGrid"></div>
+          <div class="form-grid">
+            <section class="form-card">
+              <div class="header">
+                <div>
+                  <h3>Open Investment</h3>
+                  <p>Fund positions from wallet, checking, or savings and collect once matured.</p>
+                </div>
+                <span class="status live">Portfolio</span>
+              </div>
+              <div class="field">
+                <label>Product</label>
+                <select id="investmentPlan"></select>
+              </div>
+              <div class="row-2">
+                <div class="field">
+                  <label>Fund From</label>
+                  <select id="investmentSource"></select>
+                </div>
+                <div class="field">
+                  <label>Amount</label>
+                  <input class="input" id="investmentAmount" type="number" min="1" placeholder="10000"/>
+                </div>
+              </div>
+              <div class="btn-row"><button class="btn primary" id="openInvestment">Open Position</button></div>
+            </section>
+
+            <section class="summary-card">
+              <div class="header">
+                <div>
+                  <h3>Portfolio Summary</h3>
+                  <p>Live view of active principal, value, and matured positions waiting for collection.</p>
+                </div>
+                <span class="status matured" id="maturedCountBadge">0 ready</span>
+              </div>
+              <div class="helper-list">
+                <div class="helper">Active principal: <b id="activePrincipal">$0.00</b></div>
+                <div class="helper">Portfolio value: <b id="activeValue">$0.00</b></div>
+                <div class="helper">Open positions: <b id="activePositions">0</b></div>
+              </div>
+            </section>
+          </div>
+
+          <section class="activity-card">
+            <div class="header">
+              <div>
+                <h3>Open Positions</h3>
+                <p>Collect matured investments into checking or wallet directly from the portfolio log.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Risk</th>
+                    <th>Principal</th>
+                    <th>Payout</th>
+                    <th>Matures</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="investmentRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" id="page-activity">
+        <div class="activity-card">
+          <div class="header">
+            <div>
+              <h3>Banking Activity</h3>
+              <p>Improved logs for transfers, deposits, withdrawals, investments, and ATM events.</p>
+            </div>
+            <div class="filter-row" id="activityFilters">
+              <button class="filter active" data-filter="all">All</button>
+              <button class="filter" data-filter="transfer">Transfers</button>
+              <button class="filter" data-filter="cash">Cashflow</button>
+              <button class="filter" data-filter="invest">Investments</button>
+              <button class="filter" data-filter="other">Other</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>When</th>
+                  <th>Counterparty</th>
+                  <th style="text-align:right">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="activityRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <button class="resize" title="Resize"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+function resolveResourceName(){
+  try{ if(typeof GetParentResourceName === 'function') return GetParentResourceName(); }catch(e){}
+  try{ if(window.parent && typeof window.parent.GetParentResourceName === 'function') return window.parent.GetParentResourceName(); }catch(e){}
+  try{ if(window.parent && typeof window.parent.AzFrameworkGetResourceName === 'function') return window.parent.AzFrameworkGetResourceName(); }catch(e){}
+  return 'Az-Framework';
+}
+let RESOURCE_NAME = resolveResourceName();
+
+const state = {
+  data: {
+    accounts: [],
+    transactions: [],
+    online_players: [],
+    investment_plans: [],
+    investments: { items: [] },
+    player: {}
+  },
+  activeFilter: 'all',
+  charts: { net: null, split: null }
+};
+
+function nui(evt, payload = {}){
+  try{
+    const parent = RESOURCE_NAME || resolveResourceName();
+    if(parent){
+      fetch(`https://${parent}/${evt}`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+  }catch(err){ console.error(err); }
+}
+
+const money = n => '$' + Number(n || 0).toLocaleString(undefined,{ minimumFractionDigits:2, maximumFractionDigits:2 });
+const setText = (id, value) => { const el = document.getElementById(id); if(el) el.textContent = value; };
+const qs = sel => document.querySelector(sel);
+const qsa = sel => Array.from(document.querySelectorAll(sel));
+
+function shortAcct(value){
+  const raw = String(value || '').replace(/\s+/g,'');
+  if(!raw) return '—';
+  return raw.length > 10 ? `${raw.slice(0,4)}••${raw.slice(-4)}` : raw;
+}
+function initial(name){ return (String(name || '?').trim()[0] || '?').toUpperCase(); }
+function stamp(ts){ return ts ? new Date(Number(ts)*1000).toLocaleString() : '—'; }
+
+function toast(type, text){
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${type || 'info'}`;
+  el.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : type === 'success' ? 'fa-circle-check' : 'fa-circle-info'}"></i><div>${text || ''}</div>`;
+  box.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-6px)';
+    setTimeout(() => el.remove(), 250);
+  }, 3200);
+}
+
+function showPage(id){
+  qsa('.page').forEach(p => p.classList.toggle('active', p.id === id));
+  qsa('.tab').forEach(t => t.classList.toggle('active', t.dataset.target === id));
+  requestLayoutPasses();
+}
+
+document.addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if(tab){ showPage(tab.dataset.target); }
+  const jump = e.target.closest('[data-jump]');
+  if(jump){ showPage(jump.dataset.jump); }
+  const quick = e.target.closest('[data-recipient-server]');
+  if(quick){
+    const select = document.getElementById('playerRecipient');
+    if(select){ select.value = quick.dataset.recipientServer; }
+    showPage('page-transfer');
+  }
+  const filter = e.target.closest('.filter');
+  if(filter){
+    state.activeFilter = filter.dataset.filter || 'all';
+    qsa('.filter').forEach(btn => btn.classList.toggle('active', btn === filter));
+    renderActivityTable();
+  }
+});
+
+function option(label, value){
+  const o = document.createElement('option');
+  o.textContent = label;
+  o.value = value;
+  return o;
+}
+
+function renderAccountSelect(el, includeCash = true){
+  if(!el) return;
+  const accounts = Array.isArray(state.data.accounts) ? state.data.accounts : [];
+  el.innerHTML = '';
+  if(includeCash) el.appendChild(option('Wallet Cash', 'cash'));
+  accounts.forEach(a => {
+    const name = `${String(a.type || 'account').replace(/^./, s => s.toUpperCase())} • ${money(a.balance)} • ${shortAcct(a.account_number)}`;
+    el.appendChild(option(name, `acct:${a.id}`));
+  });
+}
+
+function renderRecipients(){
+  const list = document.getElementById('onlinePlayers');
+  const select = document.getElementById('playerRecipient');
+  const players = Array.isArray(state.data.online_players) ? state.data.online_players : [];
+  setText('recipientCount', `${players.length} live`);
+  list.innerHTML = '';
+  select.innerHTML = '';
+  select.appendChild(option('Select an online player', ''));
+  players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'person-chip';
+    row.innerHTML = `
+      <div class="person-meta">
+        <div class="avatar">${initial(p.name)}</div>
+        <div style="min-width:0">
+          <div class="name">${p.name || 'Unknown'}</div>
+          <div class="sub">CharID ${p.charid || '—'} · ID ${p.serverId || '—'}</div>
+        </div>
+      </div>
+      <button class="quick-btn" data-recipient-server="${p.serverId}">Pay</button>
+    `;
+    list.appendChild(row);
+    const label = `${p.name} • CharID ${p.charid} • ID ${p.serverId}`;
+    const opt = option(label, String(p.serverId || ''));
+    opt.dataset.charid = p.charid || '';
+    select.appendChild(opt);
+  });
+  if(!players.length){
+    list.innerHTML = '<div class="empty">No other online recipients right now.</div>';
+  }
+}
+
+function txKind(type){
+  const t = String(type || '').toLowerCase();
+  if(t.includes('transfer')) return 'transfer';
+  if(t.includes('deposit') || t.includes('withdraw')) return 'cash';
+  if(t.includes('invest')) return 'invest';
+  return 'other';
+}
+
+function txVisual(tx){
+  const kind = txKind(tx.type);
+  if(kind === 'transfer') return { icon:'fa-right-left', tone:'cyan' };
+  if(kind === 'cash') return { icon:'fa-wallet', tone:'green' };
+  if(kind === 'invest') return { icon:'fa-chart-line', tone:'violet' };
+  return { icon:'fa-building-columns', tone:'cyan' };
+}
+
+function amountClass(tx){
+  const value = Number(tx.amount || 0);
+  if(String(tx.type || '').toLowerCase() === 'transfer_internal') return 'neutral';
+  if(value > 0) return 'pos';
+  if(value < 0) return 'neg';
+  return 'neutral';
+}
+
+function recentActivityItems(){
+  const wrap = document.getElementById('recentActivity');
+  const txs = Array.isArray(state.data.transactions) ? state.data.transactions.slice(0, 6) : [];
+  wrap.innerHTML = '';
+  if(!txs.length){
+    wrap.innerHTML = '<div class="empty">No activity has been logged yet.</div>';
+    return;
+  }
+  txs.forEach(tx => {
+    const visual = txVisual(tx);
+    const item = document.createElement('div');
+    item.className = 'activity-item';
+    item.innerHTML = `
+      <div class="activity-left">
+        <div class="type-icon"><i class="fa-solid ${visual.icon}"></i></div>
+        <div class="activity-copy">
+          <div class="title">${tx.description || tx.type || 'Activity'}</div>
+          <div class="meta">${String(tx.type || '').replace(/_/g,' ')} · ${stamp(tx.ts)}</div>
+        </div>
+      </div>
+      <div class="amount ${amountClass(tx)}">${money(tx.amount)}</div>
+    `;
+    wrap.appendChild(item);
+  });
+}
+
+function renderActivityTable(){
+  const body = document.getElementById('activityRows');
+  const txs = Array.isArray(state.data.transactions) ? state.data.transactions : [];
+  body.innerHTML = '';
+  const rows = txs.filter(tx => state.activeFilter === 'all' ? true : txKind(tx.type) === state.activeFilter);
+  if(!rows.length){
+    body.innerHTML = '<tr><td colspan="5"><div class="empty">No activity for this filter.</div></td></tr>';
+    return;
+  }
+  rows.forEach(tx => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${tx.description || '—'}</td>
+      <td>${String(tx.type || '—').replace(/_/g,' ')}</td>
+      <td>${stamp(tx.ts)}</td>
+      <td>${tx.counterparty || '—'}</td>
+      <td style="text-align:right" class="amount ${amountClass(tx)}">${money(tx.amount)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderProducts(){
+  const grid = document.getElementById('productGrid');
+  const select = document.getElementById('investmentPlan');
+  const plans = Array.isArray(state.data.investment_plans) ? state.data.investment_plans : [];
+  grid.innerHTML = '';
+  select.innerHTML = '';
+  plans.forEach(plan => {
+    const card = document.createElement('section');
+    card.className = 'product';
+    card.style.setProperty('--accent', plan.color || 'rgba(85,204,255,.2)');
+    card.innerHTML = `
+      <div class="chips"><span class="chip">${plan.risk || 'Low'} Risk</span><span class="chip">${plan.durationHours || 0}h term</span></div>
+      <h4>${plan.label || plan.code}</h4>
+      <p>${plan.description || ''}</p>
+      <div class="price">+${Number(plan.returnRate || 0).toFixed(1)}%</div>
+      <div class="brand-sub">Min ${money(plan.min)} · Max ${money(plan.max)}</div>
+    `;
+    grid.appendChild(card);
+    select.appendChild(option(`${plan.label} • +${Number(plan.returnRate || 0).toFixed(1)}% • ${plan.durationHours}h`, plan.code));
+  });
+}
+
+function renderInvestments(){
+  const info = state.data.investments || { items: [] };
+  const items = Array.isArray(info.items) ? info.items : [];
+  setText('activePrincipal', money(info.total_principal));
+  setText('activeValue', money(info.total_value));
+  setText('activePositions', String(info.active_count || 0));
+  setText('maturedCountBadge', `${info.matured_count || 0} ready`);
+  setText('heroInvestments', `${info.active_count || 0} positions`);
+  const body = document.getElementById('investmentRows');
+  body.innerHTML = '';
+  if(!items.length){
+    body.innerHTML = '<tr><td colspan="7"><div class="empty">No investment positions yet.</div></td></tr>';
+    return;
+  }
+  items.forEach(inv => {
+    const status = inv.status === 'closed' ? 'closed' : inv.matured ? 'matured' : 'live';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${inv.plan_name || inv.plan_code}</td>
+      <td>${inv.risk || '—'}</td>
+      <td>${money(inv.principal)}</td>
+      <td>${money(inv.payout)}</td>
+      <td>${inv.status === 'closed' ? 'Collected' : stamp(inv.matures_ts)}</td>
+      <td><span class="status ${status}">${inv.status === 'closed' ? 'Closed' : inv.matured ? 'Matured' : 'Active'}</span></td>
+      <td>${inv.status !== 'closed' && inv.matured ? `<button class="btn secondary collect-btn" data-investment-id="${inv.id}" data-destination="checking">Collect</button>` : '—'}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderOverview(){
+  const data = state.data || {};
+  const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+  const checking = accounts.find(a => a.type === 'checking');
+  const savings = accounts.find(a => a.type === 'savings');
+  const portfolio = data.investments || { total_value: 0 };
+
+  setText('brandName', data.brand?.appName || 'State Bank');
+  setText('brandSupport', data.brand?.supportText || 'Premium digital banking');
+  setText('playerName', data.player?.name || 'Citizen');
+  setText('playerId', `CharID ${data.player?.charid || '—'}`);
+  setText('sideNetWorth', money(data.net_worth));
+  setText('heroNetWorth', money(data.net_worth));
+  setText('walletCash', money(data.cash));
+  setText('bankFunds', money(data.bank));
+  setText('portfolioValue', money(portfolio.total_value));
+  setText('statCash', money(data.cash));
+  setText('statChecking', money(checking?.balance));
+  setText('statSavings', money(savings?.balance));
+  setText('statMonth', `${Number(data.month_change || 0) >= 0 ? '+' : '-'}${money(Math.abs(Number(data.month_change || 0)))}`);
+  setText('monthSummary', `This Month ${Number(data.month_change || 0) >= 0 ? '+' : '-'}${money(Math.abs(Number(data.month_change || 0)))}`);
+  setText('heroAccounts', `${accounts.length || 0} accounts`);
+  setText('checkingAmount', money(checking?.balance));
+  setText('savingsAmount', money(savings?.balance));
+  setText('checkingAccountNo', shortAcct(checking?.account_number));
+  setText('savingsAccountNo', shortAcct(savings?.account_number));
+  recentActivityItems();
+}
+
+
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+let pendingApplyData = null;
+let applyFrame = 0;
+let resizeFrame = 0;
+const layout = { baseW: 1420, baseH: 900, minW: 980, minH: 640, margin: 56, userScale: 1, minUserScale: 0.68, maxUserScale: 1.08 };
+
+function scheduleChartResize(){
+  if(resizeFrame) cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    Object.values(state.charts).forEach(ch => {
+      try{ ch && ch.resize(); }catch(e){}
+    });
+  });
+}
+
+function requestLayoutPasses(){
+  syncLayout();
+  requestAnimationFrame(syncLayout);
+  [48, 140, 320, 700].forEach(ms => setTimeout(syncLayout, ms));
+}
+
+function syncLayout(){
+  const app = document.querySelector('.app');
+  const width = clamp(layout.baseW, layout.minW, 2600);
+  const height = clamp(layout.baseH, layout.minH, 1800);
+  const safeW = Math.max(320, window.innerWidth - (layout.margin * 2));
+  const safeH = Math.max(320, window.innerHeight - (layout.margin * 2));
+  const fitScale = Math.min(safeW / width, safeH / height, 1);
+  const preferredScale = fitScale * layout.userScale;
+  const cappedScale = Math.min(preferredScale, fitScale * 0.94, 1);
+  const finalScale = clamp(cappedScale, 0.52, 1);
+  const renderedW = width * finalScale;
+  document.documentElement.style.setProperty('--app-safe-margin', `${layout.margin}px`);
+  document.documentElement.style.setProperty('--app-w', `${width}px`);
+  document.documentElement.style.setProperty('--app-h', `${height}px`);
+  document.documentElement.style.setProperty('--app-scale', String(fitScale));
+  document.documentElement.style.setProperty('--app-user-scale', String(layout.userScale));
+  document.documentElement.style.setProperty('--app-final-scale', String(finalScale));
+  if(app){
+    app.classList.toggle('is-compact', renderedW <= 1320);
+    app.classList.toggle('is-stacked', renderedW <= 1120);
+    app.classList.toggle('is-tight', renderedW <= 900);
+  }
+  scheduleChartResize();
+}
+
+function queueApplyData(payload){
+  pendingApplyData = payload || state.data;
+  if(applyFrame) return;
+  applyFrame = requestAnimationFrame(() => {
+    applyFrame = 0;
+    applyData(pendingApplyData || state.data);
+    pendingApplyData = null;
+    requestLayoutPasses();
+  });
+}
+
+function chartLabelsDays(days){
+  const list = []; const now = new Date(); now.setHours(0,0,0,0);
+  for(let i=days-1;i>=0;i--){ const d = new Date(now); d.setDate(now.getDate()-i); list.push(d); }
+  return list;
+}
+
+function buildCharts(){
+  const txs = Array.isArray(state.data.transactions) ? state.data.transactions : [];
+  const points = chartLabelsDays(30);
+  const labels = points.map(d => d.toLocaleDateString(undefined,{ month:'short', day:'numeric' }));
+  const daily = points.map(d => {
+    const start = d.getTime() / 1000;
+    const end = start + 86400;
+    return txs.reduce((sum, tx) => {
+      const ts = Number(tx.ts || 0);
+      const neutral = String(tx.type || '') === 'transfer_internal';
+      if(neutral || ts < start || ts >= end) return sum;
+      return sum + Number(tx.amount || 0);
+    }, 0);
+  });
+
+  const portfolioValue = Number(state.data.investments?.total_value || 0);
+  const checking = Number((state.data.accounts || []).find(a => a.type === 'checking')?.balance || 0);
+  const savings = Number((state.data.accounts || []).find(a => a.type === 'savings')?.balance || 0);
+  const split = [Number(state.data.cash || 0), checking, savings, portfolioValue];
+
+  Chart.defaults.color = '#eaf2ff';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.08)';
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  Chart.defaults.animation = false;
+
+  const netCtx = document.getElementById('netChart');
+  const splitCtx = document.getElementById('splitChart');
+
+  if(state.charts.net){
+    state.charts.net.data.labels = labels;
+    state.charts.net.data.datasets[0].data = daily;
+    state.charts.net.update('none');
+  }else{
+    state.charts.net = new Chart(netCtx, {
+      type:'line',
+      data:{ labels, datasets:[{
+        label:'Net flow', data:daily, fill:true, tension:.28, borderWidth:2,
+        borderColor:'#55ccff', backgroundColor:'rgba(85,204,255,.14)', pointRadius:0, pointHoverRadius:3
+      }]},
+      options:{
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{ legend:{ display:false } },
+        scales:{
+          x:{ grid:{ display:false }, ticks:{ color:'#8da0bc' } },
+          y:{ ticks:{ color:'#8da0bc' }, grid:{ color:'rgba(255,255,255,.08)' } }
+        }
+      }
+    });
+  }
+
+  if(state.charts.split){
+    state.charts.split.data.datasets[0].data = split;
+    state.charts.split.update('none');
+  }else{
+    state.charts.split = new Chart(splitCtx, {
+      type:'doughnut',
+      data:{
+        labels:['Wallet','Checking','Savings','Portfolio'],
+        datasets:[{ data:split, backgroundColor:['rgba(234,242,255,.3)','rgba(85,204,255,.55)','rgba(117,228,166,.55)','rgba(156,140,255,.55)'], borderWidth:1, borderColor:'rgba(255,255,255,.08)' }]
+      },
+      options:{
+        maintainAspectRatio:false,
+        animation:false,
+        cutout:'62%',
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#8da0bc', boxWidth:12, boxHeight:12 } } }
+      }
+    });
+  }
+}
+
+function applyData(payload){
+  state.data = payload || state.data;
+  renderOverview();
+  renderRecipients();
+  renderProducts();
+  renderInvestments();
+  renderActivityTable();
+  renderAccountSelect(document.getElementById('playerTransferSource'), true);
+  renderAccountSelect(document.getElementById('internalFrom'), true);
+  renderAccountSelect(document.getElementById('internalTo'), true);
+  renderAccountSelect(document.getElementById('depositTo'), false);
+  renderAccountSelect(document.getElementById('withdrawFrom'), false);
+  renderAccountSelect(document.getElementById('investmentSource'), true);
+  buildCharts();
+}
+
+window.addEventListener('message', e => {
+  const m = e.data || {};
+  if(m.type === 'azfw_set_resource' && m.resource){ RESOURCE_NAME = m.resource; return; }
+  if(m.action === 'show'){
+    document.body.style.display = 'block';
+    requestLayoutPasses();
+    requestAnimationFrame(() => {
+      try { document.body.focus(); } catch(e){}
+    });
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(() => requestLayoutPasses()).catch(() => {});
+    }
+    showPage('page-overview');
+    nui('getData');
+    return;
+  }
+  if(m.action === 'hide'){
+    document.body.style.display = 'none';
+    return;
+  }
+  if(m.action === 'refreshData') return nui('getData');
+  if(m.action === 'setData'){ requestLayoutPasses(); return queueApplyData(m.data || {}); }
+  if(m.action === 'notify' && m.payload) return toast(m.payload.type || 'info', m.payload.text || '');
+  if(m.action === 'transferResult' && m.payload){
+    toast(m.payload.success ? 'success' : 'error', m.payload.success ? 'Transfer completed.' : (m.payload.error || 'Transfer failed.'));
+    if(m.payload.success) nui('getData');
+    return;
+  }
+  if(m.accounts || m.transactions) return queueApplyData(m);
+});
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    document.body.style.display = 'none';
+    nui('bankClose');
+  }
+});
+
+document.addEventListener('click', e => {
+  if(e.target.closest('#closeBankUi')){
+    document.body.style.display = 'none';
+    nui('bankClose');
+    return;
+  }
+  const collect = e.target.closest('.collect-btn');
+  if(collect){
+    nui('investCollect', { id:Number(collect.dataset.investmentId), to: collect.dataset.destination || 'checking' });
+  }
+});
+
+function once(key, fn){
+  window.__busy = window.__busy || {};
+  if(window.__busy[key]) return;
+  window.__busy[key] = true;
+  try{ fn(); } finally { setTimeout(() => { window.__busy[key] = false; }, 700); }
+}
+
+function bindActions(){
+  document.getElementById('sendPlayerTransfer')?.addEventListener('click', () => once('p2p', () => {
+    const select = document.getElementById('playerRecipient');
+    const selected = select.options[select.selectedIndex];
+    const payload = {
+      targetServerId: Number(select.value || 0) || undefined,
+      targetCharId: (document.getElementById('manualRecipient').value || '').trim() || (selected?.dataset?.charid || ''),
+      from: document.getElementById('playerTransferSource').value,
+      destination: document.getElementById('playerTransferDestination').value,
+      amount: Number(document.getElementById('playerTransferAmount').value || 0),
+      description: document.getElementById('playerTransferNote').value || ''
+    };
+    nui('transferPlayer', payload);
+  }));
+
+  document.getElementById('clearPlayerTransfer')?.addEventListener('click', () => {
+    ['manualRecipient','playerTransferAmount','playerTransferNote'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    const sel = document.getElementById('playerRecipient'); if(sel) sel.value = '';
+  });
+
+  document.getElementById('sendInternalTransfer')?.addEventListener('click', () => once('internal', () => {
+    nui('transferInternal', {
+      from: document.getElementById('internalFrom').value,
+      to: document.getElementById('internalTo').value,
+      amount: Number(document.getElementById('internalAmount').value || 0),
+      description: document.getElementById('internalNote').value || ''
+    });
+  }));
+
+  document.getElementById('submitDeposit')?.addEventListener('click', () => once('deposit', () => {
+    nui('deposit', {
+      to: document.getElementById('depositTo').value,
+      amount: Number(document.getElementById('depositAmount').value || 0),
+      description: document.getElementById('depositNote').value || ''
+    });
+  }));
+
+  document.getElementById('submitWithdraw')?.addEventListener('click', () => once('withdraw', () => {
+    nui('withdraw', {
+      from: document.getElementById('withdrawFrom').value,
+      amount: Number(document.getElementById('withdrawAmount').value || 0),
+      description: document.getElementById('withdrawNote').value || ''
+    });
+  }));
+
+  document.getElementById('openInvestment')?.addEventListener('click', () => once('invest', () => {
+    nui('investOpen', {
+      plan: document.getElementById('investmentPlan').value,
+      source: document.getElementById('investmentSource').value,
+      amount: Number(document.getElementById('investmentAmount').value || 0)
+    });
+  }));
+}
+
+(function initResizer(){
+  const handle = document.querySelector('.resize');
+  let sx = 0, sy = 0, startUserScale = 1, dragging = false;
+
+  function point(ev){
+    if(ev.touches && ev.touches[0]) return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+    return { x: ev.clientX, y: ev.clientY };
+  }
+
+  function onDown(ev){
+    ev.preventDefault();
+    dragging = true;
+    const p = point(ev);
+    sx = p.x; sy = p.y; startUserScale = layout.userScale;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive:false });
+    document.addEventListener('touchend', onUp);
+  }
+
+  function onMove(ev){
+    if(!dragging) return;
+    if(ev.cancelable) ev.preventDefault();
+    const p = point(ev);
+    const dx = p.x - sx;
+    const dy = p.y - sy;
+    const delta = (dx + dy) / 1200;
+    layout.userScale = clamp(startUserScale + delta, layout.minUserScale, layout.maxUserScale);
+    syncLayout();
+  }
+
+  function onUp(){
+    dragging = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+    scheduleChartResize();
+  }
+
+  handle?.addEventListener('mousedown', onDown);
+  handle?.addEventListener('touchstart', onDown, { passive:false });
+  window.addEventListener('resize', syncLayout, { passive:true });
+  syncLayout();
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  bindActions();
+  syncLayout();
+});
+</script>
+</body>
+</html>

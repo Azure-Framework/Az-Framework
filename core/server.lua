@@ -5,31 +5,166 @@ Config.Debug = Config.Debug or false
 Config.Discord = Config.Discord or {}
 Config.PaycheckIntervalMinutes = tonumber(Config.PaycheckIntervalMinutes) or 60
 
--- Discord config can come from convars
 Config.Discord.BotToken   = Config.Discord.BotToken   or GetConvar("DISCORD_BOT_TOKEN", "")
 Config.Discord.WebhookURL = Config.Discord.WebhookURL or GetConvar("DISCORD_WEBHOOK_URL", "")
 Config.Discord.GuildId    = Config.Discord.GuildId    or GetConvar("DISCORD_GUILD_ID", "")
 
--- Admin config
 Config.AdminRoleId        = tostring(Config.AdminRoleId or GetConvar("AZFW_ADMIN_ROLE_ID", "") or "")
 Config.AdminAcePermission = Config.AdminAcePermission or "adminmenu.use"
 
--- Economy tables
 local T = {
   money = "econ_user_money",
   accts = "econ_accounts",
   dept  = "econ_departments",
 }
 
-local SAVINGS_APR = 0.05 -- kept (not used here)
+local SAVINGS_APR = 0.05
 
--- Active characters mapped by server source
-local activeCharacters = {}        -- [src] = charid
-local activeCharByDiscord = {}     -- [discordid] = last active charid
+local __AZFW_ACTIVE_STORE = rawget(_G, "__AZFW_ACTIVE_CHARACTER_STORE")
+if type(__AZFW_ACTIVE_STORE) ~= "table" then
+  __AZFW_ACTIVE_STORE = { bySource = {}, byDiscord = {}, updated = {}, reason = {} }
+  rawset(_G, "__AZFW_ACTIVE_CHARACTER_STORE", __AZFW_ACTIVE_STORE)
+end
+__AZFW_ACTIVE_STORE.bySource = __AZFW_ACTIVE_STORE.bySource or {}
+__AZFW_ACTIVE_STORE.byDiscord = __AZFW_ACTIVE_STORE.byDiscord or {}
+__AZFW_ACTIVE_STORE.updated = __AZFW_ACTIVE_STORE.updated or {}
+__AZFW_ACTIVE_STORE.reason = __AZFW_ACTIVE_STORE.reason or {}
 
--- ------------------------------------------------------------
--- Logging / helpers
--- ------------------------------------------------------------
+local function __azfwSourceKey(src)
+  local n = tonumber(src)
+  if n and n > 0 then return tostring(math.floor(n)) end
+  return tostring(src or "")
+end
+
+local function __azfwDiscordKey(did)
+  return tostring(did or ""):gsub("^discord:", "")
+end
+
+local function __azfwActiveProxy(kind)
+  local localStore = {}
+
+  local function keyFor(k)
+    if kind == "discord" then return __azfwDiscordKey(k) end
+    return __azfwSourceKey(k)
+  end
+
+  local function globalStore()
+    if kind == "discord" then return __AZFW_ACTIVE_STORE.byDiscord end
+    return __AZFW_ACTIVE_STORE.bySource
+  end
+
+  return setmetatable({}, {
+    __index = function(_, k)
+      local key = keyFor(k)
+      if key == "" then return nil end
+      local gs = globalStore()
+      return gs[key] or localStore[key]
+    end,
+    __newindex = function(_, k, v)
+      local key = keyFor(k)
+      if key == "" then return end
+      local gs = globalStore()
+      if v == nil or tostring(v) == "" then
+        gs[key] = nil
+        localStore[key] = nil
+        __AZFW_ACTIVE_STORE.updated[key] = os.time()
+        return
+      end
+      local value = tostring(v)
+      gs[key] = value
+      localStore[key] = value
+      __AZFW_ACTIVE_STORE.updated[key] = os.time()
+    end,
+    __pairs = function()
+      return next, globalStore(), nil
+    end
+  })
+end
+
+local activeCharacters = __azfwActiveProxy("source")
+local activeCharByDiscord = __azfwActiveProxy("discord")
+local lastDeptReq = {}
+local lastDeptSet = {}
+local lastDeptValue = {}
+
+local function setFrameworkActiveCharacter(src, did, charId, reason, activeDepartment)
+  src = tonumber(src or 0) or 0
+  local cid = tostring(charId or "")
+  if src <= 0 or cid == "" then return false end
+
+  activeCharacters[src] = cid
+
+  did = __azfwDiscordKey(did)
+  if did ~= "" then
+    activeCharByDiscord[did] = cid
+  end
+
+  if Player and Player(src) and Player(src).state then
+    Player(src).state:set("az_active_character", cid, true)
+    Player(src).state:set("az_active_charid", cid, true)
+    Player(src).state:set("activeCharacter", cid, true)
+    Player(src).state:set("charid", cid, true)
+  end
+
+  if activeDepartment ~= nil then
+    lastDeptValue[src] = tostring(activeDepartment or ""):lower()
+  end
+
+  local sk = __azfwSourceKey(src)
+  __AZFW_ACTIVE_STORE.reason[sk] = tostring(reason or "unknown")
+  __AZFW_ACTIVE_STORE.updated[sk] = os.time()
+  return true
+end
+
+local function getFrameworkActiveCharacter(src, did)
+  src = tonumber(src or 0) or 0
+  if src > 0 then
+    local cid = tostring(activeCharacters[src] or "")
+    if cid ~= "" then return cid end
+    if Player and Player(src) and Player(src).state then
+      cid = tostring(Player(src).state.az_active_character or Player(src).state.az_active_charid or Player(src).state.activeCharacter or Player(src).state.charid or "")
+      if cid ~= "" and cid ~= "nil" and cid ~= "unknown" then
+        activeCharacters[src] = cid
+        return cid
+      end
+    end
+  end
+
+  did = __azfwDiscordKey(did)
+  if did ~= "" then
+    local cid = tostring(activeCharByDiscord[did] or "")
+    if cid ~= "" then return cid end
+  end
+
+  return nil
+end
+
+local function clearFrameworkActiveCharacter(src)
+  src = tonumber(src or 0) or 0
+  if src <= 0 then return end
+
+  local current = tostring(activeCharacters[src] or "")
+  if current ~= "" then
+    for did, cid in pairs(__AZFW_ACTIVE_STORE.byDiscord or {}) do
+      if tostring(cid or "") == current then
+        __AZFW_ACTIVE_STORE.byDiscord[did] = nil
+      end
+    end
+  end
+
+  activeCharacters[src] = nil
+  if Player and Player(src) and Player(src).state then
+    Player(src).state:set("az_active_character", nil, true)
+    Player(src).state:set("az_active_charid", nil, true)
+    Player(src).state:set("activeCharacter", nil, true)
+    Player(src).state:set("charid", nil, true)
+  end
+  local sk = __azfwSourceKey(src)
+  __AZFW_ACTIVE_STORE.bySource[sk] = nil
+  __AZFW_ACTIVE_STORE.reason[sk] = nil
+  __AZFW_ACTIVE_STORE.updated[sk] = os.time()
+end
+
 local function dprint(...)
   if not Config.Debug then return end
   local args = { ... }
@@ -48,9 +183,6 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- Resolves player source:
---  - number/numeric string uses that
---  - nil uses current global `source` (event/command context)
 local function resolveSourceId(arg)
   local s = tonumber(arg)
   if s and s > 0 then return s end
@@ -59,8 +191,6 @@ local function resolveSourceId(arg)
   return nil
 end
 
--- Normalize export args to support both colon and dot calls.
--- If first arg is an exports "self", strip it (can be table OR userdata).
 local function stripSelf(...)
   local a = { ... }
   local t = type(a[1])
@@ -70,9 +200,231 @@ local function stripSelf(...)
   return table.unpack(a)
 end
 
--- ------------------------------------------------------------
--- oxmysql wrappers + MySQL.Async compatibility
--- ------------------------------------------------------------
+local MODULES = Config.Modules or {}
+local CHARACTER_CFG = Config.Character or {}
+local DEPT_SETUP = Config.DepartmentsConfig or {}
+local PAYCHECK_CFG = Config.Paychecks or {}
+
+local function moduleEnabled(name, fallback)
+  local v = MODULES[name]
+  if v == nil then return fallback == true end
+  return v == true
+end
+
+local function lower(v)
+  return tostring(v or ""):lower()
+end
+
+local function isCharacterUiMode()
+  local mode = lower(CHARACTER_CFG.Mode or (moduleEnabled("CharacterUI", false) and "ui" or "discord"))
+  return mode == "ui" and moduleEnabled("CharacterUI", false)
+end
+
+local function isDiscordCharacterMode()
+  return not isCharacterUiMode()
+end
+
+local configuredDepartmentsById = {}
+local configuredDepartmentsOrdered = {}
+local configuredDepartmentsSourceList = {}
+local DEPT_RUNTIME_FILE = tostring(DEPT_SETUP.RuntimeFile or "config/departments_runtime.json")
+
+local function cloneConfiguredDepartmentRow(row)
+  return {
+    id = tostring(row.id or ""),
+    label = tostring(row.label or ""),
+    paycheck = tonumber(row.paycheck) or 0,
+    canUseAOP = row.canUseAOP == true,
+    canUsePrio = row.canUsePrio == true,
+    enabled = row.enabled ~= false,
+  }
+end
+
+local function normalizeConfiguredDepartmentRow(entry)
+  if type(entry) ~= "table" then return nil end
+
+  local id = trim(entry.id or entry.name or entry.department or entry.label)
+  local label = trim(entry.label or entry.name or entry.department or entry.id)
+
+  if id == "" and label == "" then
+    return nil
+  end
+
+  if id == "" then id = label end
+  if label == "" then label = id end
+
+  return {
+    id = lower(id),
+    label = label,
+    paycheck = tonumber(entry.paycheck) or 0,
+    canUseAOP = entry.canUseAOP == true,
+    canUsePrio = entry.canUsePrio == true,
+    enabled = entry.enabled ~= false,
+  }
+end
+
+local function rebuildConfiguredDepartments(list)
+  configuredDepartmentsById = {}
+  configuredDepartmentsOrdered = {}
+  configuredDepartmentsSourceList = {}
+
+  for _, entry in ipairs(list or {}) do
+    local norm = normalizeConfiguredDepartmentRow(entry)
+    if norm then
+      configuredDepartmentsSourceList[#configuredDepartmentsSourceList + 1] = cloneConfiguredDepartmentRow(norm)
+      if norm.enabled ~= false then
+        configuredDepartmentsById[norm.id] = norm
+        configuredDepartmentsById[lower(norm.label)] = norm
+        configuredDepartmentsOrdered[#configuredDepartmentsOrdered + 1] = norm
+      end
+    end
+  end
+end
+
+local function loadConfiguredDepartmentsRuntime()
+  local raw = LoadResourceFile(RESOURCE_NAME, DEPT_RUNTIME_FILE)
+  if not raw or raw == "" then return nil end
+
+  local ok, decoded = pcall(json.decode, raw)
+  if not ok or type(decoded) ~= "table" then
+    return nil
+  end
+
+  if decoded.override ~= true then
+    return nil
+  end
+
+  if type(decoded.list) ~= "table" then
+    return {}
+  end
+
+  return decoded.list
+end
+
+local function saveConfiguredDepartmentsRuntime(list)
+  local payload = {
+    override = true,
+    list = {},
+  }
+
+  for _, entry in ipairs(list or {}) do
+    local norm = normalizeConfiguredDepartmentRow(entry)
+    if norm then
+      payload.list[#payload.list + 1] = cloneConfiguredDepartmentRow(norm)
+    end
+  end
+
+  local encoded = json.encode(payload)
+  return SaveResourceFile(RESOURCE_NAME, DEPT_RUNTIME_FILE, encoded, -1)
+end
+
+local function getConfiguredDepartmentsExport()
+  local out = {}
+  for _, row in ipairs(configuredDepartmentsSourceList) do
+    out[#out + 1] = cloneConfiguredDepartmentRow(row)
+  end
+  return out
+end
+
+local function setConfiguredDepartmentsExport(list)
+  if type(list) ~= "table" then
+    return false, "Invalid department list"
+  end
+
+  local cleaned = {}
+  local seen = {}
+  for _, entry in ipairs(list) do
+    local norm = normalizeConfiguredDepartmentRow(entry)
+    if norm and not seen[norm.id] then
+      seen[norm.id] = true
+      cleaned[#cleaned + 1] = norm
+    end
+  end
+
+  DEPT_SETUP.List = {}
+  for _, row in ipairs(cleaned) do
+    DEPT_SETUP.List[#DEPT_SETUP.List + 1] = cloneConfiguredDepartmentRow(row)
+  end
+
+  rebuildConfiguredDepartments(DEPT_SETUP.List)
+  saveConfiguredDepartmentsRuntime(DEPT_SETUP.List)
+  return true, getConfiguredDepartmentsExport()
+end
+
+local function upsertConfiguredDepartmentExport(entry)
+  local norm = normalizeConfiguredDepartmentRow(entry)
+  if not norm then
+    return false, "Invalid department"
+  end
+
+  local list = getConfiguredDepartmentsExport()
+  local replaced = false
+
+  for i = 1, #list do
+    if lower(list[i].id) == norm.id then
+      list[i] = cloneConfiguredDepartmentRow(norm)
+      replaced = true
+      break
+    end
+  end
+
+  if not replaced then
+    list[#list + 1] = cloneConfiguredDepartmentRow(norm)
+  end
+
+  return setConfiguredDepartmentsExport(list)
+end
+
+local function removeConfiguredDepartmentExport(id)
+  id = lower(trim(id))
+  if id == "" then
+    return false, "Missing department id"
+  end
+
+  local current = getConfiguredDepartmentsExport()
+  local nextList = {}
+  for _, row in ipairs(current) do
+    if lower(row.id) ~= id then
+      nextList[#nextList + 1] = row
+    end
+  end
+
+  return setConfiguredDepartmentsExport(nextList)
+end
+
+do
+  local runtimeList = loadConfiguredDepartmentsRuntime()
+  if type(runtimeList) == "table" then
+    DEPT_SETUP.List = runtimeList
+  end
+  rebuildConfiguredDepartments(DEPT_SETUP.List or {})
+end
+
+local function useConfiguredDepartments()
+  return Config.Departments == true and DEPT_SETUP.UseSimpleList == true and #configuredDepartmentsOrdered > 0
+end
+
+local function getConfiguredDepartment(dept)
+  return configuredDepartmentsById[lower(dept)]
+end
+
+local function getConfiguredDepartmentPaycheck(dept)
+  local cfg = getConfiguredDepartment(dept)
+  if not cfg then return nil end
+  return tonumber(cfg.paycheck) or 0
+end
+
+local autoCharacterInFlight = {}
+
+local function finishAutoCharacter(src, ok, charId, reason)
+  local inflight = autoCharacterInFlight[src]
+  if not inflight then return end
+  autoCharacterInFlight[src] = nil
+  for _, cb in ipairs(inflight.cbs or {}) do
+    safeCb(cb, ok == true, charId, reason)
+  end
+end
+
 local function hasOx()
   return exports.oxmysql ~= nil
 end
@@ -121,7 +473,6 @@ local function oxScalar(query, params, cb)
   end)
 end
 
--- Provide MySQL.Async if missing (lots of resources rely on it)
 if MySQL == nil then MySQL = {} end
 if MySQL.Async == nil then MySQL.Async = {} end
 if type(MySQL.Async.fetchAll) ~= "function" then
@@ -137,9 +488,6 @@ if type(MySQL.Async.scalar) ~= "function" then
   MySQL.Async.scalar = function(query, params, cb) oxScalar(query, params, cb) end
 end
 
--- ------------------------------------------------------------
--- Discord helpers + admin check (cached + in-flight coalesce)
--- ------------------------------------------------------------
 local function getDiscordID(src)
   src = tonumber(src or 0) or 0
   if src <= 0 then return "" end
@@ -155,9 +503,123 @@ local function getDiscordID(src)
   return ""
 end
 
-local roleCache = {}     -- [discordId] = { roles=table, exp=ms }
-local roleInFlight = {}  -- [discordId] = { cbs={...} }
-local ROLE_TTL_MS = 5 * 60 * 1000 -- (was 60s) reduce HTTP spam hard
+local function buildAutoCharacterName(src, discordID)
+  local playerName = trim(GetPlayerName(src) or "")
+  if playerName == "" then
+    playerName = "Player " .. tostring(src)
+  end
+
+  local first = trim(CHARACTER_CFG.DefaultFirstName or "Discord")
+  local lastMode = lower(CHARACTER_CFG.DefaultLastNameFrom or "player")
+  local last = trim(CHARACTER_CFG.DefaultLastName or "Player")
+
+  if lastMode == "player" then
+    last = playerName
+  elseif lastMode == "discord" then
+    last = tostring(discordID or "Player")
+  end
+
+  if first == "" then first = "Discord" end
+  if last == "" then last = "Player" end
+  return first, last
+end
+
+local function getPreferredCharacterId(src, discordID)
+  local base = trim(CHARACTER_CFG.DefaultCharacterId or "main")
+  if base == "" then base = "main" end
+  return base
+end
+
+local function setActiveCharacterContext(src, did, charId, activeDepartment)
+  return setFrameworkActiveCharacter(src, did, charId, "setActiveCharacterContext", activeDepartment)
+end
+
+local function ensureCharacterReady(src, cb)
+  if type(cb) ~= "function" then return end
+
+  src = resolveSourceId(src)
+  if not src then
+    return cb(false, nil, "invalid_source")
+  end
+
+  local did = getDiscordID(src)
+  if did == "" then
+    return cb(false, nil, "no_discord_id")
+  end
+
+  if activeCharacters[src] and activeCharacters[src] ~= "" then
+    return cb(true, activeCharacters[src], "active")
+  end
+
+  if activeCharByDiscord[did] and activeCharByDiscord[did] ~= "" then
+    activeCharacters[src] = activeCharByDiscord[did]
+    return cb(true, activeCharacters[src], "cached")
+  end
+
+  if not isDiscordCharacterMode() or CHARACTER_CFG.AutoCreateDiscordCharacter == false then
+    return cb(false, nil, "ui_mode")
+  end
+
+  if autoCharacterInFlight[src] then
+    table.insert(autoCharacterInFlight[src].cbs, cb)
+    return
+  end
+  autoCharacterInFlight[src] = { cbs = { cb } }
+
+  local preferredCharId = getPreferredCharacterId(src, did)
+
+  local function done(ok, charId, reason)
+    finishAutoCharacter(src, ok, charId, reason)
+  end
+
+  oxQuery("SELECT charid, active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, preferredCharId }, function(rows)
+    if rows and rows[1] and rows[1].charid then
+      setActiveCharacterContext(src, did, rows[1].charid, rows[1].active_department)
+      return done(true, rows[1].charid, "preferred_existing")
+    end
+
+    oxQuery("SELECT charid, active_department FROM user_characters WHERE discordid=? ORDER BY id ASC LIMIT 1", { did }, function(existing)
+      if existing and existing[1] and existing[1].charid then
+        setActiveCharacterContext(src, did, existing[1].charid, existing[1].active_department)
+        return done(true, existing[1].charid, "existing")
+      end
+
+      local firstName, lastName = buildAutoCharacterName(src, did)
+      local fullName = trim(firstName .. " " .. lastName)
+      local defaultLicense = (Config.Licenses and Config.Licenses.DefaultHuntingLicense == true) and 1 or 0
+
+      oxInsert(
+        "INSERT INTO user_characters (discordid,charid,name,active_department,hunting_license) VALUES (?,?,?,?,?)",
+        { did, preferredCharId, fullName, "", defaultLicense },
+        function(insertId)
+          if not insertId then
+            oxQuery("SELECT charid, active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, preferredCharId }, function(recheck)
+              if recheck and recheck[1] and recheck[1].charid then
+                setActiveCharacterContext(src, did, recheck[1].charid, recheck[1].active_department)
+                return done(true, recheck[1].charid, "race_recovered")
+              end
+              return done(false, nil, "create_failed")
+            end)
+            return
+          end
+
+          oxExecute(
+            ("INSERT IGNORE INTO `%s` (discordid,charid,firstname,lastname,cash,bank,last_daily,card_status) VALUES (?,?,?,?,?,?,?,?)"):format(T.money),
+            { did, preferredCharId, firstName, lastName, 0, 0, 0, "active" },
+            function()
+              setActiveCharacterContext(src, did, preferredCharId, "")
+              done(true, preferredCharId, "created")
+            end
+          )
+        end
+      )
+    end)
+  end)
+end
+
+local roleCache = {}
+local roleInFlight = {}
+local ROLE_TTL_MS = 5 * 60 * 1000
 
 local function getDiscordRoleList(src, cb)
   if type(cb) ~= "function" then return end
@@ -170,13 +632,11 @@ local function getDiscordRoleList(src, cb)
 
   local now = GetGameTimer()
 
-  -- cache hit
   local c = roleCache[discordID]
   if c and c.exp and c.exp > now and type(c.roles) == "table" then
     return cb(nil, c.roles)
   end
 
-  -- coalesce concurrent requests for same discordID
   if roleInFlight[discordID] then
     table.insert(roleInFlight[discordID].cbs, cb)
     return
@@ -217,9 +677,6 @@ local function getDiscordRoleList(src, cb)
   })
 end
 
--- isAdmin export:
---   fw:isAdmin(src, cb) -> async callback
---   fw:isAdmin(src)     -> returns boolean (await-ish with timeout)
 local function isAdmin_impl(playerSrc, cb)
   playerSrc = resolveSourceId(playerSrc)
   if not playerSrc then
@@ -230,14 +687,12 @@ local function isAdmin_impl(playerSrc, cb)
     return safeCb(cb, true, "console")
   end
 
-  -- Fast ACE fallback (always checked)
   local acePerm = Config.AdminAcePermission or "adminmenu.use"
   local aceAllowed = IsPlayerAceAllowed(playerSrc, acePerm)
   if aceAllowed then
     return safeCb(cb, true, "ace")
   end
 
-  -- If no role configured, deny (but ACE already handled)
   local wanted = tostring(Config.AdminRoleId or "")
   if wanted == "" or wanted == "nil" then
     return safeCb(cb, false, "no_role_config")
@@ -259,7 +714,6 @@ end
 local function isAdmin_export(...)
   local src, cb = stripSelf(...)
 
-  -- pattern: isAdmin(src, cb) OR isAdmin(cb) (implicit) OR isAdmin(src) OR isAdmin() (implicit)
   if type(src) == "function" then
     cb = src
     src = resolveSourceId(nil)
@@ -273,7 +727,6 @@ local function isAdmin_export(...)
     return isAdmin_impl(src, cb)
   end
 
-  -- sync return (await with timeout)
   local p = promise.new()
   local done = false
   isAdmin_impl(src, function(ok)
@@ -296,9 +749,6 @@ local function isAdmin_export(...)
   return Citizen.Await(p)
 end
 
--- ------------------------------------------------------------
--- Discord webhook logging
--- ------------------------------------------------------------
 local function sendWebhookLog(message)
   local url = Config.Discord.WebhookURL or ""
   if url == "" then return end
@@ -313,7 +763,7 @@ end
 
 local function logAdminCommand(commandName, src, args, success)
   local playerName = (type(src) == "number" and GetPlayerName(src)) or "Unknown"
-  local statusIcon = success and "✅ Allowed" or "❌ Denied"
+  local statusIcon = success and "ALLOWED" or "DENIED"
   local argsStr = (type(args) == "table" and table.concat(args, " ")) or tostring(args or "")
   local msg = ("**Admin Command:** `%s`\n**Player:** %s (ID %s)\n**Status:** %s\n**Args:** %s"):format(
     tostring(commandName), tostring(playerName), tostring(src), statusIcon, argsStr
@@ -329,9 +779,6 @@ local function logLargeTransaction(txType, src, amount, reason)
   sendWebhookLog(msg)
 end
 
--- ------------------------------------------------------------
--- Economy core (same behavior)
--- ------------------------------------------------------------
 local function GetMoney(discordID, charID, callback)
   if type(callback) ~= "function" then return end
 
@@ -342,7 +789,6 @@ local function GetMoney(discordID, charID, callback)
         return callback(rows[1])
       end
 
-      -- create missing row
       oxScalar("SELECT name FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
         { discordID, charID },
         function(fullName)
@@ -381,7 +827,6 @@ local function ensureChecking(discordID, charID, cb)
         return cb(rows[1].id, tonumber(rows[1].balance) or 0)
       end
 
-      -- create checking + savings
       oxInsert(("INSERT INTO `%s` (discordid,charid,type,balance) VALUES (?,?,?,?),(?,?,?,?)"):format(T.accts),
         { discordID, charID, "checking", 0, discordID, charID, "savings", 0 },
         function()
@@ -407,11 +852,8 @@ local function getFullName(charID, fallbackSrc, cb)
   end)
 end
 
--- ------------------------------------------------------------
--- HARD FIX: server-side push throttles so HUD doesn’t “go off”
--- ------------------------------------------------------------
 local MONEY_PUSH_MIN_MS = 2500
-local lastMoneyPush = {} -- [src]=ms
+local lastMoneyPush = {}
 
 local function canPushMoney(src)
   local now = GetGameTimer()
@@ -433,7 +875,16 @@ local function sendMoneyToClient(playerId, force)
   end
 
   local did = getDiscordID(src)
-  local charID = activeCharacters[src]
+  local charID = getFrameworkActiveCharacter(src, did)
+
+  if (not charID or charID == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then
+        sendMoneyToClient(src, force)
+      end
+    end)
+  end
+
   if not charID or charID == "" or did == "" then return end
 
   GetMoney(did, charID, function(m)
@@ -450,7 +901,17 @@ local function withMoney(src, fn)
   if not src then return end
 
   local discordID = getDiscordID(src)
-  local charID = activeCharacters[src]
+  local charID = getFrameworkActiveCharacter(src, discordID)
+  if (not charID or charID == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then
+        withMoney(src, fn)
+      else
+        TriggerClientEvent('ox_lib:notify', src, { title="Account", description="No character selected.", type="error" })
+      end
+    end)
+  end
+
   if discordID == "" or not charID then
     TriggerClientEvent('ox_lib:notify', src, { title="Account", description="No character selected.", type="error" })
     return
@@ -461,9 +922,6 @@ local function withMoney(src, fn)
   end)
 end
 
--- ------------------------------------------------------------
--- Money ops (export-safe: dot/colon + implicit source)
--- ------------------------------------------------------------
 local function addMoney_export(...)
   local a, b = stripSelf(...)
   local src, amount
@@ -577,7 +1035,7 @@ local function withdrawMoney_export(...)
   if not src or amount <= 0 then return false end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
+  local cid = getFrameworkActiveCharacter(src, did)
   if did == "" or not cid then return false end
 
   ensureChecking(did, cid, function(checkId, bal)
@@ -625,9 +1083,9 @@ local function transferMoney_export(...)
   if not src or not target or not amount or amount <= 0 then return false end
 
   local senderID = getDiscordID(src)
-  local senderChar = activeCharacters[src]
+  local senderChar = getFrameworkActiveCharacter(src, senderID)
   local targetID = getDiscordID(target)
-  local targetChar = activeCharacters[target]
+  local targetChar = getFrameworkActiveCharacter(target, targetID)
   if senderID == "" or not senderChar or targetID == "" or not targetChar then
     return false
   end
@@ -692,14 +1150,22 @@ local function claimDailyReward_export(...)
   return true
 end
 
--- ------------------------------------------------------------
--- Character + job helpers (exports kept)
--- ------------------------------------------------------------
 local function GetPlayerCharacter_export(...)
   local playerId = stripSelf(...)
   local id = resolveSourceId(playerId)
   if not id then return nil end
-  return activeCharacters[id] or nil
+
+  local did = getDiscordID(id)
+  local cid = getFrameworkActiveCharacter(id, did)
+  if cid and cid ~= "" then
+    return cid
+  end
+
+  if did ~= "" and isDiscordCharacterMode() then
+    return getPreferredCharacterId(id, did)
+  end
+
+  return nil
 end
 
 local function GetPlayerCharacterName_export(...)
@@ -718,7 +1184,13 @@ local function GetPlayerCharacterName_export(...)
   if not src then return safeCb(cb, "invalid_source", nil) end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then return GetPlayerCharacterName_export(src, cb) end
+      return safeCb(cb, "no_character", nil)
+    end)
+  end
   if did == "" or not cid then
     return safeCb(cb, "no_character", nil)
   end
@@ -745,7 +1217,10 @@ local function GetPlayerCharacterNameSync_export(...)
   if not src then return nil, "invalid_source" end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and isDiscordCharacterMode() then
+    cid = getPreferredCharacterId(src, did)
+  end
   if did == "" or not cid then
     return nil, "no_character"
   end
@@ -793,7 +1268,13 @@ local function GetPlayerMoney_export(...)
   if not src then return safeCb(cb, "invalid_source", nil) end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then return GetPlayerMoney_export(src, cb) end
+      return safeCb(cb, "no_character", nil)
+    end)
+  end
   if did == "" or not cid then
     return safeCb(cb, "no_character", nil)
   end
@@ -806,52 +1287,223 @@ local function GetPlayerMoney_export(...)
   end)
 end
 
+local function getCachedJobForSource(src)
+  src = tonumber(src or 0) or 0
+  if src <= 0 then return "" end
+  return tostring(lastDeptValue[src] or "")
+end
+
+local function publishJobChanged(src, job, previousJob)
+  src = tonumber(src or 0) or 0
+  if src <= 0 then return end
+
+  TriggerEvent("Az-Framework:jobChanged", src, job or "", previousJob or "")
+  TriggerClientEvent("Az-Framework:jobChanged", src, job or "", previousJob or "")
+end
+
 local function GetPlayerJob_async(src, cb)
   src = resolveSourceId(src)
-  if not src then return safeCb(cb, "invalid_source", nil) end
+  if not src then return safeCb(cb, "invalid_source", "") end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then return GetPlayerJob_async(src, cb) end
+      return safeCb(cb, "no_character", getCachedJobForSource(src))
+    end)
+  end
   if did == "" or not cid then
-    return safeCb(cb, "no_character", nil)
+    return safeCb(cb, "no_character", getCachedJobForSource(src))
   end
 
-  oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+  local ok = pcall(function()
+    oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+      { did, cid },
+      function(job)
+        job = tostring(job or getCachedJobForSource(src) or "")
+        if job ~= "" then lastDeptValue[src] = job:lower() end
+        safeCb(cb, nil, job)
+      end
+    )
+  end)
+
+  if not ok then
+    safeCb(cb, "db_error", getCachedJobForSource(src))
+  end
+end
+
+local function getPlayerJob_export(...)
+  local packed = { stripSelf(...) }
+  local src = resolveSourceId(packed[1])
+  if not src then return "" end
+
+  local cached = tostring(getCachedJobForSource(src) or "")
+  local did = getDiscordID(src)
+  local cid = getFrameworkActiveCharacter(src, did)
+
+  if did == "" or not cid or cid == "" then
+    return cached
+  end
+
+  if not (MySQL and MySQL.scalar and MySQL.scalar.await) then
+    return cached
+  end
+
+  local ok, job = pcall(function()
+    return MySQL.scalar.await(
+      "SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+      { did, cid }
+    )
+  end)
+
+  job = tostring((ok and job) or cached or "")
+  if job ~= "" then
+    lastDeptValue[src] = job:lower()
+  end
+  return job
+end
+
+local function setPlayerJob_export(...)
+  local a, b = stripSelf(...)
+  local src = resolveSourceId(a)
+  local job = tostring(b or ""):lower()
+  if not src then return false end
+
+  local function writeJob(discordId, charId, cb)
+    discordId = tostring(discordId or "")
+    charId = tostring(charId or "")
+    if discordId == "" or charId == "" then
+      return safeCb(cb, false)
+    end
+
+    local previousJob = getCachedJobForSource(src)
+
+    oxExecute(
+      "UPDATE user_characters SET active_department=? WHERE discordid=? AND charid=?",
+      { job, discordId, charId },
+      function()
+        lastDeptValue[src] = job
+        TriggerClientEvent("hud:setDepartment", src, job)
+        if Player and Player(src) and Player(src).state then
+          Player(src).state:set("job", job, true)
+          Player(src).state:set("department", job, true)
+        end
+        publishJobChanged(src, job, previousJob)
+        safeCb(cb, true)
+      end
+    )
+  end
+
+  local did = getDiscordID(src)
+  local cid = getFrameworkActiveCharacter(src, did)
+  if did ~= "" and cid and cid ~= "" then
+    local p = promise.new()
+    writeJob(did, cid, function(ok)
+      p:resolve(ok == true)
+    end)
+    return Citizen.Await(p) == true
+  end
+
+  if not isDiscordCharacterMode() then
+    return false
+  end
+
+  local p = promise.new()
+  ensureCharacterReady(src, function(ok, resolvedCharId)
+    if not ok or not resolvedCharId then
+      p:resolve(false)
+      return
+    end
+    writeJob(getDiscordID(src), resolvedCharId, function(writeOk)
+      p:resolve(writeOk == true)
+    end)
+  end)
+
+  return Citizen.Await(p) == true
+end
+
+local function isHuntingLicenseEnabled_export(...)
+  return Config and Config.Licenses and Config.Licenses.UseHuntingLicense == true
+end
+
+local function GetPlayerHuntingLicense_async(src, cb)
+  src = resolveSourceId(src)
+  if not src then return safeCb(cb, "invalid_source", false) end
+
+  local did = getDiscordID(src)
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and isDiscordCharacterMode() then
+    return ensureCharacterReady(src, function(ok)
+      if ok then return GetPlayerHuntingLicense_async(src, cb) end
+      return safeCb(cb, "no_character", false)
+    end)
+  end
+  if did == "" or not cid then
+    return safeCb(cb, "no_character", false)
+  end
+
+  oxScalar(
+    "SELECT COALESCE(hunting_license, 0) FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
     { did, cid },
-    function(job)
-      safeCb(cb, nil, job or "")
+    function(status)
+      safeCb(cb, nil, tonumber(status) == 1)
     end
   )
 end
 
--- Exported sync getter: exports['Az-Framework']:getPlayerJob(src)
-local function getPlayerJob_export(...)
+local function hasHuntingLicense_export(...)
   local src = stripSelf(...)
   src = resolveSourceId(src)
-  if not src then return nil end
+  if not src then return false end
 
   local p = promise.new()
   local done = false
 
-  GetPlayerJob_async(src, function(_err, job)
+  GetPlayerHuntingLicense_async(src, function(_err, status)
     done = true
-    p:resolve(job)
+    p:resolve(status == true)
   end)
 
   SetTimeout(800, function()
     if done then return end
     done = true
-    p:resolve(nil)
+    p:resolve(false)
   end)
 
-  return Citizen.Await(p)
+  return Citizen.Await(p) == true
 end
 
--- ------------------------------------------------------------
--- FIX: Department request + setActive handlers (debounced, no loop)
--- ------------------------------------------------------------
+local function setHuntingLicense_export(...)
+  local a, b, c = stripSelf(...)
+  local targetSrc = resolveSourceId(a)
+  local did, cid, state
+
+  if targetSrc then
+    did = getDiscordID(targetSrc)
+    cid = activeCharacters[targetSrc]
+    state = b
+  else
+    did = tostring(a or "")
+    cid = tostring(b or "")
+    state = c
+  end
+
+  if did == "" or not cid or tostring(cid) == "" then return false end
+
+  local p = promise.new()
+  oxExecute(
+    "UPDATE user_characters SET hunting_license=? WHERE discordid=? AND charid=?",
+    { state == true and 1 or 0, did, cid },
+    function(affected)
+      p:resolve((tonumber(affected) or 0) > 0)
+    end
+  )
+  return Citizen.Await(p) == true
+end
+
 local DEPT_REQ_MIN_MS = 4000
-local lastDeptReq = {} -- [src]=ms
+lastDeptReq = {}
 
 RegisterNetEvent("hud:requestDepartment", function()
   local src = source
@@ -863,24 +1515,34 @@ RegisterNetEvent("hud:requestDepartment", function()
   end
   lastDeptReq[src] = now
 
-  local did = getDiscordID(src)
-  local cid = activeCharacters[src]
-  if did == "" or not cid then
-    TriggerClientEvent("hud:setDepartment", src, "")
-    return
+  local function doRequest()
+    local did = getDiscordID(src)
+    local cid = getFrameworkActiveCharacter(src, did)
+    if did == "" or not cid then
+      TriggerClientEvent("hud:setDepartment", src, "")
+      return
+    end
+
+    oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+      { did, cid },
+      function(job)
+        TriggerClientEvent("hud:setDepartment", src, job or "")
+      end
+    )
   end
 
-  oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
-    { did, cid },
-    function(job)
-      TriggerClientEvent("hud:setDepartment", src, job or "")
-    end
-  )
+  if isDiscordCharacterMode() and (not activeCharacters[src] or activeCharacters[src] == "") then
+    return ensureCharacterReady(src, function(_ok)
+      doRequest()
+    end)
+  end
+
+  doRequest()
 end)
 
 local DEPT_SET_MIN_MS = 4000
-local lastDeptSet = {}      -- [src]=ms
-local lastDeptValue = {}    -- [src]=job
+lastDeptSet = {}
+lastDeptValue = {}
 
 RegisterNetEvent("az-fw-departments:setActive", function(job)
   local src = source
@@ -888,23 +1550,51 @@ RegisterNetEvent("az-fw-departments:setActive", function(job)
 
   job = tostring(job or ""):lower()
 
-  -- throttle spam (this is what stops “every 10 mins” / loop)
   local last = lastDeptSet[src] or 0
   if (now - last) < DEPT_SET_MIN_MS then
     if Config.Debug then dprint("setActive throttled src", src, "job", job) end
     return
   end
 
-  -- ignore same value (prevents echo loops)
   if lastDeptValue[src] == job then
     if Config.Debug then dprint("setActive ignored (same job) src", src, "job", job) end
     return
   end
 
   local did = getDiscordID(src)
-  local cid = activeCharacters[src]
-  if did == "" or not cid then return end
+  local cid = getFrameworkActiveCharacter(src, did)
+  if did == "" or not cid then
+    if isDiscordCharacterMode() then
+      return ensureCharacterReady(src, function(ok, resolvedCharId)
+        if not ok then return end
+        local resolvedDid = getDiscordID(src)
+        if resolvedDid == "" or not resolvedCharId then return end
+        local previousJob = getCachedJobForSource(src)
+        lastDeptSet[src] = now
+        lastDeptValue[src] = job
+        oxExecute(
+          "UPDATE user_characters SET active_department=? WHERE discordid=? AND charid=?",
+          { job, resolvedDid, resolvedCharId },
+          function()
+            TriggerClientEvent("hud:setDepartment", src, job)
+            if Player and Player(src) and Player(src).state then
+              Player(src).state:set("job", job, true)
+              Player(src).state:set("department", job, true)
+            end
+            publishJobChanged(src, job, previousJob)
+            TriggerClientEvent("ox_lib:notify", src, {
+              title = "Departments",
+              description = ("On-duty as: %s"):format(job ~= "" and job or "None"),
+              type = "success"
+            })
+          end
+        )
+      end)
+    end
+    return
+  end
 
+  local previousJob = getCachedJobForSource(src)
   lastDeptSet[src] = now
   lastDeptValue[src] = job
 
@@ -912,15 +1602,317 @@ RegisterNetEvent("az-fw-departments:setActive", function(job)
     "UPDATE user_characters SET active_department=? WHERE discordid=? AND charid=?",
     { job, did, cid },
     function()
-      -- server authoritative notify to client (no bounce)
+
       TriggerClientEvent("hud:setDepartment", src, job)
+      if Player and Player(src) and Player(src).state then
+        Player(src).state:set("job", job, true)
+        Player(src).state:set("department", job, true)
+      end
+      publishJobChanged(src, job, previousJob)
+      TriggerClientEvent("ox_lib:notify", src, {
+        title = "Departments",
+        description = ("On-duty as: %s"):format(job ~= "" and job or "None"),
+        type = "success"
+      })
     end
   )
 end)
 
--- ------------------------------------------------------------
--- Commands (kept)
--- ------------------------------------------------------------
+local HUD_CFG = Config.HUD or {}
+local HUD_PRESET_FILE = tostring(HUD_CFG.PresetFile or "config/hud_preset.json")
+local HUD_STATE_FILE = tostring(HUD_CFG.StateFile or "config/hud_state.json")
+local RESOURCE_NAME = GetCurrentResourceName()
+
+local function hudTrimmed(value)
+  local s = trim(value)
+  return s
+end
+
+local function pickRandomHudValue(list, fallback)
+  local pool = {}
+  for _, v in ipairs(list or {}) do
+    local cleaned = hudTrimmed(v)
+    if cleaned ~= "" then
+      pool[#pool + 1] = cleaned
+    end
+  end
+  if #pool == 0 then
+    return tostring(fallback or "None Set")
+  end
+  return tostring(pool[math.random(1, #pool)])
+end
+
+local function loadSavedHudStateFromDisk()
+  local raw = LoadResourceFile(RESOURCE_NAME, HUD_STATE_FILE)
+  if not raw or raw == "" then return {} end
+
+  local ok, decoded = pcall(json.decode, raw)
+  if not ok or type(decoded) ~= "table" then
+    print(("[Az-Framework] Failed to decode HUD state file %s"):format(HUD_STATE_FILE))
+    return {}
+  end
+
+  return {
+    aop = hudTrimmed(decoded.aop or ""),
+    prio = hudTrimmed(decoded.prio or ""),
+  }
+end
+
+local persistedHudSharedState = loadSavedHudStateFromDisk()
+
+local function saveSharedHudStateToDisk()
+  local encoded = json.encode({
+    aop = tostring(globalHudState and globalHudState.aop or ""),
+    prio = tostring(globalHudState and globalHudState.prio or ""),
+  })
+  if not encoded then
+    print(("[Az-Framework] Failed to encode HUD state for %s"):format(HUD_STATE_FILE))
+    return false
+  end
+  return SaveResourceFile(RESOURCE_NAME, HUD_STATE_FILE, encoded, -1)
+end
+
+local function resolveSharedHudDefault(kind)
+  local key = lower(kind)
+  local saved = hudTrimmed(persistedHudSharedState[key] or "")
+  local defaultValue = tostring(key == "aop" and (HUD_CFG.DefaultAOP or "None Set") or (HUD_CFG.DefaultPrio or "None Set"))
+  local strategy = lower(key == "aop" and (HUD_CFG.DefaultAOPStrategy or "default") or (HUD_CFG.DefaultPrioStrategy or "default"))
+  local choices = key == "aop" and (HUD_CFG.AOPChoices or {}) or (HUD_CFG.PrioChoices or {})
+
+  local wantsLast = strategy:find("last", 1, true) ~= nil
+  local wantsRandom = strategy:find("random", 1, true) ~= nil
+
+  if strategy == "last" and saved ~= "" then
+    return saved
+  end
+
+  if strategy == "random" then
+    return pickRandomHudValue(choices, defaultValue)
+  end
+
+  if strategy == "random_or_last" then
+    local randomValue = pickRandomHudValue(choices, defaultValue)
+    if randomValue ~= "" then return randomValue end
+    if saved ~= "" then return saved end
+  elseif strategy == "last_or_random" then
+    if saved ~= "" then return saved end
+    return pickRandomHudValue(choices, defaultValue)
+  elseif wantsLast and saved ~= "" then
+    return saved
+  elseif wantsRandom then
+    return pickRandomHudValue(choices, defaultValue)
+  end
+
+  if saved ~= "" and wantsLast then
+    return saved
+  end
+
+  return defaultValue
+end
+
+local function clampHudOpacity(value)
+  local n = tonumber(value) or 100
+  if n < 25 then n = 25 end
+  if n > 100 then n = 100 end
+  return math.floor(n + 0.5)
+end
+
+local function sanitizeHudCardState(card)
+  if type(card) ~= "table" then return nil end
+  local clean = {
+    display = (card.display == "none") and "none" or "",
+    position = (card.position == "fixed" or card.position == "absolute") and card.position or "",
+    width = card.width and tostring(card.width) or "",
+    height = card.height and tostring(card.height) or "",
+  }
+  if card.left ~= nil and tostring(card.left) ~= "" then clean.left = math.floor((tonumber(card.left) or 0) + 0.5) end
+  if card.top ~= nil and tostring(card.top) ~= "" then clean.top = math.floor((tonumber(card.top) or 0) + 0.5) end
+  return clean
+end
+
+local function sanitizeHudSettingsPayload(payload)
+  if type(payload) ~= "table" then return {} end
+  local clean = { toggles = {}, cards = {} }
+
+  if payload.hudRight ~= nil and tostring(payload.hudRight) ~= "" then
+    clean.hudRight = math.max(0, math.floor((tonumber(payload.hudRight) or 0) + 0.5))
+  end
+  if payload.hudTop ~= nil and tostring(payload.hudTop) ~= "" then
+    clean.hudTop = math.max(0, math.floor((tonumber(payload.hudTop) or 0) + 0.5))
+  end
+
+  if type(payload.toggles) == "table" then
+    for k, v in pairs(payload.toggles) do
+      clean.toggles[tostring(k)] = v == true
+    end
+  end
+
+  if type(payload.cards) == "table" then
+    for id, card in pairs(payload.cards) do
+      local cleaned = sanitizeHudCardState(card)
+      if cleaned then clean.cards[tostring(id)] = cleaned end
+    end
+  end
+
+  if type(payload.uiSettings) == "table" then
+    clean.uiSettings = {
+      hudEnabled = payload.uiSettings.hudEnabled ~= false,
+      soundEnabled = payload.uiSettings.soundEnabled ~= false,
+      opacity = clampHudOpacity(payload.uiSettings.opacity),
+    }
+  end
+
+  return clean
+end
+
+local function loadHudPresetFromDisk()
+  local raw = LoadResourceFile(RESOURCE_NAME, HUD_PRESET_FILE)
+  if not raw or raw == "" then return {} end
+
+  local ok, decoded = pcall(json.decode, raw)
+  if not ok or type(decoded) ~= "table" then
+    print(("[Az-Framework] Failed to decode HUD preset file %s"):format(HUD_PRESET_FILE))
+    return {}
+  end
+
+  return sanitizeHudSettingsPayload(decoded)
+end
+
+local globalHudPreset = loadHudPresetFromDisk()
+
+local function cloneHudPreset()
+  return sanitizeHudSettingsPayload(globalHudPreset)
+end
+
+local function saveHudPresetToDisk()
+  local encoded = json.encode(globalHudPreset or {})
+  if not encoded then
+    print(("[Az-Framework] Failed to encode HUD preset for %s"):format(HUD_PRESET_FILE))
+    return false
+  end
+  return SaveResourceFile(RESOURCE_NAME, HUD_PRESET_FILE, encoded, -1)
+end
+
+local function broadcastHudPreset(target)
+  local payload = cloneHudPreset()
+  if target ~= nil then
+    TriggerClientEvent("az-fw-hud:syncPreset", target, payload)
+  else
+    TriggerClientEvent("az-fw-hud:syncPreset", -1, payload)
+  end
+end
+
+local globalHudState = {
+  features = {
+    compass = not (HUD_CFG.Features and HUD_CFG.Features.compass == false),
+    postal  = not (HUD_CFG.Features and HUD_CFG.Features.postal == false),
+    aop     = not (HUD_CFG.Features and HUD_CFG.Features.aop == false),
+    prio    = not (HUD_CFG.Features and HUD_CFG.Features.prio == false),
+  },
+  aop = tostring(resolveSharedHudDefault("aop") or "None Set"),
+  prio = tostring(resolveSharedHudDefault("prio") or "None Set"),
+}
+
+local function cloneHudState()
+  return {
+    features = {
+      compass = globalHudState.features.compass == true,
+      postal = globalHudState.features.postal == true,
+      aop = globalHudState.features.aop == true,
+      prio = globalHudState.features.prio == true,
+    },
+    aop = tostring(globalHudState.aop or HUD_CFG.DefaultAOP or "None Set"),
+    prio = tostring(globalHudState.prio or HUD_CFG.DefaultPrio or "None Set"),
+  }
+end
+
+local function broadcastHudState(target)
+  local payload = cloneHudState()
+  if target ~= nil then
+    TriggerClientEvent("az-fw-hud:syncState", target, payload)
+  else
+    TriggerClientEvent("az-fw-hud:syncState", -1, payload)
+  end
+end
+
+local function normalizeHudFeatureName(name)
+  local v = tostring(name or ""):lower()
+  if v == "compas" then v = "compass" end
+  if v == "priority" then v = "prio" end
+  return v
+end
+
+local function lowerSet(tbl)
+  local out = {}
+  for _, v in ipairs(tbl or {}) do
+    out[#out + 1] = tostring(v):lower()
+  end
+  return out
+end
+
+local function tableContainsLower(tbl, value)
+  value = tostring(value or ""):lower()
+  for _, v in ipairs(tbl or {}) do
+    if tostring(v):lower() == value then
+      return true
+    end
+  end
+  return false
+end
+
+local function canUseSharedHudCommand(src, commandName)
+  if tonumber(src) == 0 then return true, "console" end
+  if isAdmin_export(src) then return true, "admin" end
+
+  local job = tostring(getPlayerJob_export(src) or ""):lower()
+  local configured = getConfiguredDepartment(job)
+  if configured then
+    if commandName == "aop" and configured.canUseAOP ~= nil then
+      return configured.canUseAOP == true, job
+    end
+    if commandName == "prio" and configured.canUsePrio ~= nil then
+      return configured.canUsePrio == true, job
+    end
+  end
+
+  local cmdJobs = (((Config.HUD or {}).CommandJobs or {})[commandName]) or {}
+  if type(cmdJobs) ~= "table" or #cmdJobs == 0 then
+    return false, tostring(job or "")
+  end
+
+  if job ~= "" and tableContainsLower(cmdJobs, job) then
+    return true, job
+  end
+
+  return false, job
+end
+
+RegisterNetEvent("az-fw-hud:requestState", function()
+  broadcastHudState(source)
+end)
+
+RegisterNetEvent("az-fw-hud:requestPreset", function()
+  broadcastHudPreset(source)
+end)
+
+RegisterNetEvent("az-fw-hud:savePreset", function(payload)
+  local src = source
+  if tonumber(src or 0) ~= 0 and not isAdmin_export(src) then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^1SYSTEM", "Admin permission required." } })
+    return
+  end
+
+  globalHudPreset = sanitizeHudSettingsPayload(payload)
+  saveHudPresetToDisk()
+  broadcastHudPreset()
+
+  if tonumber(src or 0) ~= 0 then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^2SYSTEM", "HUD preset saved for the server." } })
+  else
+    print("[Az-Framework] HUD preset saved for the server.")
+  end
+end)
+
 RegisterCommand("addmoney", function(src, args)
   if src == 0 then return end
   isAdmin_export(src, function(ok)
@@ -970,6 +1962,129 @@ RegisterCommand("dailyreward", function(src, args)
   claimDailyReward_export(src, reward)
 end, false)
 
+RegisterCommand("movehudpreset", function(src)
+  if src == 0 then
+    print("[Az-Framework] /movehudpreset can only be used in-game.")
+    return
+  end
+
+  if not isAdmin_export(src) then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^1SYSTEM", "Admin permission required." } })
+    return
+  end
+
+  broadcastHudPreset(src)
+  TriggerClientEvent("az-fw-hud:togglePresetMove", src)
+  TriggerClientEvent("chat:addMessage", src, { args = { "^2SYSTEM", "Preset editor opened. Save to update the server default HUD layout." } })
+end, false)
+
+RegisterCommand("hudfeature", function(src, args)
+  local feature = normalizeHudFeatureName(args[1])
+  local rawState = tostring(args[2] or ""):lower()
+  local enabled = nil
+  if rawState == "on" or rawState == "true" or rawState == "1" then enabled = true end
+  if rawState == "off" or rawState == "false" or rawState == "0" then enabled = false end
+
+  if not isAdmin_export(src) then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^1SYSTEM", "Admin permission required." } })
+    end
+    return
+  end
+
+  if globalHudState.features[feature] == nil or enabled == nil then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^3SYSTEM", "Usage: /hudfeature [compass|postal|aop|prio] [on|off]" } })
+    else
+      print("Usage: /hudfeature [compass|postal|aop|prio] [on|off]")
+    end
+    return
+  end
+
+  globalHudState.features[feature] = enabled
+  TriggerClientEvent("az-fw-hud:featureToggled", -1, feature, enabled)
+  broadcastHudState()
+
+  local stateWord = enabled and "enabled" or "disabled"
+  if src ~= 0 then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^2SYSTEM", ("%s HUD %s."):format(feature, stateWord) } })
+  else
+    print(("[Az-Framework] %s HUD %s."):format(feature, stateWord))
+  end
+end, false)
+
+RegisterCommand("aop", function(src, args)
+  local ok, currentJob = canUseSharedHudCommand(src, "aop")
+  if not ok then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^1SYSTEM", ("You do not have permission to use /aop. Current job: %s"):format(currentJob ~= "" and currentJob or "none") } })
+    end
+    return
+  end
+
+  local value = trim(table.concat(args or {}, " "))
+  if value == "" then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^3SYSTEM", "Usage: /aop [text] or /aop clear" } })
+    else
+      print("Usage: /aop [text] or /aop clear")
+    end
+    return
+  end
+
+  if value:lower() == "clear" then
+    value = tostring(resolveSharedHudDefault("aop") or ((Config.HUD and Config.HUD.DefaultAOP) or "None Set"))
+  end
+
+  globalHudState.aop = value
+  persistedHudSharedState.aop = value
+  saveSharedHudStateToDisk()
+  TriggerClientEvent("az-fw-hud:setAOP", -1, value)
+  broadcastHudState()
+
+  if src ~= 0 then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^2SYSTEM", ("AOP updated to: %s"):format(value) } })
+  else
+    print(("[Az-Framework] AOP updated to: %s"):format(value))
+  end
+end, false)
+
+RegisterCommand("prio", function(src, args)
+  local ok, currentJob = canUseSharedHudCommand(src, "prio")
+  if not ok then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^1SYSTEM", ("You do not have permission to use /prio. Current job: %s"):format(currentJob ~= "" and currentJob or "none") } })
+    end
+    return
+  end
+
+  local value = trim(table.concat(args or {}, " "))
+  if value == "" then
+    if src ~= 0 then
+      TriggerClientEvent("chat:addMessage", src, { args = { "^3SYSTEM", "Usage: /prio [text] or /prio clear" } })
+    else
+      print("Usage: /prio [text] or /prio clear")
+    end
+    return
+  end
+
+  if value:lower() == "clear" then
+    value = tostring(resolveSharedHudDefault("prio") or ((Config.HUD and Config.HUD.DefaultPrio) or "None Set"))
+  end
+
+  globalHudState.prio = value
+  persistedHudSharedState.prio = value
+  saveSharedHudStateToDisk()
+  TriggerClientEvent("az-fw-hud:setPRIO", -1, value)
+  broadcastHudState()
+
+  if src ~= 0 then
+    TriggerClientEvent("chat:addMessage", src, { args = { "^2SYSTEM", ("Prio updated to: %s"):format(value) } })
+  else
+    print(("[Az-Framework] Prio updated to: %s"):format(value))
+  end
+end, false)
+
 RegisterCommand("listchars", function(src)
   if src == 0 then return end
   local did = getDiscordID(src)
@@ -1004,10 +2119,8 @@ RegisterCommand("selectchar", function(src, args)
       return TriggerClientEvent("chat:addMessage", src, { args={"^1SYSTEM","Character ID not found. Use /listchars to see yours."} })
     end
 
-    activeCharacters[src] = chosen
-    activeCharByDiscord[did] = chosen
+    setFrameworkActiveCharacter(src, did, chosen, "/selectchar")
 
-    -- push money + dept (FORCED once on select)
     sendMoneyToClient(src, true)
 
     oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, chosen }, function(active_dept)
@@ -1019,9 +2132,6 @@ RegisterCommand("selectchar", function(src, args)
   end)
 end, false)
 
--- ------------------------------------------------------------
--- Net events (kept names)
--- ------------------------------------------------------------
 RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
   local src = source
   local did = getDiscordID(src)
@@ -1033,8 +2143,8 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
   local charID = tostring(os.time()) .. tostring(math.random(1000, 9999))
   local fullName = trim(firstName) .. " " .. trim(lastName)
 
-  oxInsert("INSERT INTO user_characters (discordid,charid,name,active_department) VALUES (?,?,?,?)",
-    { did, charID, trim(fullName), "" },
+  oxInsert("INSERT INTO user_characters (discordid,charid,name,active_department,hunting_license) VALUES (?,?,?,?,?)",
+    { did, charID, trim(fullName), "", (Config.Licenses and Config.Licenses.DefaultHuntingLicense == true) and 1 or 0 },
     function(ok)
       if not ok then
         TriggerClientEvent("chat:addMessage", src, { args={"^1SYSTEM","Failed to register character. Check server logs."} })
@@ -1044,9 +2154,7 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
       oxInsert(("INSERT INTO `%s` (discordid,charid,firstname,lastname,cash,bank,last_daily,card_status) VALUES (?,?,?,?,?,?,?,?)"):format(T.money),
         { did, charID, trim(firstName), trim(lastName), 0, 0, 0, "active" },
         function()
-          activeCharacters[src] = charID
-          activeCharByDiscord[did] = charID
-          lastDeptValue[src] = ""
+          setFrameworkActiveCharacter(src, did, charID, "register_character", "")
 
           TriggerClientEvent("az-fw-money:characterRegistered", src, charID)
           sendMoneyToClient(src, true)
@@ -1060,19 +2168,23 @@ RegisterNetEvent("az-fw-money:registerCharacter", function(firstName, lastName)
 end)
 
 RegisterNetEvent("az-fw-money:requestMoney", function()
-  -- not forced (throttled)
+
   sendMoneyToClient(source, false)
 end)
 
-RegisterNetEvent("az-fw-money:selectCharacter", function(charID)
-  local src = source
+local function handleCoreCharacterSelected(src, charID, clientEventName)
+  src = resolveSourceId(src)
+  if not src then return end
+
+  charID = tostring(charID or "")
+  if charID == "" then return end
+
   local did = getDiscordID(src)
   if did == "" then return end
 
   oxQuery("SELECT 1 FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, charID }, function(rows)
     if rows and #rows > 0 then
-      activeCharacters[src] = charID
-      activeCharByDiscord[did] = charID
+      setFrameworkActiveCharacter(src, did, charID, "az-fw-money:selectCharacter")
 
       sendMoneyToClient(src, true)
 
@@ -1081,37 +2193,85 @@ RegisterNetEvent("az-fw-money:selectCharacter", function(charID)
         TriggerClientEvent("hud:setDepartment", src, active_dept or "")
       end)
 
-      TriggerClientEvent("az-fw-money:characterSelected", src, charID)
+      TriggerClientEvent(clientEventName or "az-fw-money:characterSelected", src, charID)
+      TriggerEvent("Az-Framework:characterSelected", src, charID)
+      TriggerEvent("Az-Framework:Bridge:characterSelected", src, charID)
     end
   end)
+end
+
+RegisterNetEvent("az-fw-money:selectCharacter", function(charID)
+  handleCoreCharacterSelected(source, charID, "az-fw-money:characterSelected")
+end)
+
+RegisterNetEvent("azfw:set_active_character", function(charID)
+
+  handleCoreCharacterSelected(source, charID, "az-fw-money:characterSelected")
 end)
 
 RegisterNetEvent("az-fw-money:RequestPlayerCharacter", function()
   local src = source
+  if isDiscordCharacterMode() and (not activeCharacters[src] or activeCharacters[src] == "") then
+    return ensureCharacterReady(src, function(_ok, charId)
+      TriggerClientEvent("az-fw-money:ReceivePlayerCharacter", src, charId or activeCharacters[src] or nil)
+    end)
+  end
   TriggerClientEvent("az-fw-money:ReceivePlayerCharacter", src, activeCharacters[src] or nil)
+end)
+
+local function warmupPlayerCharacter(src)
+  src = tonumber(src or 0) or 0
+  if src <= 0 or not GetPlayerName(src) then return end
+  if not isDiscordCharacterMode() then return end
+  ensureCharacterReady(src, function(ok, charId)
+    if not ok then return end
+    sendMoneyToClient(src, true)
+    local did = getDiscordID(src)
+    if did ~= "" and charId then
+      oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, charId }, function(active_dept)
+        lastDeptValue[src] = tostring(active_dept or ""):lower()
+        TriggerClientEvent("hud:setDepartment", src, active_dept or "")
+      end)
+    end
+    broadcastHudState(src)
+  end)
+end
+
+AddEventHandler("playerJoining", function()
+  local src = source
+  SetTimeout(1500, function()
+    warmupPlayerCharacter(src)
+  end)
+end)
+
+AddEventHandler("onResourceStart", function(resName)
+  if resName ~= RESOURCE_NAME then return end
+  SetTimeout(1000, function()
+    for _, s in ipairs(GetPlayers()) do
+      warmupPlayerCharacter(tonumber(s))
+    end
+  end)
 end)
 
 AddEventHandler("playerDropped", function()
   local src = source
   local did = getDiscordID(src)
 
-  if did ~= "" and activeCharByDiscord[did] == activeCharacters[src] then
-    activeCharByDiscord[did] = nil
-  end
-
-  activeCharacters[src] = nil
+  clearFrameworkActiveCharacter(src)
   lastMoneyPush[src] = nil
   lastDeptReq[src] = nil
   lastDeptSet[src] = nil
   lastDeptValue[src] = nil
 end)
 
--- ------------------------------------------------------------
--- Paycheck thread (kept, but won’t spam HUD thanks to throttles)
--- ------------------------------------------------------------
 CreateThread(function()
-  local interval = (tonumber(Config.PaycheckIntervalMinutes) or 60) * 60 * 1000
-  print(("[Az-Framework] Paycheck thread started. Interval=%s minutes."):format(tostring(Config.PaycheckIntervalMinutes or 60)))
+  if not moduleEnabled("Paychecks", true) or PAYCHECK_CFG.Enabled == false then
+    print("[Az-Framework] Paycheck thread disabled by config.")
+    return
+  end
+
+  local interval = (tonumber((PAYCHECK_CFG or {}).IntervalMinutes) or tonumber(Config.PaycheckIntervalMinutes) or 60) * 60 * 1000
+  print(("[Az-Framework] Paycheck thread started. Interval=%s minutes."):format(tostring((PAYCHECK_CFG or {}).IntervalMinutes or Config.PaycheckIntervalMinutes or 60)))
 
   while true do
     Wait(interval)
@@ -1120,13 +2280,29 @@ CreateThread(function()
       local discordID = getDiscordID(src)
       if discordID == "" then goto continue end
 
-      getDiscordRoleList(src, function(err, roles)
-        if err or type(roles) ~= "table" then return end
+      oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
+        { discordID, charID },
+        function(active_department)
+          if not active_department or active_department == "" then return end
 
-        oxScalar("SELECT active_department FROM user_characters WHERE discordid=? AND charid=? LIMIT 1",
-          { discordID, charID },
-          function(active_department)
-            if not active_department or active_department == "" then return end
+          local configuredAmount = nil
+          if PAYCHECK_CFG.UseConfiguredDepartmentsFirst ~= false then
+            configuredAmount = getConfiguredDepartmentPaycheck(active_department)
+          end
+
+          if tonumber(configuredAmount) and tonumber(configuredAmount) > 0 then
+            local amt = tonumber(configuredAmount) or 0
+            addMoney_export(src, amt)
+            TriggerClientEvent("chat:addMessage", src, { args={"^2PAYCHECK","Paycheck: $" .. tostring(amt)} })
+            return
+          end
+
+          if PAYCHECK_CFG.UseDatabaseFallback == false then
+            return
+          end
+
+          getDiscordRoleList(src, function(err, roles)
+            if err or type(roles) ~= "table" then return end
 
             local lookupIds = { discordID }
             for _, rid in ipairs(roles) do lookupIds[#lookupIds+1] = rid end
@@ -1144,21 +2320,18 @@ CreateThread(function()
               local amt = tonumber(paycheck) or 0
               if amt > 0 then
                 addMoney_export(src, amt)
-                TriggerClientEvent("chat:addMessage", src, { args={"^2PAYCHECK","Hourly pay: $" .. tostring(amt)} })
+                TriggerClientEvent("chat:addMessage", src, { args={"^2PAYCHECK","Paycheck: $" .. tostring(amt)} })
               end
             end)
-          end
-        )
-      end)
+          end)
+        end
+      )
 
       ::continue::
     end
   end
 end)
 
--- ------------------------------------------------------------
--- ox_lib callbacks (kept names + MySQL.Async compatibility)
--- ------------------------------------------------------------
 lib = lib or {}
 if lib.callback and lib.callback.register then
   lib.callback.register("az-fw-money:fetchCharacters", function(source)
@@ -1182,8 +2355,9 @@ if lib.callback and lib.callback.register then
     if activeCharByDiscord[discordId] then return activeCharByDiscord[discordId] end
 
     local p = promise.new()
-    MySQL.Async.fetchAll("SELECT charid FROM user_characters WHERE discordid = ? LIMIT 1", { discordId }, function(rows)
-      if rows and rows[1] and rows[1].charid then
+    MySQL.Async.fetchAll("SELECT charid FROM user_characters WHERE discordid = ? LIMIT 2", { discordId }, function(rows)
+
+      if rows and #rows == 1 and rows[1] and rows[1].charid then
         p:resolve(rows[1].charid)
       else
         p:resolve(nil)
@@ -1193,38 +2367,217 @@ if lib.callback and lib.callback.register then
   end)
 end
 
--- ------------------------------------------------------------
--- Exports (same names, safe for colon/dot)
--- ------------------------------------------------------------
-exports("addMoney", addMoney_export)
-exports("deductMoney", deductMoney_export)
-exports("depositMoney", depositMoney_export)
-exports("withdrawMoney", withdrawMoney_export)
-exports("transferMoney", transferMoney_export)
-exports("claimDailyReward", claimDailyReward_export)
+local function GetActiveCharacter_export(...)
+  local src = stripSelf(...)
+  src = resolveSourceId(src)
+  if not src then return nil end
+  return getFrameworkActiveCharacter(src, getDiscordID(src))
+end
 
-exports("GetMoney", GetMoney)
-exports("UpdateMoney", UpdateMoney)
-exports("sendMoneyToClient", function(...) local src = stripSelf(...) return sendMoneyToClient(src, true) end)
+local function SetActiveCharacter_export(...)
+  local a, b = stripSelf(...)
+  local src = resolveSourceId(a)
+  local charId = b
 
-exports("getDiscordID", function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end)
-exports("isAdmin", isAdmin_export)
+  if not src and tonumber(b) then
+    src = resolveSourceId(b)
+    charId = a
+  end
 
-exports("GetPlayerCharacter", GetPlayerCharacter_export)
-exports("GetPlayerCharacterName", GetPlayerCharacterName_export)
-exports("GetPlayerMoney", GetPlayerMoney_export)
+  if not src then return false, "invalid_source" end
+  charId = tostring(charId or "")
+  if charId == "" then return false, "missing_charid" end
 
-exports("logAdminCommand", function(...) local a,b,c,d = stripSelf(...) return logAdminCommand(a,b,c,d) end)
+  local did = getDiscordID(src)
+  if did == "" then return false, "no_discord" end
 
--- this is the export your other scripts use:
---   local job = exports['Az-Framework']:getPlayerJob(source)
-exports("getPlayerJob", getPlayerJob_export)
+  if MySQL and MySQL.scalar and type(MySQL.scalar.await) == "function" then
+    local ok, exists = pcall(function()
+      return MySQL.scalar.await("SELECT 1 FROM user_characters WHERE discordid=? AND charid=? LIMIT 1", { did, charId })
+    end)
+    if ok and not exists then return false, "not_owner" end
+  end
 
--- compatibility aliases (capitalized names for simpler framework usage)
-exports("AddMoney", addMoney_export)
-exports("DeductMoney", deductMoney_export)
-exports("DepositMoney", depositMoney_export)
-exports("WithdrawMoney", withdrawMoney_export)
-exports("TransferMoney", transferMoney_export)
-exports("ClaimDailyReward", claimDailyReward_export)
-exports("GetDiscordID", function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end)
+  setFrameworkActiveCharacter(src, did, charId, "SetActiveCharacter export")
+  TriggerEvent("Az-Framework:characterSelected", src, charId)
+  TriggerEvent("Az-Framework:Bridge:characterSelected", src, charId)
+  return true, charId
+end
+
+local function ClearActiveCharacter_export(...)
+  local src = stripSelf(...)
+  src = resolveSourceId(src)
+  if not src then return false end
+  clearFrameworkActiveCharacter(src)
+  return true
+end
+
+local function getPlayerMoneySync(src)
+  src = resolveSourceId(src)
+  if not src then return { cash = 0, bank = 0 } end
+
+  local did = getDiscordID(src)
+  local cid = getFrameworkActiveCharacter(src, did)
+  if did == "" or not cid or cid == "" then
+    return { cash = 0, bank = 0 }
+  end
+
+  if MySQL and MySQL.query and type(MySQL.query.await) == "function" then
+    local ok, rows = pcall(function()
+      return MySQL.query.await(
+        ("SELECT cash, bank FROM `%s` WHERE discordid=? AND charid=? LIMIT 1"):format(T.money),
+        { did, cid }
+      )
+    end)
+
+    if ok and rows and rows[1] then
+      return {
+        cash = tonumber(rows[1].cash) or 0,
+        bank = tonumber(rows[1].bank) or 0,
+      }
+    end
+  end
+
+  return { cash = 0, bank = 0 }
+end
+
+local function buildAzPlayer(src)
+  src = resolveSourceId(src)
+  if not src or GetPlayerName(src) == nil then return nil end
+
+  local did = getDiscordID(src)
+  local cid = getFrameworkActiveCharacter(src, did)
+  if (not cid or cid == "") and did ~= "" and isDiscordCharacterMode() then
+    cid = getPreferredCharacterId(src, did)
+  end
+
+  local player = {
+    source = src,
+    id = src,
+    name = GetPlayerName(src) or "",
+    discordId = did,
+    discordid = did,
+    charId = cid,
+    charid = cid,
+    citizenid = cid,
+    job = getPlayerJob_export(src),
+    money = getPlayerMoneySync(src),
+  }
+
+  function player.GetSource() return src end
+  function player.GetName() return GetPlayerName(src) or player.name end
+  function player.GetDiscordId() return getDiscordID(src) end
+  function player.GetCharacter() return GetActiveCharacter_export(src) end
+  function player.GetCharId() return GetActiveCharacter_export(src) end
+  function player.GetJob() return getPlayerJob_export(src) end
+  function player.SetJob(...)
+    local job, grade = stripSelf(...)
+    return setPlayerJob_export(src, job, grade)
+  end
+  function player.GetMoney(...)
+    local account = stripSelf(...)
+    local money = getPlayerMoneySync(src)
+    account = tostring(account or ""):lower()
+    if account == "bank" then return money.bank end
+    if account == "all" or account == "both" then return money end
+    return money.cash
+  end
+  function player.AddMoney(...) local amount = stripSelf(...) return addMoney_export(src, amount) end
+  function player.RemoveMoney(...) local amount = stripSelf(...) return deductMoney_export(src, amount) end
+  function player.DeductMoney(...) local amount = stripSelf(...) return deductMoney_export(src, amount) end
+  function player.Deposit(...) local amount = stripSelf(...) return depositMoney_export(src, amount) end
+  function player.Withdraw(...) local amount = stripSelf(...) return withdrawMoney_export(src, amount) end
+  function player.Notify(...)
+    local message, ntype, duration = stripSelf(...)
+    TriggerClientEvent("ox_lib:notify", src, {
+      title = "Notification",
+      description = tostring(message or ""),
+      type = tostring(ntype or "inform"),
+      duration = tonumber(duration) or 5000,
+    })
+    return true
+  end
+  function player.TriggerEvent(...)
+    local args = { stripSelf(...) }
+    local eventName = table.remove(args, 1)
+    TriggerClientEvent(tostring(eventName or ""), src, table.unpack(args))
+  end
+
+  return player
+end
+
+local function GetPlayer_export(...)
+  local src = stripSelf(...)
+  return buildAzPlayer(src)
+end
+
+local AzObject = {}
+
+function AzObject.GetPlayer(...) local src = stripSelf(...) return buildAzPlayer(src) end
+function AzObject.GetPlayers()
+  local players = {}
+  for _, id in ipairs(GetPlayers() or {}) do
+    local src = tonumber(id)
+    local player = src and buildAzPlayer(src) or nil
+    if player then players[src] = player end
+  end
+  return players
+end
+function AzObject.GetPlayerCharacter(...) local src = stripSelf(...) return GetPlayerCharacter_export(src) end
+function AzObject.GetActiveCharacter(...) local src = stripSelf(...) return GetActiveCharacter_export(src) end
+function AzObject.SetActiveCharacter(...) local src, charId = stripSelf(...) return SetActiveCharacter_export(src, charId) end
+function AzObject.GetPlayerJob(...) local src = stripSelf(...) return getPlayerJob_export(src) end
+function AzObject.SetPlayerJob(...) local src, job, grade = stripSelf(...) return setPlayerJob_export(src, job, grade) end
+
+_G.AzServerExports = {
+  GetObject = function() return AzObject end,
+  GetCoreObject = function() return AzObject end,
+  GetPlayer = GetPlayer_export,
+  GetPlayers = function()
+    return AzObject.GetPlayers()
+  end,
+  addMoney = addMoney_export,
+  deductMoney = deductMoney_export,
+  depositMoney = depositMoney_export,
+  withdrawMoney = withdrawMoney_export,
+  transferMoney = transferMoney_export,
+  claimDailyReward = claimDailyReward_export,
+  GetMoney = GetMoney,
+  UpdateMoney = UpdateMoney,
+  sendMoneyToClient = function(...) local src = stripSelf(...) return sendMoneyToClient(src, true) end,
+  getDiscordID = function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end,
+  isAdmin = isAdmin_export,
+  GetPlayerCharacter = GetPlayerCharacter_export,
+  GetActiveCharacter = GetActiveCharacter_export,
+  getActiveCharacter = GetActiveCharacter_export,
+  GetCharacter = GetActiveCharacter_export,
+  getCharacter = GetActiveCharacter_export,
+  SetActiveCharacter = SetActiveCharacter_export,
+  setActiveCharacter = SetActiveCharacter_export,
+  ClearActiveCharacter = ClearActiveCharacter_export,
+  clearActiveCharacter = ClearActiveCharacter_export,
+  GetPlayerCharacterName = GetPlayerCharacterName_export,
+  GetPlayerCharacterNameSync = GetPlayerCharacterNameSync_export,
+  GetPlayerMoney = GetPlayerMoney_export,
+  logAdminCommand = function(...) local a,b,c,d = stripSelf(...) return logAdminCommand(a,b,c,d) end,
+  getPlayerJob = getPlayerJob_export,
+  setPlayerJob = setPlayerJob_export,
+  hasHuntingLicense = hasHuntingLicense_export,
+  setHuntingLicense = setHuntingLicense_export,
+  isHuntingLicenseEnabled = isHuntingLicenseEnabled_export,
+  AddMoney = addMoney_export,
+  DeductMoney = deductMoney_export,
+  DepositMoney = depositMoney_export,
+  WithdrawMoney = withdrawMoney_export,
+  TransferMoney = transferMoney_export,
+  ClaimDailyReward = claimDailyReward_export,
+  GetDiscordID = function(...) local src = stripSelf(...) return getDiscordID(resolveSourceId(src) or src) end,
+  SetPlayerJob = setPlayerJob_export,
+  HasHuntingLicense = hasHuntingLicense_export,
+  SetHuntingLicense = setHuntingLicense_export,
+  IsHuntingLicenseEnabled = isHuntingLicenseEnabled_export,
+  getConfiguredDepartments = function(...) return getConfiguredDepartmentsExport() end,
+  saveConfiguredDepartments = function(...) local list = stripSelf(...) return setConfiguredDepartmentsExport(list) end,
+  upsertConfiguredDepartment = function(...) local entry = stripSelf(...) return upsertConfiguredDepartmentExport(entry) end,
+  removeConfiguredDepartment = function(...) local id = stripSelf(...) return removeConfiguredDepartmentExport(id) end,
+}

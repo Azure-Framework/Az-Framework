@@ -17,9 +17,6 @@ RegisterCommand("presence_debug", function(_, args)
   print(("[presence] debug %s"):format(DEBUG and "ENABLED" or "DISABLED"))
 end, false)
 
--- ==========================
--- Citizen.InvokeNative helper (safe)
--- ==========================
 local function invokeNativeSafe(hash, ...)
   if type(Citizen) ~= "table" or type(Citizen.InvokeNative) ~= "function" then
     return false, "Citizen.InvokeNative not available"
@@ -29,30 +26,13 @@ local function invokeNativeSafe(hash, ...)
   return false, tostring(res)
 end
 
--- ==========================
--- Native availability helper
--- ==========================
 local function nativeAvailable(name)
   return type(_G[name]) == "function"
 end
 
--- ==========================
--- App ID + Presence + Asset setters
--- Try named natives first, then fallback to native hash (InvokeNative)
--- All return true on success
--- ==========================
-
--- Native hashes (common ones)
--- SET_DISCORD_APP_ID          0x6A02254D  (example used in many resources)
--- SET_RICH_PRESENCE          0x7BDCBD45
--- SET_DISCORD_RICH_PRESENCE_ASSET 0x53DFD530
--- SET_DISCORD_RICH_PRESENCE_ASSET_SMALL  (unknown shown in docs, try named)
--- Note: calling by hash is a last-resort; wrapped in pcall.
-
 local HASH_SET_DISCORD_APP_ID = 0x6A02254D
 local HASH_SET_RICH_PRESENCE = 0x7BDCBD45
 local HASH_SET_DISCORD_RICH_PRESENCE_ASSET = 0x53DFD530
--- (other hashes could be added if needed)
 
 local function trySetAppId(id)
   if not id or id == "" then
@@ -60,7 +40,6 @@ local function trySetAppId(id)
     return false
   end
 
-  -- 1) Named native (preferred)
   if nativeAvailable("SetDiscordAppId") then
     local ok, err = pcall(SetDiscordAppId, tostring(id))
     if ok then
@@ -71,7 +50,6 @@ local function trySetAppId(id)
     end
   end
 
-  -- 2) Fallback: invoke native hash
   local succ, info = invokeNativeSafe(HASH_SET_DISCORD_APP_ID, tostring(id))
   if succ then
     dbg("SetDiscordAppId via InvokeNative called (%s)", tostring(id))
@@ -88,21 +66,18 @@ local function trySetPresence(str)
     return false
   end
 
-  -- 1) SetDiscordRichPresence (some builds)
   if nativeAvailable("SetDiscordRichPresence") then
     local ok, err = pcall(SetDiscordRichPresence, tostring(str))
     if ok then dbg("SetDiscordRichPresence called."); return true
     else dbg("SetDiscordRichPresence error:", tostring(err)) end
   end
 
-  -- 2) SetRichPresence (common)
   if nativeAvailable("SetRichPresence") then
     local ok, err = pcall(SetRichPresence, tostring(str))
     if ok then dbg("SetRichPresence called."); return true
     else dbg("SetRichPresence error:", tostring(err)) end
   end
 
-  -- 3) Fallback: native hash SET_RICH_PRESENCE
   local succ, info = invokeNativeSafe(HASH_SET_RICH_PRESENCE, tostring(str))
   if succ then dbg("SetRichPresence via InvokeNative called."); return true end
 
@@ -122,7 +97,6 @@ local function trySetPresenceAsset(assetName)
     else dbg("SetDiscordRichPresenceAsset error:", tostring(err)) end
   end
 
-  -- Fallback: use known hash if available
   local succ, info = invokeNativeSafe(HASH_SET_DISCORD_RICH_PRESENCE_ASSET, tostring(assetName))
   if succ then dbg("SetDiscordRichPresenceAsset via InvokeNative called: " .. tostring(assetName)); return true end
 
@@ -140,7 +114,7 @@ local function trySetPresenceAssetSmall(assetName)
     if ok then dbg("SetDiscordRichPresenceAssetSmall called: " .. tostring(assetName)); return true
     else dbg("SetDiscordRichPresenceAssetSmall error:", tostring(err)) end
   end
-  -- no widely-known small-asset hash; skip fallback
+
   dbg("SetDiscordRichPresenceAssetSmall native not exposed; skipping.")
   return false
 end
@@ -169,9 +143,6 @@ local function trySetPresenceAssetText(text)
   return false
 end
 
--- ==========================
--- Safe coord + info readers
--- ==========================
 local function safeGetCoords()
   local ok, x, y, z = pcall(function()
     local ped = PlayerPedId()
@@ -207,8 +178,6 @@ local function getStreetAndZone()
   return street, label
 end
 
-
-
 local function getMovementAndVehicleInfo()
   local ped = PlayerPedId()
   if not ped or ped == 0 then return "Idle", false, 0, false end
@@ -216,7 +185,6 @@ local function getMovementAndVehicleInfo()
   if IsPedInAnyVehicle(ped, false) then
     local veh = GetVehiclePedIsIn(ped, false)
 
-    -- speed (m/s -> mph)
     local speedMs = 0
     do
       local ok, s = pcall(GetEntitySpeed, veh)
@@ -224,14 +192,12 @@ local function getMovementAndVehicleInfo()
     end
     local speedMph = math.floor(speedMs * 2.236936 + 0.5)
 
-    -- siren (pcall)
     local siren = false
     do
       local ok, v = pcall(IsVehicleSirenOn, veh)
       if ok and type(v) == "boolean" then siren = v end
     end
 
-    -- lights state fallback (pcall). GetVehicleLightsState can return different values depending on build.
     local emergencyLights = false
     do
       local ok, lightsState = pcall(GetVehicleLightsState, veh)
@@ -240,7 +206,6 @@ local function getMovementAndVehicleInfo()
       end
     end
 
-    -- vehicle class check: Emergency class is 18
     local isEmergencyClass = false
     do
       local ok, cls = pcall(GetVehicleClass, veh)
@@ -249,7 +214,6 @@ local function getMovementAndVehicleInfo()
       end
     end
 
-    -- Final lights-on logic: only show lights ON for emergency-class vehicles with siren or lights
     local lightsOn = false
     if isEmergencyClass and (siren or emergencyLights) then
       lightsOn = true
@@ -257,7 +221,7 @@ local function getMovementAndVehicleInfo()
 
     return "Driving", true, speedMph, lightsOn
   else
-    -- on foot
+
     local speedMs = 0
     do
       local ok, s = pcall(GetEntitySpeed, ped)
@@ -271,10 +235,6 @@ local function getMovementAndVehicleInfo()
   end
 end
 
-
--- ==========================
--- Presence builder + API (framework-free)
--- ==========================
 local _lastPresence = nil
 local _externalPresence = nil
 local _jobLabel = nil
@@ -307,7 +267,6 @@ local function buildPresence()
   return combined
 end
 
--- Exports / events
 function RefreshDiscordPresence()
   local ok, text = pcall(buildPresence)
   if ok and text then
@@ -353,7 +312,6 @@ exports("SetDiscordJob", SetDiscordJob)
 RegisterNetEvent("presence:setJob")
 AddEventHandler("presence:setJob", function(jobLabel) SetDiscordJob(jobLabel) end)
 
--- Optional asset setup (call once after app id if you want to show assets):
 local function trySetupAssets()
   if not Config then return end
   if Config.ASSET_LARGE then trySetPresenceAsset(Config.ASSET_LARGE) end
@@ -362,7 +320,6 @@ local function trySetupAssets()
   if Config.ASSET_TEXT then trySetPresenceAssetText(Config.ASSET_TEXT) end
 end
 
--- Commands
 RegisterCommand("presence_status", function()
   local ok, text = pcall(buildPresence)
   if ok and text then print("[presence] current presence: " .. tostring(text)) else print("[presence] buildPresence failed or returned nil") end
@@ -370,9 +327,6 @@ end, false)
 
 RegisterCommand("presence_forceupdate", function() RefreshDiscordPresence() end, false)
 
--- ==========================
--- Main loop
--- ==========================
 Citizen.CreateThread(function()
   if type(PlayerPedId) ~= "function" then
     print("[presence] PlayerPedId is NOT a function (script running server-side). Move file to client_scripts.")
@@ -382,11 +336,9 @@ Citizen.CreateThread(function()
   if type(Config) == "table" and Config.DEBUG == false then DEBUG = false end
   dbg("Presence script starting. DEBUG=" .. tostring(DEBUG))
 
-  -- Try to set App ID (named native or hash fallback)
   local appOk = trySetAppId(Config and Config.DISCORD_APP_ID)
   if not appOk then dbg("App ID not set via native; presence may not display without a valid app id.") end
 
-  -- Try optional assets (will no-op gracefully if natives not exposed)
   trySetupAssets()
 
   local interval = (Config and tonumber(Config.UPDATE_INTERVAL)) or 5

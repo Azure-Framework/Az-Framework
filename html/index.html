@@ -49,7 +49,7 @@
       if (!window.hudConfig) log('hudConfig still undefined after loader');
     }, 300);
   })();
-  </script>
+</script>
 
   <script>
   (function () {
@@ -122,7 +122,7 @@
       } catch (e) {}
     });
   })();
-  </script>
+</script>
 
   <style>
     :root{
@@ -136,6 +136,7 @@
       --hud-radius: 12px;
       --hud-shadow: 0 8px 30px rgba(30,60,110,0.14);
       --font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      --hud-opacity: 1;
     }
 
     html, body {
@@ -155,11 +156,19 @@
       display:flex;
       gap:var(--hud-gap);
       align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      max-width:min(94vw, 1500px);
       user-select:none;
       cursor:default;
       z-index:2200;
-      transition: right .18s ease, top .18s ease;
+      transition: right .18s ease, top .18s ease, opacity .18s ease;
       pointer-events:auto;
+      opacity: var(--hud-opacity);
+    }
+    #hudContainer.hud-disabled{
+      opacity: 0;
+      pointer-events: none;
     }
     #hudContainer.move-mode{
       cursor:grab;
@@ -227,6 +236,8 @@
       top: 0;
       width: 320px;
       max-width: 92vw;
+      max-height: min(78vh, 640px);
+      overflow-y: auto;
       padding:12px;
       border-radius:12px;
       background: linear-gradient(180deg, rgba(12,26,40,0.62), rgba(8,16,28,0.52));
@@ -240,6 +251,8 @@
       pointer-events:auto;
       backdrop-filter: none;
     }
+    .overlay-panel::-webkit-scrollbar, .overlay-paneltoggle::-webkit-scrollbar{ width:8px; }
+    .overlay-panel::-webkit-scrollbar-thumb, .overlay-paneltoggle::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.14); border-radius:999px; }
     .overlay-panel h3, .overlay-paneltoggle h3{
       color:var(--accent-color);
       margin-bottom:8px;
@@ -275,13 +288,230 @@
       cursor:pointer;
     }
 
+
+
+    .hud-wide .hud-value{ max-width:320px; }
+    #card-compass .hud-value{ max-width:280px; }
+
+    #hudNotifications{
+      position:absolute;
+      top:76px;
+      right:20px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      z-index:2500;
+      pointer-events:none;
+      transition: opacity .18s ease;
+      max-width:min(340px, 92vw);
+    }
+    .hud-toast{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:12px;
+      background: linear-gradient(180deg, rgba(14,30,48,0.78), rgba(8,18,30,0.74));
+      border:1px solid rgba(255,255,255,0.04);
+      box-shadow: var(--hud-shadow);
+      transform: translateY(-8px);
+      opacity:0;
+      transition: transform .18s ease, opacity .18s ease;
+      overflow:hidden;
+      position:relative;
+    }
+    .hud-toast::before{
+      content:'';
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:4px;
+      background: linear-gradient(180deg, var(--accent-color), var(--accent-2));
+    }
+    .hud-toast.show{ transform: translateY(0); opacity:1; }
+    .hud-toast-icon{
+      width:32px;
+      height:32px;
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(255,255,255,0.03);
+      flex-shrink:0;
+    }
+    .hud-toast-icon i{ color:var(--accent-color); font-size:16px; }
+    .hud-toast-content{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .hud-toast-title{ font-size:13px; font-weight:700; color:var(--text-primary); }
+    .hud-toast-desc{ font-size:12px; color:var(--text-secondary); white-space:normal; }
+
+    :root{
+      --minimap-left: clamp(10px, 1.25vw, 24px);
+      --minimap-bottom: clamp(36px, 4.8vh, 66px);
+      --minimap-width: clamp(180px, 15.25vw, 280px);
+      --map-hud-gap: clamp(8px, 0.6vw, 12px);
+    }
+
+    #mapHudContainer{
+      position:absolute;
+      left: calc(var(--minimap-left) + var(--minimap-width) + clamp(10px, 0.9vw, 18px));
+      bottom: var(--minimap-bottom);
+      width: min(clamp(340px, 28vw, 470px), calc(100vw - (var(--minimap-left) + var(--minimap-width) + clamp(10px, 0.9vw, 18px)) - 12px));
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--map-hud-gap);
+      align-items:stretch;
+      z-index:2195;
+      user-select:none;
+      pointer-events:auto;
+      opacity: var(--hud-opacity);
+      transition: opacity .18s ease;
+    }
+    #mapHudContainer.hud-disabled{
+      opacity: 0;
+      pointer-events: none;
+    }
+    #mapHudContainer .hud-card{
+      min-width: 0;
+      min-height: 42px;
+      padding: 9px 12px;
+      gap: 10px;
+    }
+    #mapHudContainer .hud-icon{
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+    }
+    #mapHudContainer .hud-icon i{ font-size: 15px; }
+    #mapHudContainer .hud-label{ font-size: 9px; }
+    #mapHudContainer .hud-value{
+      font-size: 13px;
+      max-width: none;
+    }
+    #card-compass.map-hud-card .hud-value,
+    #card-postal.map-hud-card .hud-value,
+    #card-prio.map-hud-card .hud-value,
+    #card-aop.map-hud-card .hud-value{
+      max-width: none;
+    }
+
+    .settings-section{
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid rgba(255,255,255,0.04);
+    }
+    .settings-section:first-of-type{
+      margin-top:0;
+      padding-top:0;
+      border-top:none;
+    }
+    .settings-section-title{
+      font-size:11px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--text-secondary);
+      margin-bottom:8px;
+    }
+    .settings-list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+    .setting-range{ display:flex; flex-direction:column; gap:6px; }
+    .range-header{ display:flex; justify-content:space-between; gap:8px; color:var(--text-primary); font-size:13px; }
+    #settings input[type="range"]{ width:100%; accent-color:var(--accent-color); }
+    #settings label.is-disabled{ opacity:.45; cursor:not-allowed; }
+    #settings input[disabled]{ cursor:not-allowed; }
+
+
+    @media (max-width:1100px){
+      :root{
+        --minimap-width: clamp(165px, 17vw, 220px);
+      }
+      #mapHudContainer{
+        width: min(clamp(300px, 30vw, 380px), calc(100vw - (var(--minimap-left) + var(--minimap-width) + 10px) - 10px));
+      }
+    }
+
     @media (max-width:560px){
       #hudContainer{ gap:8px; top:12px; right:12px; }
       .hud-card{ padding:8px; min-width:100px; }
       .hud-icon{ width:30px; height:30px; }
       .hud-value{ font-size:13px; }
+      #mapHudContainer{
+        left: calc(var(--minimap-left) + var(--minimap-width) + 8px);
+        bottom: calc(var(--minimap-bottom) + 4px);
+        width: min(180px, calc(100vw - (var(--minimap-left) + var(--minimap-width) + 8px) - 8px));
+        grid-template-columns: 1fr;
+      }
       .overlay-panel, .overlay-paneltoggle{ width:92vw; left:4vw; }
     }
+
+    #azShellCharacter,
+    #azShellAdmin,
+    #azShellBanking,
+    #azShellId,
+    #azShellFuel,
+    #azShellInsurance,
+    #azShellMors,
+    #azShellDailyRewards,
+    #azShellHousing,
+    #azShellDeath,
+    #azShellChat{
+      position:fixed;
+      inset:0;
+      display:none;
+      pointer-events:none;
+      background:transparent;
+      z-index:4500;
+    }
+    #azShellCharacter.active,
+    #azShellAdmin.active,
+    #azShellBanking.active,
+    #azShellId.active,
+    #azShellFuel.active,
+    #azShellInsurance.active,
+    #azShellMors.active,
+    #azShellDailyRewards.active,
+    #azShellHousing.active{
+      display:block;
+      pointer-events:auto;
+    }
+    #azShellCharacter iframe,
+    #azShellAdmin iframe,
+    #azShellBanking iframe,
+    #azShellId iframe,
+    #azShellFuel iframe,
+    #azShellInsurance iframe,
+    #azShellMors iframe,
+    #azShellDailyRewards iframe,
+    #azShellHousing iframe,
+    #azShellDeath iframe,
+    #azShellChat iframe{
+      width:100%;
+      height:100%;
+      border:0;
+      background:transparent;
+    }
+
+    #azShellDeath{
+      display:block;
+      pointer-events:none;
+      z-index:4300;
+    }
+    #azShellDeath iframe{
+      pointer-events:none;
+    }
+
+    #azShellChat{
+      display:block;
+      pointer-events:none;
+      z-index:3400;
+    }
+    #azShellChat iframe{
+      pointer-events:none;
+    }
+    #azShellChat.interactive{
+      pointer-events:auto;
+    }
+    #azShellChat.interactive iframe{
+      pointer-events:auto;
+    }
+
   </style>
 </head>
 <body>
@@ -330,18 +560,78 @@
         <div class="hud-value value-update" id="bankDisplay">$0</div>
       </div>
     </div>
+
   </div>
+
+  <div id="mapHudContainer" role="group" aria-label="Map HUD Container">
+    <div class="hud-card map-hud-card" id="card-prio">
+      <div class="hud-icon"><i class="bi bi-exclamation-diamond"></i></div>
+      <div class="hud-content">
+        <div class="hud-label">Priority</div>
+        <div class="hud-value" id="prioDisplay">None Set</div>
+      </div>
+    </div>
+
+    <div class="hud-card map-hud-card" id="card-postal">
+      <div class="hud-icon"><i class="bi bi-signpost-2"></i></div>
+      <div class="hud-content">
+        <div class="hud-label">Postal</div>
+        <div class="hud-value" id="postalDisplay">N/A</div>
+      </div>
+    </div>
+
+    <div class="hud-card map-hud-card" id="card-aop">
+      <div class="hud-icon"><i class="bi bi-geo-alt"></i></div>
+      <div class="hud-content">
+        <div class="hud-label">AOP</div>
+        <div class="hud-value" id="aopDisplay">None Set</div>
+      </div>
+    </div>
+
+    <div class="hud-card map-hud-card" id="card-compass">
+      <div class="hud-icon"><i class="bi bi-compass"></i></div>
+      <div class="hud-content">
+        <div class="hud-label">Compass</div>
+        <div class="hud-value" id="compassDisplay">N • No Street</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hudNotifications" aria-live="polite" aria-atomic="false"></div>
 
   <div id="settings" class="overlay-paneltoggle" aria-hidden="true">
     <h3>HUD Settings</h3>
-    <ul>
-      <li><label><input type="checkbox" data-target="serverLogo"> Server Logo</label></li>
-      <li><label><input type="checkbox" data-target="card-player"> Player Name</label></li>
-      <li><label><input type="checkbox" data-target="card-discord"> Discord</label></li>
-      <li><label><input type="checkbox" data-target="card-job"> Job</label></li>
-      <li><label><input type="checkbox" data-target="card-cash"> Cash</label></li>
-      <li><label><input type="checkbox" data-target="card-bank"> Bank</label></li>
-    </ul>
+
+    <div class="settings-section">
+      <div class="settings-section-title">General</div>
+      <ul class="settings-list">
+        <li><label><input type="checkbox" id="hudEnabledToggle"> HUD Enabled</label></li>
+        <li><label><input type="checkbox" id="hudSoundToggle"> Notification Sounds</label></li>
+        <li class="setting-range">
+          <div class="range-header">
+            <span>Opacity</span>
+            <span id="hudOpacityValue">100%</span>
+          </div>
+          <input type="range" id="hudOpacitySlider" min="25" max="100" step="5" value="100">
+        </li>
+      </ul>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Visible Cards</div>
+      <ul class="settings-list">
+        <li><label><input type="checkbox" data-target="serverLogo"> Server Logo</label></li>
+        <li><label><input type="checkbox" data-target="card-player"> Player Name</label></li>
+        <li><label><input type="checkbox" data-target="card-discord"> Discord</label></li>
+        <li><label><input type="checkbox" data-target="card-job"> Job</label></li>
+        <li><label><input type="checkbox" data-target="card-cash"> Cash</label></li>
+        <li><label><input type="checkbox" data-target="card-bank"> Bank</label></li>
+        <li><label><input type="checkbox" data-target="card-compass"> Compass</label></li>
+        <li><label><input type="checkbox" data-target="card-postal"> Postal</label></li>
+        <li><label><input type="checkbox" data-target="card-prio"> Priority</label></li>
+        <li><label><input type="checkbox" data-target="card-aop"> AOP</label></li>
+      </ul>
+    </div>
 
     <div id="settingsButtons">
       <button id="cancelHUD">Cancel</button>
@@ -354,8 +644,9 @@
   <div id="guide" class="overlay-panel" aria-hidden="true">
     <h3>HUD Move Guide</h3>
     <ul>
-      <li>Drag anywhere to move the whole HUD.</li>
-      <li>Hold <strong>Ctrl</strong> + drag a card to move a single card.</li>
+      <li>Drag any card directly to move it.</li>
+      <li>Hold <strong>Shift</strong> and drag the top HUD row to move the whole top HUD.</li>
+      <li>Map cards can be moved the same way as the rest of the HUD cards.</li>
       <li>Click <strong>Save</strong> to keep your layout, or <strong>Cancel</strong> to revert.</li>
       <li>Press <strong>Esc</strong> to exit move-mode (acts like Cancel).</li>
     </ul>
@@ -369,10 +660,58 @@
     </div>
   </div>
 
+
+  <div id="azShellCharacter" aria-hidden="true">
+    <iframe id="azCharacterFrame" src="./character/index.html" title="Az Framework Character UI"></iframe>
+  </div>
+
+  <div id="azShellAdmin" aria-hidden="true">
+    <iframe id="azAdminFrame" src="./admin/index.html" title="Az Framework Admin UI"></iframe>
+  </div>
+
+  <div id="azShellBanking" aria-hidden="true">
+    <iframe id="azBankingFrame" src="../modules/banking/ui/index.html" title="Az Framework Banking UI"></iframe>
+  </div>
+
+  <div id="azShellId" aria-hidden="true">
+    <iframe id="azIdFrame" src="../modules/id/html/index.html" title="Az Framework ID UI"></iframe>
+  </div>
+
+  <div id="azShellFuel" aria-hidden="true">
+    <iframe id="azFuelFrame" src="../modules/fuel/html/index.html" title="Az Framework Fuel UI"></iframe>
+  </div>
+
+  <div id="azShellInsurance" aria-hidden="true">
+    <iframe id="azInsuranceFrame" src="../modules/insurance/html/index.html" title="Az Framework Insurance UI"></iframe>
+  </div>
+
+
+  <div id="azShellMors" aria-hidden="true">
+    <iframe id="azMorsFrame" src="mors/index.html" title="Az Framework Mors Delivery UI"></iframe>
+  </div>
+
+  <div id="azShellDailyRewards" aria-hidden="true">
+    <iframe id="azDailyRewardsFrame" src="../modules/dailyrewards/html/index.html" title="Az Framework Daily Rewards UI"></iframe>
+  </div>
+
+  <div id="azShellHousing" aria-hidden="true">
+    <iframe id="azHousingFrame" src="../modules/housing/html/index.html" title="Az Framework Housing UI"></iframe>
+  </div>
+
+  <div id="azShellDeath" aria-hidden="false">
+    <iframe id="azDeathFrame" src="../modules/death/html/index.html" title="Az Framework Death UI"></iframe>
+  </div>
+
+  <div id="azShellChat" aria-hidden="false">
+    <iframe id="azChatFrame" src="../modules/chat/html/index.html" title="Az Framework Chat UI"></iframe>
+  </div>
+
   <script>
+    window.AZ_FRAMEWORK_RESOURCE = (typeof GetParentResourceName === 'function') ? GetParentResourceName() : 'Az-Framework';
     if (typeof GetParentResourceName === 'undefined') {
-      window.GetParentResourceName = () => 'az-fw-hud';
+      window.GetParentResourceName = () => window.AZ_FRAMEWORK_RESOURCE;
     }
+    window.AzFrameworkGetResourceName = () => window.AZ_FRAMEWORK_RESOURCE;
 
     function setCookie(name, value, days = 365) {
       const expires = new Date(Date.now() + days * 864e5).toUTCString();
@@ -383,6 +722,118 @@
         const [k, v] = c.split('=');
         return k === name ? decodeURIComponent(v) : r;
       }, '');
+    }
+
+    function setVisibilityPref(cardId, visible) {
+      const value = visible ? '1' : '0';
+      try { localStorage.setItem('hud_vis_' + cardId, value); } catch(e) {}
+      setCookie('hud_' + cardId, value);
+      if (cardId === 'card-prio' || cardId === 'card-aop') {
+        try { localStorage.setItem('hud_vis_card-status', value); } catch(e) {}
+        setCookie('hud_card-status', value);
+      }
+    }
+
+    function clearVisibilityPref(cardId) {
+      try { localStorage.removeItem('hud_vis_' + cardId); } catch(e) {}
+      document.cookie = `hud_${cardId}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+      if (cardId === 'card-prio' || cardId === 'card-aop') {
+        try { localStorage.removeItem('hud_vis_card-status'); } catch(e) {}
+        document.cookie = 'hud_card-status=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
+      }
+    }
+
+    window.azHudShellState = window.azHudShellState || {
+      gameplayHudVisible: false,
+      characterUiVisible: false,
+      spawnUiVisible: false,
+      adminUiVisible: false,
+      bankingUiVisible: false,
+      idUiVisible: false,
+      fuelUiVisible: false,
+      insuranceUiVisible: false,
+      morsUiVisible: false,
+      dailyRewardsUiVisible: false,
+      housingUiVisible: false,
+      chatInteractive: false,
+    };
+
+    function setShellVisible(shell, visible) {
+      if (!shell) return;
+      shell.classList.toggle('active', visible === true);
+      shell.setAttribute('aria-hidden', visible === true ? 'false' : 'true');
+    }
+
+    function syncHudVisibility() {
+      const hudEl = document.getElementById('hudContainer');
+      if (!hudEl) return;
+      const st = window.azHudShellState || {};
+      const blocked = st.characterUiVisible || st.spawnUiVisible;
+      hudEl.classList.toggle('hud-disabled', !(st.gameplayHudVisible && !blocked));
+    }
+
+    function setGameplayHudVisible(visible) {
+      window.azHudShellState.gameplayHudVisible = visible === true;
+      syncHudVisibility();
+    }
+
+    function setCharacterUiVisible(visible) {
+      window.azHudShellState.characterUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellCharacter'), window.azHudShellState.characterUiVisible || window.azHudShellState.spawnUiVisible);
+      syncHudVisibility();
+    }
+
+    function setSpawnUiVisible(visible) {
+      window.azHudShellState.spawnUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellCharacter'), window.azHudShellState.characterUiVisible || window.azHudShellState.spawnUiVisible);
+      syncHudVisibility();
+    }
+
+    function setAdminUiVisible(visible) {
+      window.azHudShellState.adminUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellAdmin'), window.azHudShellState.adminUiVisible);
+    }
+
+    function setBankingUiVisible(visible) {
+      window.azHudShellState.bankingUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellBanking'), window.azHudShellState.bankingUiVisible);
+    }
+
+    function setIdUiVisible(visible) {
+      window.azHudShellState.idUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellId'), window.azHudShellState.idUiVisible);
+    }
+
+    function setFuelUiVisible(visible) {
+      window.azHudShellState.fuelUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellFuel'), window.azHudShellState.fuelUiVisible);
+    }
+
+    function setInsuranceUiVisible(visible) {
+      window.azHudShellState.insuranceUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellInsurance'), window.azHudShellState.insuranceUiVisible);
+    }
+
+    function setMorsUiVisible(visible) {
+      window.azHudShellState.morsUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellMors'), window.azHudShellState.morsUiVisible);
+    }
+
+    function setDailyRewardsUiVisible(visible) {
+      window.azHudShellState.dailyRewardsUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellDailyRewards'), window.azHudShellState.dailyRewardsUiVisible);
+    }
+
+    function setHousingUiVisible(visible) {
+      window.azHudShellState.housingUiVisible = visible === true;
+      setShellVisible(document.getElementById('azShellHousing'), window.azHudShellState.housingUiVisible);
+    }
+
+    function setChatInteractive(visible) {
+      window.azHudShellState.chatInteractive = visible === true;
+      const shell = document.getElementById('azShellChat');
+      if (!shell) return;
+      shell.classList.toggle('interactive', visible === true);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -401,13 +852,14 @@
       }
 
       const cards = Array.from(document.querySelectorAll('.hud-card'));
+      setGameplayHudVisible(false);
       cards.forEach(card => {
         const v = getCookie('hud_' + card.id);
         if (v === '0') card.style.display = 'none';
       });
 
       cards.forEach(card => {
-        const raw = localStorage.getItem('hud_pos_' + card.id);
+        const raw = localStorage.getItem('hud_pos_' + card.id) || ((card.id === 'card-prio' || card.id === 'card-aop') ? localStorage.getItem('hud_pos_card-status') : null);
         if (raw) {
           try {
             const pos = JSON.parse(raw);
@@ -432,17 +884,298 @@
         hud.style.top   = t + 'px';
       })();
 
+      loadUiSettings();
+      setPresetMode(false);
+      syncSettingsInputs();
+      applyUiSettings();
+
       if (typeof positionOverlaysNearHUD === 'function') positionOverlaysNearHUD();
+      updateExtendedHudDisplays();
+      refreshFeatureDrivenCards();
       updateOverlays();
     });
 
     const hud      = document.getElementById('hudContainer');
+    const mapHud   = document.getElementById('mapHudContainer');
     const guide    = document.getElementById('guide');
     const settings = document.getElementById('settings');
     const cards    = Array.from(document.querySelectorAll('.hud-card'));
-    const toggles  = settings.querySelectorAll('input[type=checkbox]');
+    const toggles  = settings.querySelectorAll('input[data-target]');
+    const notifications = document.getElementById('hudNotifications');
+    const hudEnabledToggle = document.getElementById('hudEnabledToggle');
+    const hudSoundToggle = document.getElementById('hudSoundToggle');
+    const hudOpacitySlider = document.getElementById('hudOpacitySlider');
+    const hudOpacityValue = document.getElementById('hudOpacityValue');
 
     let initialSnapshot = null;
+    let initialUiSettings = null;
+    let settingsOnlyMode = false;
+
+    const hudState = {
+      cash: null,
+      bank: null,
+      job: null
+    };
+
+    const uiSettings = {
+      hudEnabled: true,
+      soundEnabled: true,
+      opacity: 100
+    };
+
+    const presetSettings = {
+      hudRight: null,
+      hudTop: null,
+      toggles: {},
+      cards: {},
+      uiSettings: null
+    };
+
+    let presetMoveMode = false;
+
+    const cardFeatureMap = {
+      'card-compass': 'compass',
+      'card-postal': 'postal',
+      'card-prio': 'prio',
+      'card-aop': 'aop'
+    };
+
+    const serverFeatureState = {
+      compass: true,
+      postal: true,
+      aop: true,
+      prio: true
+    };
+
+    const sharedHudState = {
+      aop: 'None Set',
+      prio: 'None Set',
+      compass: 'N',
+      street: '',
+      crossStreet: '',
+      zone: '',
+      postal: ''
+    };
+
+    const AUDIO = { ctx: null, unlocked: false };
+
+    function clamp(num, min, max) {
+      num = Number(num);
+      if (!Number.isFinite(num)) return min;
+      return Math.min(max, Math.max(min, num));
+    }
+
+    function formatMoney(value) {
+      const amount = Number(value) || 0;
+      return '$' + amount.toLocaleString('en-US');
+    }
+
+    function isCardAllowedByServer(cardId) {
+      const feature = cardFeatureMap[cardId];
+      if (!feature) return true;
+      return serverFeatureState[feature] !== false;
+    }
+
+    function hasCookieValue(name) {
+      return document.cookie.split(';').some(chunk => chunk.trim().startsWith(name + '='));
+    }
+
+    function hasLocalCardPosition(cardId) {
+      if (localStorage.getItem('hud_pos_' + cardId) !== null) return true;
+      if (cardId === 'card-prio' || cardId === 'card-aop') return localStorage.getItem('hud_pos_card-status') !== null;
+      return false;
+    }
+
+    function getCardResolvedVisibility(cardId) {
+      try {
+        const stored = localStorage.getItem('hud_vis_' + cardId);
+        if (stored !== null) return stored !== '0';
+        if ((cardId === 'card-prio' || cardId === 'card-aop')) {
+          const legacyStored = localStorage.getItem('hud_vis_card-status');
+          if (legacyStored !== null) return legacyStored !== '0';
+        }
+      } catch (e) {}
+
+      const cookieName = 'hud_' + cardId;
+      if (hasCookieValue(cookieName)) {
+        return getCookie(cookieName) !== '0';
+      }
+      if ((cardId === 'card-prio' || cardId === 'card-aop') && hasCookieValue('hud_card-status')) {
+        return getCookie('hud_card-status') !== '0';
+      }
+      if (Object.prototype.hasOwnProperty.call(presetSettings.toggles, cardId)) {
+        return presetSettings.toggles[cardId] !== false;
+      }
+      if ((cardId === 'card-prio' || cardId === 'card-aop') && Object.prototype.hasOwnProperty.call(presetSettings.toggles, 'card-status')) {
+        return presetSettings.toggles['card-status'] !== false;
+      }
+      return true;
+    }
+
+    function syncLegacyVisibilityPref(cardId) {
+      try {
+        if (localStorage.getItem('hud_vis_' + cardId) !== null) return;
+        const cookieName = 'hud_' + cardId;
+        if (hasCookieValue(cookieName)) {
+          localStorage.setItem('hud_vis_' + cardId, getCookie(cookieName) !== '0' ? '1' : '0');
+          return;
+        }
+        if ((cardId === 'card-prio' || cardId === 'card-aop') && localStorage.getItem('hud_vis_card-status') === null && hasCookieValue('hud_card-status')) {
+          localStorage.setItem('hud_vis_card-status', getCookie('hud_card-status') !== '0' ? '1' : '0');
+        }
+      } catch (e) {}
+    }
+
+    function applyCardVisibility(cardId) {
+      syncLegacyVisibilityPref(cardId);
+      const el = document.getElementById(cardId);
+      if (!el) return;
+      const localVisible = getCardResolvedVisibility(cardId);
+      const allowed = isCardAllowedByServer(cardId);
+      el.style.display = (allowed && localVisible) ? '' : 'none';
+
+      const cb = settings.querySelector(`input[data-target="${cardId}"]`);
+      if (cb) {
+        cb.disabled = !allowed;
+        cb.checked = allowed && localVisible;
+        const label = cb.closest('label');
+        if (label) label.classList.toggle('is-disabled', !allowed);
+      }
+    }
+
+    function applyCardPlacement(el, pos) {
+      if (!el || !pos) return;
+
+      el.style.position = '';
+      el.style.left = '';
+      el.style.top = '';
+      el.style.width = '';
+      el.style.height = '';
+
+      if (pos.display === 'none') {
+        el.style.display = 'none';
+      } else if (el.style.display === 'none' && getCardResolvedVisibility(el.id)) {
+        el.style.display = '';
+      }
+
+      const mode = (pos.position === 'fixed' || pos.position === 'absolute') ? pos.position : '';
+      if (mode) el.style.position = mode;
+
+      if (pos.left !== undefined && pos.left !== null && pos.left !== '') {
+        const left = Number(pos.left);
+        if (!Number.isNaN(left)) el.style.left = Math.round(left) + 'px';
+      }
+      if (pos.top !== undefined && pos.top !== null && pos.top !== '') {
+        const top = Number(pos.top);
+        if (!Number.isNaN(top)) el.style.top = Math.round(top) + 'px';
+      }
+      if (pos.width) el.style.width = pos.width;
+      if (pos.height) el.style.height = pos.height;
+    }
+
+    function applyPresetDefaults() {
+      if (presetSettings.hudRight !== null && localStorage.getItem('hudRight') === null) {
+        hud.style.right = Math.max(8, parseInt(presetSettings.hudRight) || 20) + 'px';
+      }
+      if (presetSettings.hudTop !== null && localStorage.getItem('hudTop') === null) {
+        hud.style.top = Math.max(8, parseInt(presetSettings.hudTop) || 20) + 'px';
+      }
+
+      cards.forEach(card => {
+        if (!hasLocalCardPosition(card.id) && presetSettings.cards[card.id]) {
+          applyCardPlacement(card, presetSettings.cards[card.id]);
+        }
+      });
+
+      if (!localStorage.getItem('hud_ui_settings') && presetSettings.uiSettings) {
+        uiSettings.hudEnabled = presetSettings.uiSettings.hudEnabled !== false;
+        uiSettings.soundEnabled = presetSettings.uiSettings.soundEnabled !== false;
+        uiSettings.opacity = clamp(presetSettings.uiSettings.opacity ?? 100, 25, 100);
+      }
+
+      syncSettingsInputs();
+      applyUiSettings();
+      positionOverlaysNearHUD();
+    }
+
+    function setPresetMode(active) {
+      presetMoveMode = !!active;
+      const title = document.querySelector('#settings h3');
+      const saveBtn = document.getElementById('saveHUD');
+      if (title) title.textContent = presetMoveMode ? 'HUD Preset Editor' : 'HUD Settings';
+      if (saveBtn) saveBtn.textContent = presetMoveMode ? 'Save Preset' : 'Save';
+    }
+
+    function refreshFeatureDrivenCards() {
+      Object.keys(cardFeatureMap).forEach(applyCardVisibility);
+      positionOverlaysNearHUD();
+    }
+
+    function updateExtendedHudDisplays() {
+      const streetBits = [sharedHudState.street, sharedHudState.crossStreet].filter(Boolean);
+      let compassText = sharedHudState.compass || 'N';
+      if (streetBits.length) {
+        compassText += ' • ' + streetBits.join(' / ');
+      } else if (sharedHudState.zone) {
+        compassText += ' • ' + sharedHudState.zone;
+      }
+
+      const compassEl = document.getElementById('compassDisplay');
+      const postalEl = document.getElementById('postalDisplay');
+      const aopEl = document.getElementById('aopDisplay');
+      const prioEl = document.getElementById('prioDisplay');
+
+      if (compassEl) compassEl.textContent = compassText || 'N • No Street';
+      if (postalEl) postalEl.textContent = sharedHudState.postal || 'N/A';
+      if (aopEl) aopEl.textContent = sharedHudState.aop || 'None Set';
+      if (prioEl) prioEl.textContent = sharedHudState.prio || 'None Set';
+    }
+
+    function pulseValue(el) {
+      if (!el) return;
+      el.classList.remove('value-update');
+      void el.offsetWidth;
+      el.classList.add('value-update');
+    }
+
+    function loadUiSettings() {
+      try {
+        const raw = localStorage.getItem('hud_ui_settings');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        uiSettings.hudEnabled = parsed.hudEnabled !== false;
+        uiSettings.soundEnabled = parsed.soundEnabled !== false;
+        uiSettings.opacity = clamp(parsed.opacity ?? 100, 25, 100);
+      } catch (e) {}
+    }
+
+    function persistUiSettings() {
+      localStorage.setItem('hud_ui_settings', JSON.stringify(uiSettings));
+    }
+
+    function syncSettingsInputs() {
+      hudEnabledToggle.checked = !!uiSettings.hudEnabled;
+      hudSoundToggle.checked = !!uiSettings.soundEnabled;
+      hudOpacitySlider.value = String(clamp(uiSettings.opacity, 25, 100));
+      hudOpacityValue.textContent = `${hudOpacitySlider.value}%`;
+
+      toggles.forEach(box => {
+        const id = box.dataset.target;
+        applyCardVisibility(id);
+      });
+    }
+
+    function applyUiSettings() {
+      const opacity = clamp(uiSettings.opacity, 25, 100);
+      document.documentElement.style.setProperty('--hud-opacity', String(opacity / 100));
+      hud.classList.toggle('hud-disabled', !uiSettings.hudEnabled);
+      if (mapHud) mapHud.classList.toggle('hud-disabled', !uiSettings.hudEnabled);
+      notifications.style.opacity = uiSettings.hudEnabled ? '1' : '0';
+      hudOpacityValue.textContent = `${opacity}%`;
+      refreshFeatureDrivenCards();
+    }
+
     function snapshotCurrentState() {
       const rect = hud.getBoundingClientRect();
       const hudRight = parseInt(hud.style.right) || Math.round(window.innerWidth - rect.right);
@@ -461,13 +1194,32 @@
       return { hudRight, hudTop, cardsState };
     }
 
+    function restoreUiSettings() {
+      if (!initialUiSettings) return;
+      uiSettings.hudEnabled = initialUiSettings.hudEnabled;
+      uiSettings.soundEnabled = initialUiSettings.soundEnabled;
+      uiSettings.opacity = initialUiSettings.opacity;
+      persistUiSettings();
+      syncSettingsInputs();
+      applyUiSettings();
+    }
+
     function positionOverlaysNearHUD() {
+      if (settingsOnlyMode) {
+        settings.classList.add('settings-only');
+        guide.style.display = 'none';
+        return;
+      }
+
+      settings.classList.remove('settings-only');
       const rect = hud.getBoundingClientRect();
       if (!rect.width) return;
+      notifications.style.right = Math.max(8, Math.round(window.innerWidth - rect.right)) + 'px';
+      notifications.style.top = Math.max(8, Math.round(rect.bottom + 10)) + 'px';
       const preferLeft = rect.left > 380;
-      const below = (rect.bottom + 12 + 200) < window.innerHeight;
+      const below = (rect.bottom + 12 + 240) < window.innerHeight;
       settings.style.left = (preferLeft ? rect.left - 340 : rect.right + 12) + 'px';
-      settings.style.top  = (below ? rect.top : Math.max(8, rect.top - 220)) + 'px';
+      settings.style.top  = (below ? rect.top : Math.max(8, rect.top - 240)) + 'px';
       guide.style.left = (rect.left + (rect.width / 2) - 160) + 'px';
       guide.style.top  = (rect.bottom + 12) + 'px';
       [settings, guide].forEach(el => {
@@ -480,77 +1232,210 @@
     }
 
     function updateOverlays() {
-      const on = hud.classList.contains('move-mode');
-      settings.style.display = on ? 'block' : 'none';
-      guide.style.display = on ? 'block' : 'none';
+      const moveMode = hud.classList.contains('move-mode');
+      const showSettings = moveMode || settingsOnlyMode;
+      settings.style.display = showSettings ? 'block' : 'none';
+      guide.style.display = moveMode ? 'block' : 'none';
       positionOverlaysNearHUD();
-      settings.setAttribute('aria-hidden', !on);
-      guide.setAttribute('aria-hidden', !on);
+      settings.setAttribute('aria-hidden', !showSettings);
+      guide.setAttribute('aria-hidden', !moveMode);
+    }
+
+    function beginOverlaySession(mode) {
+      initialSnapshot = snapshotCurrentState();
+      initialUiSettings = { ...uiSettings };
+      settingsOnlyMode = mode === 'settings';
+      setPresetMode(mode === 'preset');
+      if (mode === 'move') {
+        hud.classList.add('move-mode');
+      } else {
+        hud.classList.remove('move-mode');
+      }
+      syncSettingsInputs();
+      applyUiSettings();
+      updateOverlays();
+    }
+
+    function openSettingsMode() {
+      beginOverlaySession('settings');
+    }
+
+    function openPresetMoveMode() {
+      beginOverlaySession('preset');
+      hud.classList.add('move-mode');
+      updateOverlays();
     }
 
     function toggleMoveMode() {
       const enabling = !hud.classList.contains('move-mode');
       if (enabling) {
-        initialSnapshot = snapshotCurrentState();
-        hud.classList.add('move-mode');
-        updateOverlays();
-
-      toggles.forEach(box => {
-        const id = box.dataset.target;
-        const el = document.getElementById(id);
-        box.checked = (getCookie('hud_' + id) !== '0') ? true : (getCookie('hud_' + id) === '1');
-        if (el) el.style.display = box.checked ? '' : 'none';
-
-        box.addEventListener('change', () => {
-          if (!el) return;
-          if (box.checked) {
-            el.style.display = '';
-            setCookie('hud_' + id, '1');
-          } else {
-            el.style.display = 'none';
-            setCookie('hud_' + id, '0');
-          }
-          positionOverlaysNearHUD();
-        });
-      });
-
-        positionOverlaysNearHUD();
+        beginOverlaySession('move');
       } else {
         cancelMoveMode();
       }
     }
 
     function cancelMoveMode() {
-      if (!initialSnapshot) {
-        hud.classList.remove('move-mode');
-        updateOverlays();
-        return;
+      if (initialSnapshot) {
+        hud.style.right = (initialSnapshot.hudRight ?? 20) + 'px';
+        hud.style.top   = (initialSnapshot.hudTop  ?? 20) + 'px';
+        for (const id in initialSnapshot.cardsState) {
+          const s = initialSnapshot.cardsState[id];
+          const el = document.getElementById(id);
+          if (!el) continue;
+          el.style.display = s.display;
+          el.style.position = s.position;
+          el.style.left = s.left;
+          el.style.top  = s.top;
+          el.style.width = s.width;
+          el.style.height = s.height;
+          el.classList.remove('dragging');
+          setVisibilityPref(id, el.style.display !== 'none');
+        }
       }
-      hud.style.right = (initialSnapshot.hudRight ?? 20) + 'px';
-      hud.style.top   = (initialSnapshot.hudTop  ?? 20) + 'px';
-      for (const id in initialSnapshot.cardsState) {
-        const s = initialSnapshot.cardsState[id];
-        const el = document.getElementById(id);
-        if (!el) continue;
-        el.style.display = s.display;
-        el.style.position = s.position;
-        el.style.left = s.left;
-        el.style.top  = s.top;
-        el.style.width = s.width;
-        el.style.height = s.height;
-        el.classList.remove('dragging');
-      }
+      restoreUiSettings();
       hud.classList.remove('move-mode');
+      settingsOnlyMode = false;
+      setPresetMode(false);
       updateOverlays();
       initialSnapshot = null;
+      initialUiSettings = null;
       try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
     }
 
+    toggles.forEach(box => {
+      box.addEventListener('change', () => {
+        const id = box.dataset.target;
+        const el = document.getElementById(id);
+        if (!el) return;
+        setVisibilityPref(id, !!box.checked);
+        applyCardVisibility(id);
+      });
+    });
+
+    hudEnabledToggle.addEventListener('change', () => {
+      uiSettings.hudEnabled = !!hudEnabledToggle.checked;
+      applyUiSettings();
+    });
+
+    hudSoundToggle.addEventListener('change', () => {
+      uiSettings.soundEnabled = !!hudSoundToggle.checked;
+      persistUiSettings();
+      applyUiSettings();
+      unlockHudAudio();
+    });
+
+    hudOpacitySlider.addEventListener('input', () => {
+      uiSettings.opacity = clamp(hudOpacitySlider.value, 25, 100);
+      applyUiSettings();
+    });
+
+    function unlockHudAudio() {
+      if (!uiSettings.soundEnabled) return;
+      try {
+        if (!AUDIO.ctx) AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (AUDIO.ctx && AUDIO.ctx.state === 'suspended') AUDIO.ctx.resume();
+        AUDIO.unlocked = !!AUDIO.ctx;
+      } catch (e) {}
+    }
+
+    ['click', 'keydown', 'mousedown'].forEach(evt => {
+      window.addEventListener(evt, unlockHudAudio, { passive: true });
+    });
+
+    function playHudSound(kind) {
+      if (!uiSettings.soundEnabled || !uiSettings.hudEnabled) return;
+      try {
+        unlockHudAudio();
+        const ctx = AUDIO.ctx;
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const tones = {
+          cashUp: [720, 920],
+          cashDown: [420, 340],
+          bankUp: [560, 760],
+          bankDown: [340, 260],
+          job: [500, 650],
+          aop: [640, 820],
+          prio: [300, 520]
+        };
+        const pair = tones[kind] || [520, 700];
+        pair.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+          gain.gain.setValueAtTime(0.0001, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.035, now + idx * 0.05 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.05 + 0.16);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.05);
+          osc.stop(now + idx * 0.05 + 0.18);
+        });
+      } catch (e) {}
+    }
+
+    function pushHudNotification({ title, description, icon, sound }) {
+      if (!uiSettings.hudEnabled) return;
+      const toast = document.createElement('div');
+      toast.className = 'hud-toast';
+      toast.innerHTML = `
+        <div class="hud-toast-icon"><i class="bi ${icon || 'bi-bell'}"></i></div>
+        <div class="hud-toast-content">
+          <div class="hud-toast-title">${title || 'HUD Update'}</div>
+          <div class="hud-toast-desc">${description || ''}</div>
+        </div>`;
+      notifications.prepend(toast);
+      while (notifications.children.length > 4) {
+        notifications.lastElementChild.remove();
+      }
+      requestAnimationFrame(() => toast.classList.add('show'));
+      playHudSound(sound);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 220);
+      }, 2600);
+    }
+
     let containerDrag = false, containerStart = {};
-    let cardDrag = null, cardStart = {}, hudRect = {};
+    let cardDrag = null, cardStart = {};
+    let pendingHudMove = null;
+    let pendingCardMove = null;
+    let hudMoveFrame = null;
+    let cardMoveFrame = null;
+
+    function applyPendingHudMove() {
+      hudMoveFrame = null;
+      if (!containerDrag || !pendingHudMove) return;
+      const dx = pendingHudMove.x - containerStart.x;
+      const dy = pendingHudMove.y - containerStart.y;
+      hud.style.right = Math.max(8, Math.round(containerStart.right - dx)) + 'px';
+      hud.style.top   = Math.max(8, Math.round(containerStart.top + dy)) + 'px';
+    }
+
+    function queueHudMove(x, y) {
+      pendingHudMove = { x, y };
+      if (!hudMoveFrame) hudMoveFrame = requestAnimationFrame(applyPendingHudMove);
+    }
+
+    function applyPendingCardMove() {
+      cardMoveFrame = null;
+      if (!cardDrag || !pendingCardMove) return;
+      const x = clamp(pendingCardMove.x - cardStart.offsetX, 0, Math.max(0, window.innerWidth - cardStart.width));
+      const y = clamp(pendingCardMove.y - cardStart.offsetY, 0, Math.max(0, window.innerHeight - cardStart.height));
+      cardDrag.style.left = Math.round(x) + 'px';
+      cardDrag.style.top  = Math.round(y) + 'px';
+    }
+
+    function queueCardMove(x, y) {
+      pendingCardMove = { x, y };
+      if (!cardMoveFrame) cardMoveFrame = requestAnimationFrame(applyPendingCardMove);
+    }
 
     hud.addEventListener('mousedown', e => {
-      if (!hud.classList.contains('move-mode') || e.ctrlKey) return;
+      if (!hud.classList.contains('move-mode')) return;
+      if (!e.shiftKey) return;
       containerDrag = true;
       containerStart = {
         x: e.clientX,
@@ -558,22 +1443,21 @@
         right: parseInt(hud.style.right) || 20,
         top:   parseInt(hud.style.top)   || 20
       };
+      e.preventDefault();
       document.addEventListener('mousemove', onHudMove);
       document.addEventListener('mouseup',   onHudUp);
     });
 
     function onHudMove(e) {
       if (!containerDrag) return;
-      const dx = e.clientX - containerStart.x;
-      const dy = e.clientY - containerStart.y;
-      hud.style.right = (containerStart.right - dx) + 'px';
-      hud.style.top   = (containerStart.top   + dy) + 'px';
-      positionOverlaysNearHUD();
+      queueHudMove(e.clientX, e.clientY);
     }
 
     function onHudUp() {
       if (!containerDrag) return;
       containerDrag = false;
+      pendingHudMove = null;
+      if (hudMoveFrame) { cancelAnimationFrame(hudMoveFrame); hudMoveFrame = null; }
       document.removeEventListener('mousemove', onHudMove);
       document.removeEventListener('mouseup',   onHudUp);
       positionOverlaysNearHUD();
@@ -581,25 +1465,28 @@
 
     cards.forEach(card => {
       card.addEventListener('mousedown', e => {
-        if (!hud.classList.contains('move-mode') || !e.ctrlKey) return;
-        e.preventDefault(); e.stopPropagation();
+        if (!hud.classList.contains('move-mode')) return;
+        if (e.shiftKey) return;
+        e.preventDefault();
+        e.stopPropagation();
 
         cardDrag = card;
-        hudRect = hud.getBoundingClientRect();
         const rect = card.getBoundingClientRect();
         cardStart = {
           offsetX: e.clientX - rect.left,
           offsetY: e.clientY - rect.top,
-          left:    rect.left  - hudRect.left,
-          top:     rect.top   - hudRect.top
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height
         };
 
-        card.style.position = 'absolute';
+        card.style.position = 'fixed';
         card.style.width    = rect.width + 'px';
         card.style.height   = rect.height + 'px';
         card.classList.add('dragging');
-        card.style.left = cardStart.left + 'px';
-        card.style.top  = cardStart.top  + 'px';
+        card.style.left = Math.round(cardStart.left) + 'px';
+        card.style.top  = Math.round(cardStart.top)  + 'px';
 
         document.addEventListener('mousemove', onCardMove);
         document.addEventListener('mouseup',   onCardUp);
@@ -608,29 +1495,27 @@
 
     function onCardMove(e) {
       if (!cardDrag) return;
-      const x = e.clientX - hudRect.left - cardStart.offsetX;
-      const y = e.clientY - hudRect.top  - cardStart.offsetY;
-      cardDrag.style.left = Math.max(0, Math.round(x)) + 'px';
-      cardDrag.style.top  = Math.max(0, Math.round(y)) + 'px';
-      positionOverlaysNearHUD();
+      queueCardMove(e.clientX, e.clientY);
     }
 
     function onCardUp() {
       if (!cardDrag) return;
       try {
         const rect = cardDrag.getBoundingClientRect();
-        const left = Math.round(rect.left - hud.getBoundingClientRect().left);
-        const top  = Math.round(rect.top  - hud.getBoundingClientRect().top);
+        const left = Math.round(rect.left);
+        const top  = Math.round(rect.top);
         localStorage.setItem('hud_pos_' + cardDrag.id, JSON.stringify({
           left: left,
           top: top,
           width: cardDrag.style.width || '',
           height: cardDrag.style.height || '',
-          position: cardDrag.style.position || 'absolute'
+          position: cardDrag.style.position || 'fixed'
         }));
       } catch(e){}
       cardDrag.classList.remove('dragging');
       cardDrag = null;
+      pendingCardMove = null;
+      if (cardMoveFrame) { cancelAnimationFrame(cardMoveFrame); cardMoveFrame = null; }
       document.removeEventListener('mousemove', onCardMove);
       document.removeEventListener('mouseup',   onCardUp);
       positionOverlaysNearHUD();
@@ -639,26 +1524,123 @@
     window.addEventListener('resize', positionOverlaysNearHUD);
 
     window.toggleHudMoveMode = toggleMoveMode;
+    window.openHudSettings = openSettingsMode;
 
     function updateHudPlayerName(name) {
       const el = document.getElementById('playerNameDisplay');
       if (!el) return;
       el.textContent = name && name.length ? name : 'No Name';
     }
+
+    function handleCashUpdate(nextCash, nextBank, playerName) {
+      const cashEl = document.getElementById('cashDisplay');
+      const bankEl = document.getElementById('bankDisplay');
+      const parsedCash = nextCash !== undefined ? Math.round(Number(nextCash) || 0) : hudState.cash;
+      const parsedBank = nextBank !== undefined ? Math.round(Number(nextBank) || 0) : hudState.bank;
+
+      if (nextCash !== undefined) {
+        cashEl.textContent = formatMoney(parsedCash);
+        if (hudState.cash !== null && parsedCash !== hudState.cash) {
+          pulseValue(cashEl);
+          const delta = parsedCash - hudState.cash;
+          pushHudNotification({
+            title: delta >= 0 ? 'Cash Added' : 'Cash Removed',
+            description: `${delta >= 0 ? '+' : '-'}${formatMoney(Math.abs(delta))}`,
+            icon: delta >= 0 ? 'bi-cash-coin' : 'bi-wallet2',
+            sound: delta >= 0 ? 'cashUp' : 'cashDown'
+          });
+        }
+        hudState.cash = parsedCash;
+      }
+
+      if (nextBank !== undefined) {
+        bankEl.textContent = formatMoney(parsedBank);
+        if (hudState.bank !== null && parsedBank !== hudState.bank) {
+          pulseValue(bankEl);
+          const delta = parsedBank - hudState.bank;
+          pushHudNotification({
+            title: delta >= 0 ? 'Bank Increased' : 'Bank Decreased',
+            description: `${delta >= 0 ? '+' : '-'}${formatMoney(Math.abs(delta))}`,
+            icon: 'bi-bank',
+            sound: delta >= 0 ? 'bankUp' : 'bankDown'
+          });
+        }
+        hudState.bank = parsedBank;
+      }
+
+      if (playerName) updateHudPlayerName(playerName);
+    }
+
+    function handleJobUpdate(job, playerName) {
+      const nextJob = job && String(job).trim().length ? String(job) : 'Unemployed';
+      const jobEl = document.getElementById('jobDisplay');
+      jobEl.textContent = nextJob;
+      if (hudState.job !== null && nextJob !== hudState.job) {
+        pulseValue(jobEl);
+        pushHudNotification({
+          title: 'Job Changed',
+          description: `Now set to ${nextJob}`,
+          icon: 'bi-briefcase',
+          sound: 'job'
+        });
+      }
+      hudState.job = nextJob;
+      if (playerName) updateHudPlayerName(playerName);
+    }
+
+    function handleAopUpdate(value, notify = true) {
+      const nextValue = value && String(value).trim().length ? String(value) : 'None Set';
+      const prev = sharedHudState.aop;
+      sharedHudState.aop = nextValue;
+      updateExtendedHudDisplays();
+      if (notify && prev !== nextValue) {
+        pushHudNotification({
+          title: 'AOP Updated',
+          description: nextValue,
+          icon: 'bi-pin-map',
+          sound: 'aop'
+        });
+      }
+    }
+
+    function handlePrioUpdate(value, notify = true) {
+      const nextValue = value && String(value).trim().length ? String(value) : 'None Set';
+      const prev = sharedHudState.prio;
+      sharedHudState.prio = nextValue;
+      updateExtendedHudDisplays();
+      if (notify && prev !== nextValue) {
+        pushHudNotification({
+          title: 'Priority Updated',
+          description: nextValue,
+          icon: 'bi-exclamation-diamond',
+          sound: 'prio'
+        });
+      }
+    }
+
+    function handleSharedHudState(d, notify = false) {
+      if (d.features && typeof d.features === 'object') {
+        Object.assign(serverFeatureState, d.features);
+        refreshFeatureDrivenCards();
+      }
+      if (d.compass !== undefined) sharedHudState.compass = String(d.compass || 'N');
+      if (d.street !== undefined) sharedHudState.street = String(d.street || '');
+      if (d.crossStreet !== undefined) sharedHudState.crossStreet = String(d.crossStreet || '');
+      if (d.zone !== undefined) sharedHudState.zone = String(d.zone || '');
+      if (d.postal !== undefined) sharedHudState.postal = String(d.postal || '');
+      if (d.aop !== undefined) handleAopUpdate(d.aop, notify);
+      if (d.prio !== undefined) handlePrioUpdate(d.prio, notify);
+      updateExtendedHudDisplays();
+    }
+
     window.updateHudPlayerName = updateHudPlayerName;
-    window.updateHudCash = (cash, bank, playerName) => {
-      if (cash !== undefined) document.getElementById('cashDisplay').textContent = `$${cash}`;
-      if (bank !== undefined) document.getElementById('bankDisplay').textContent = `$${bank}`;
-      if (playerName) updateHudPlayerName(playerName);
-    };
-    window.updateHudJob = (job, playerName) => {
-      document.getElementById('jobDisplay').textContent = job || 'Unemployed';
-      if (playerName) updateHudPlayerName(playerName);
-    };
+    window.updateHudCash = handleCashUpdate;
+    window.updateHudJob = handleJobUpdate;
+    window.updateHudSharedState = handleSharedHudState;
 
     document.getElementById('resetHUD').addEventListener('click', () => {
       cards.forEach(card => {
-        document.cookie = `hud_${card.id}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+        clearVisibilityPref(card.id);
         localStorage.removeItem('hud_pos_' + card.id);
         card.style.display = '';
         card.style.position = '';
@@ -670,7 +1652,11 @@
       });
       localStorage.removeItem('hudRight');
       localStorage.removeItem('hudTop');
-      toggles.forEach(box => box.checked = true);
+      localStorage.removeItem('hud_ui_settings');
+      uiSettings.hudEnabled = true;
+      uiSettings.soundEnabled = true;
+      uiSettings.opacity = 100;
+      applyPresetDefaults();
 
       fetch(`https://${GetParentResourceName()}/resetDefaults`, { method: 'POST' })
         .finally(() => {
@@ -687,11 +1673,15 @@
     document.getElementById('saveHUD').addEventListener('click', () => {
       saveHUDPos();
 
+      persistUiSettings();
+
       const payload = {
         hudRight: localStorage.hudRight || 20,
         hudTop: localStorage.hudTop || 20,
         toggles: {},
-        cards: {}
+        cards: {},
+        uiSettings: { ...uiSettings },
+        mode: presetMoveMode ? 'preset' : 'personal'
       };
 
       toggles.forEach(box => {
@@ -725,17 +1715,23 @@
       })
       .then(() => {
         hud.classList.remove('move-mode');
+        settingsOnlyMode = false;
+        setPresetMode(false);
         updateOverlays();
         cards.forEach(c => c.classList.remove('dragging'));
         try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
         initialSnapshot = null;
+        initialUiSettings = null;
       })
       .catch(() => {
         hud.classList.remove('move-mode');
+        settingsOnlyMode = false;
+        setPresetMode(false);
         updateOverlays();
         cards.forEach(c => c.classList.remove('dragging'));
         try { fetch(`https://${GetParentResourceName()}/closeUI`, { method: 'POST' }); } catch(e){}
         initialSnapshot = null;
+        initialUiSettings = null;
       });
     });
 
@@ -757,10 +1753,165 @@
       try { fetch(`https://${GetParentResourceName()}/requestSettings`, { method: 'POST' }).catch(()=>{}); } catch(e){}
     });
 
+
+    const characterMsgTypes = new Set(['azfw_set_resource','azfw_open_ui','azfw_update_chars','azfw_close_ui','spawn_data','spawn_update','spawn_admin','spawn_force_editor','saveResult','azfw_ui_issue','azfw_clear_ui_issue','toast','azfw_visibility','spawn_visibility','hard_hide_all','spawn_close','azfw_mugshot','mugshot']);
+    const adminMsgActions = new Set(['openMenu','notify','loadReports','newReport','updateReport','upsertReport','removeReport','reportScreenshot','loadPlayers','playerDiscord','loadDepartments']);
+    const bankingMsgActions = new Set(['show','hide','refreshData','setData','notify','transferResult']);
+    const idMsgActions = new Set(['showId','openID','hideId','closeID','showRequest','askForID','hideRequest','updateData']);
+    const fuelMsgActions = new Set(['fuel_open','fuel_update','fuel_pos','fuel_close']);
+    const insuranceMsgActions = new Set(['openInsurance','closeInsurance']);
+    const morsMsgTypes = new Set(['setVisible','setTheme','setData']);
+    const dailyRewardsMsgActions = new Set(['daily_open','daily_close','daily_claimSuccess','daily_spinResult','daily_playSound']);
+    const housingMsgTypes = new Set(['azhousing_open','azhousing_close','azhousing_update','mailChanged','upgradesChanged','imagesChanged']);
+    const deathMsgTypes = new Set(['injury:update','medprompt:update','downed:update']);
+    const chatMsgActions = new Set(['bootstrap','open','close','message','clear','suggestions','visibility']);
+
+    function forwardToCharacterFrame(payload) {
+      const frame = document.getElementById('azCharacterFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToAdminFrame(payload) {
+      const frame = document.getElementById('azAdminFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+
+    function forwardToBankingFrame(payload) {
+      const frame = document.getElementById('azBankingFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToIdFrame(payload) {
+      const frame = document.getElementById('azIdFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToFuelFrame(payload) {
+      const frame = document.getElementById('azFuelFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToInsuranceFrame(payload) {
+      const frame = document.getElementById('azInsuranceFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToMorsFrame(payload) {
+      const frame = document.getElementById('azMorsFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToDailyRewardsFrame(payload) {
+      const frame = document.getElementById('azDailyRewardsFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToHousingFrame(payload) {
+      const frame = document.getElementById('azHousingFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToDeathFrame(payload) {
+      const frame = document.getElementById('azDeathFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function forwardToChatFrame(payload) {
+      const frame = document.getElementById('azChatFrame');
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage(payload, '*');
+    }
+
+    function broadcastResourceName() {
+      const payload = { type: 'azfw_set_resource', resource: window.AZ_FRAMEWORK_RESOURCE };
+      [forwardToCharacterFrame, forwardToAdminFrame, forwardToBankingFrame, forwardToIdFrame, forwardToFuelFrame, forwardToInsuranceFrame, forwardToMorsFrame, forwardToDailyRewardsFrame, forwardToHousingFrame, forwardToDeathFrame, forwardToChatFrame].forEach(fn => {
+        try { fn(payload); } catch (e) {}
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(broadcastResourceName, 150);
+      ['azCharacterFrame','azAdminFrame','azBankingFrame','azIdFrame','azFuelFrame','azInsuranceFrame','azMorsFrame','azDailyRewardsFrame','azHousingFrame','azDeathFrame','azChatFrame'].forEach(id => {
+        const frame = document.getElementById(id);
+        if (frame) frame.addEventListener('load', () => setTimeout(broadcastResourceName, 25));
+      });
+    });
+
     window.addEventListener('message', ev => {
       const d = ev.data;
       if (!d) return;
 
+      if (d.type && characterMsgTypes.has(d.type)) {
+        if (d.type === 'azfw_open_ui') setCharacterUiVisible(true);
+        else if (d.type === 'azfw_close_ui') setCharacterUiVisible(false);
+        else if (d.type === 'azfw_visibility') setCharacterUiVisible(!!d.open);
+        else if (d.type === 'spawn_visibility') setSpawnUiVisible(!!d.open);
+        else if (d.type === 'spawn_close' || d.type === 'hard_hide_all') { setCharacterUiVisible(false); setSpawnUiVisible(false); }
+        forwardToCharacterFrame(d);
+      }
+
+      if (d.action && adminMsgActions.has(d.action)) {
+        if (d.action === 'openMenu') setAdminUiVisible(true);
+        forwardToAdminFrame(d);
+      }
+
+
+      if (d.action && bankingMsgActions.has(d.action)) {
+        if (d.action === 'show') setBankingUiVisible(true);
+        else if (d.action === 'hide') setBankingUiVisible(false);
+        forwardToBankingFrame(d);
+      }
+
+      if (((d.action && idMsgActions.has(d.action)) || (d.type && idMsgActions.has(d.type)))) {
+        const idAction = d.action || d.type;
+        if (idAction === 'showId' || idAction === 'openID' || idAction === 'showRequest' || idAction === 'askForID') setIdUiVisible(true);
+        else if (idAction === 'hideId' || idAction === 'closeID' || idAction === 'hideRequest') setIdUiVisible(false);
+        forwardToIdFrame(d);
+      }
+
+      if (d.action && fuelMsgActions.has(d.action)) {
+        if (d.action === 'fuel_open') setFuelUiVisible(true);
+        else if (d.action === 'fuel_close') setFuelUiVisible(false);
+        forwardToFuelFrame(d);
+      }
+
+      if (d.action && insuranceMsgActions.has(d.action)) {
+        if (d.action === 'openInsurance') setInsuranceUiVisible(true);
+        else if (d.action === 'closeInsurance') setInsuranceUiVisible(false);
+        forwardToInsuranceFrame(d);
+      }
+
+      if (d.type && morsMsgTypes.has(d.type)) {
+        if (d.type === 'setVisible') setMorsUiVisible(!!d.visible);
+        forwardToMorsFrame(d);
+      }
+
+      if (d.action && dailyRewardsMsgActions.has(d.action)) {
+        if (d.action === 'daily_open') setDailyRewardsUiVisible(true);
+        else if (d.action === 'daily_close') setDailyRewardsUiVisible(false);
+        forwardToDailyRewardsFrame(d);
+      }
+
+      if (d.type && housingMsgTypes.has(d.type)) {
+        if (d.type === 'azhousing_open') setHousingUiVisible(true);
+        else if (d.type === 'azhousing_close') setHousingUiVisible(false);
+        forwardToHousingFrame(d);
+      }
+
+      if (d.type && deathMsgTypes.has(d.type)) {
+        forwardToDeathFrame(d);
+      }
+
+      if (d.action && chatMsgActions.has(d.action)) {
+        if (d.action === 'open') setChatInteractive(true);
+        else if (d.action === 'close') setChatInteractive(false);
+        forwardToChatFrame(d);
+      }
+
+      if (d.action === 'closeShell') {
+        setAdminUiVisible(false);
+        return;
+      }
       if (d.action === 'loadSettings') {
         const s = d.settings;
         if (!s) return;
@@ -775,9 +1926,8 @@
                 const cb = settings.querySelector(`input[data-target="${k}"]`);
                 const el = document.getElementById(k);
                 if (cb && el) {
-                  cb.checked = !!s.toggles[k];
-                  el.style.display = cb.checked ? '' : 'none';
-                  setCookie('hud_' + k, cb.checked ? '1' : '0');
+                  setVisibilityPref(k, !!s.toggles[k]);
+                  applyCardVisibility(k);
                 }
               }
             }
@@ -787,31 +1937,7 @@
                 const pos = s.cards[id];
                 const el = document.getElementById(id);
                 if (!el || !pos) continue;
-
-                if (pos.display === 'none') {
-                  el.style.display = 'none';
-                  document.cookie = `hud_${id}=0; path=/; max-age=${365*24*60*60}`;
-                } else {
-                  el.style.display = '';
-                  document.cookie = `hud_${id}=1; path=/; max-age=${365*24*60*60}`;
-                }
-
-                if (pos.left !== undefined || pos.top !== undefined) {
-                  el.style.position = (pos.position && pos.position !== '') ? pos.position : 'absolute';
-                } else if (pos.position && pos.position !== '') {
-                  el.style.position = pos.position;
-                }
-
-                if (pos.left !== undefined && pos.left !== null && pos.left !== '') {
-                  const left = Number(pos.left);
-                  if (!Number.isNaN(left)) el.style.left = Math.round(left) + 'px';
-                }
-                if (pos.top !== undefined && pos.top !== null && pos.top !== '') {
-                  const top = Number(pos.top);
-                  if (!Number.isNaN(top)) el.style.top = Math.round(top) + 'px';
-                }
-                if (pos.width)  el.style.width  = pos.width;
-                if (pos.height) el.style.height = pos.height;
+                applyCardPlacement(el, pos);
 
                 try {
                   const existing = JSON.parse(localStorage.getItem('hud_pos_' + id) || 'null');
@@ -827,6 +1953,15 @@
               }
             }
 
+            if (s.uiSettings && typeof s.uiSettings === 'object') {
+              uiSettings.hudEnabled = s.uiSettings.hudEnabled !== false;
+              uiSettings.soundEnabled = s.uiSettings.soundEnabled !== false;
+              uiSettings.opacity = clamp(s.uiSettings.opacity ?? 100, 25, 100);
+              persistUiSettings();
+              syncSettingsInputs();
+              applyUiSettings();
+            }
+
             if (s.hudRight !== undefined) localStorage.hudRight = s.hudRight;
             if (s.hudTop !== undefined)  localStorage.hudTop  = s.hudTop;
 
@@ -839,22 +1974,80 @@
         return;
       }
 
+      if (d.action === 'loadPresetSettings') {
+        const s = d.settings;
+        if (!s || typeof s !== 'object') return;
+
+        requestAnimationFrame(() => {
+          try {
+            presetSettings.hudRight = s.hudRight !== undefined ? s.hudRight : null;
+            presetSettings.hudTop = s.hudTop !== undefined ? s.hudTop : null;
+            presetSettings.toggles = (s.toggles && typeof s.toggles === 'object') ? { ...s.toggles } : {};
+            presetSettings.cards = (s.cards && typeof s.cards === 'object') ? { ...s.cards } : {};
+            if (!Object.prototype.hasOwnProperty.call(presetSettings.toggles, 'card-prio') && Object.prototype.hasOwnProperty.call(presetSettings.toggles, 'card-status')) {
+              presetSettings.toggles['card-prio'] = presetSettings.toggles['card-status'];
+            }
+            if (!Object.prototype.hasOwnProperty.call(presetSettings.toggles, 'card-aop') && Object.prototype.hasOwnProperty.call(presetSettings.toggles, 'card-status')) {
+              presetSettings.toggles['card-aop'] = presetSettings.toggles['card-status'];
+            }
+            if (!presetSettings.cards['card-prio'] && presetSettings.cards['card-status']) {
+              presetSettings.cards['card-prio'] = presetSettings.cards['card-status'];
+            }
+            if (!presetSettings.cards['card-aop'] && presetSettings.cards['card-status']) {
+              presetSettings.cards['card-aop'] = presetSettings.cards['card-status'];
+            }
+            presetSettings.uiSettings = (s.uiSettings && typeof s.uiSettings === 'object') ? { ...s.uiSettings } : null;
+            applyPresetDefaults();
+          } catch (e) {
+            console.warn('Error applying HUD preset settings', e);
+          }
+        });
+
+        return;
+      }
+
       switch (d.action) {
-        case 'toggleMove': toggleMoveMode(); break;
+        case 'toggleMove':
+          setPresetMode(false);
+          toggleMoveMode();
+          break;
+        case 'togglePresetMove':
+          openPresetMoveMode();
+          break;
+        case 'openSettings':
+          openSettingsMode();
+          break;
         case 'updateCash':
-          if (d.cash !== undefined) document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-          if (d.bank !== undefined) document.getElementById('bankDisplay').textContent = `$${d.bank}`;
-          if (d.playerName) updateHudPlayerName(d.playerName);
+          handleCashUpdate(d.cash, d.bank, d.playerName);
           break;
         case 'updateCashOnly':
-          document.getElementById('cashDisplay').textContent = `$${d.cash}`;
-          if (d.playerName) updateHudPlayerName(d.playerName);
+          handleCashUpdate(d.cash, undefined, d.playerName);
           break;
         case 'updateJob':
-          document.getElementById('jobDisplay').textContent = d.job;
+          handleJobUpdate(d.job, d.playerName);
+          break;
+        case 'updateHudState':
+          handleSharedHudState(d, false);
+          break;
+        case 'setAOP':
+          handleAopUpdate(d.value, true);
+          break;
+        case 'setPRIO':
+          handlePrioUpdate(d.value, true);
           break;
         case 'updatePlayerName':
           updateHudPlayerName(d.playerName || '');
+          break;
+        case 'setHudVisible':
+          setGameplayHudVisible(d.visible === true);
+          break;
+        case 'hudNotify':
+          pushHudNotification({
+            title: d.title || 'Notification',
+            description: d.description || '',
+            icon: d.icon || 'bi-bell',
+            sound: d.sound || 'job'
+          });
           break;
         case 'openAdmin':
           document.getElementById('adminLogin').style.display = 'flex';
@@ -867,12 +2060,12 @@
     });
 
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && hud.classList.contains('move-mode')) {
+      if (e.key === 'Escape' && (hud.classList.contains('move-mode') || settingsOnlyMode)) {
         cancelMoveMode();
       }
     });
 
     updateOverlays();
-  </script>
+</script>
 </body>
 </html>

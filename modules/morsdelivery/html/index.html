@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mors Mutual</title>
+
+  <style>
+    :root{
+      
+      --bg: rgba(0, 0, 0, 0);
+      --glass: rgba(10, 12, 18, .72);
+      --glass2: rgba(12, 14, 22, .86);
+      --stroke: rgba(255,255,255,.10);
+      --stroke2: rgba(80,200,255,.35);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.58);
+
+      --blue: #2fb7ff;
+      --blue2:#0aa0ff;
+      --cyan: #64d6ff;
+
+      --shadow: 0 28px 80px rgba(0,0,0,.55);
+      --radius: 18px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:var(--text); }
+    body{ background:transparent; overflow:hidden; }
+
+    
+    #app{
+      display:none;
+      position:fixed; inset:0;
+      align-items:center; justify-content:center;
+      pointer-events:none;
+    }
+    #app.show{
+      display:flex;
+      pointer-events:auto;
+    }
+
+
+
+    
+    .window{
+      position:relative;
+      width:min(1180px, 95vw);
+      height:min(780px, 90vh);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 22%), var(--glass2);
+      border:1px solid rgba(255,255,255,.10);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      z-index:2;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .chrome{
+      height:46px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:0 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.10));
+    }
+
+    .dots{ display:flex; gap:8px; }
+    .dot{ width:10px; height:10px; border-radius:99px; opacity:.9; }
+    .dot.red{ background:#ff5f57; }
+    .dot.yellow{ background:#febc2e; }
+    .dot.green{ background:#28c840; }
+
+    .url{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      font-size:13px;
+      color: rgba(255,255,255,.72);
+      letter-spacing:.35px;
+      user-select:none;
+    }
+    .url span{
+      padding:8px 14px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      box-shadow: 0 8px 24px rgba(0,0,0,.25) inset;
+    }
+
+    .chromeActions{
+      display:flex; gap:8px; align-items:center;
+    }
+
+    .iconbtn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      border-radius:12px;
+      width:40px; height:34px;
+      cursor:pointer;
+      display:flex;
+      align-items:center; justify-content:center;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .iconbtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.45);
+      background: rgba(47,183,255,.10);
+    }
+
+    
+    .hero{
+      position:relative;
+      padding:18px 18px 16px 18px;
+      background:
+        radial-gradient(900px 320px at 25% 20%, rgba(47,183,255,.20), transparent 60%),
+        radial-gradient(900px 320px at 80% 70%, rgba(100,214,255,.12), transparent 62%),
+        rgba(0,0,0,.28);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute; inset:-80px;
+      background:
+        radial-gradient(circle at 10% 30%, rgba(255,255,255,.10) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 30% 60%, rgba(255,255,255,.08) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 70% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 100%),
+        radial-gradient(circle at 85% 70%, rgba(255,255,255,.10) 0 2px, transparent 2px 100%);
+      background-size: 120px 120px;
+      opacity:.22;
+      filter: blur(.2px);
+      pointer-events:none;
+    }
+
+    .heroInner{
+      position:relative;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      user-select:none;
+    }
+    .brand .big{
+      font-size:34px;
+      letter-spacing:1.2px;
+      font-weight:900;
+      color: rgba(255,255,255,.95);
+      text-transform:uppercase;
+      text-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .brand .small{
+      font-size:13px;
+      letter-spacing:2.8px;
+      font-weight:800;
+      color: rgba(47,183,255,.85);
+      text-transform:uppercase;
+    }
+
+    .pitch{
+      text-align:right;
+      padding-top:6px;
+      max-width: 520px;
+      user-select:none;
+    }
+    .pitch .h{
+      font-weight:900;
+      letter-spacing:.6px;
+      font-size:20px;
+      text-transform:uppercase;
+    }
+    .pitch .p{
+      color: rgba(255,255,255,.70);
+      margin-top:4px;
+      font-size:13px;
+    }
+
+    
+    .controls{
+      padding:12px 16px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background: rgba(0,0,0,.16);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .tabs{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .tab{
+      font-size:13px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72);
+      cursor:pointer;
+      user-select:none;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .tab:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.40);
+      background: rgba(47,183,255,.10);
+    }
+    .tab.active{
+      border-color: rgba(47,183,255,.55);
+      background: rgba(47,183,255,.18);
+      color: rgba(255,255,255,.92);
+    }
+
+    .spacer{ flex:1; }
+
+    .searchWrap{
+      display:flex; align-items:center; gap:10px;
+      min-width: 360px;
+      max-width: 520px;
+      flex: 1;
+      justify-content:flex-end;
+    }
+
+    .search{
+      width:min(420px, 100%);
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      box-shadow: inset 0 10px 30px rgba(0,0,0,.18);
+    }
+    .search svg{ opacity:.7; flex-shrink:0; }
+    #search{
+      width:100%;
+      border:0;
+      outline:none;
+      background:transparent;
+      color:var(--text);
+      font-size:13px;
+    }
+    #search::placeholder{ color: rgba(255,255,255,.45); }
+
+    .pill{
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: rgba(255,255,255,.72);
+      font-size:12px;
+      user-select:none;
+      white-space:nowrap;
+      min-width: 140px;
+      text-align:center;
+    }
+
+    .sortBtn{
+      padding:10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.82);
+      font-size:12px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+      display:flex; align-items:center; gap:8px;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .sortBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.45);
+      background: rgba(47,183,255,.08);
+    }
+
+    
+    .content{
+      flex:1;
+      padding: 14px 16px 18px 16px;
+      overflow:auto;
+      background: linear-gradient(180deg, rgba(0,0,0,.14), rgba(0,0,0,.22));
+    }
+
+    .sectionTitle{
+      font-size:14px;
+      color: rgba(255,255,255,.80);
+      margin: 2px 4px 12px 4px;
+      user-select:none;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 1100px){
+      .grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .searchWrap{ min-width: 240px; }
+    }
+    @media (max-width: 760px){
+      .grid{ grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    }
+
+    .card{
+      position:relative;
+      border-radius: var(--radius);
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      overflow:hidden;
+      cursor:pointer;
+      transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
+      min-height: 210px;
+    }
+    .card:hover{
+      transform: translateY(-2px);
+      border-color: rgba(47,183,255,.55);
+      box-shadow: 0 22px 50px rgba(0,0,0,.40);
+    }
+    .card.disabled{
+      cursor:not-allowed;
+      opacity:.55;
+      filter:saturate(.75);
+    }
+    .card.disabled:hover{
+      transform:none;
+      box-shadow:none;
+      border-color: rgba(255,255,255,.10);
+    }
+
+    .cardHero{
+      height: 150px;
+      background:
+        radial-gradient(420px 190px at 70% 35%, rgba(47,183,255,.22), transparent 62%),
+        radial-gradient(420px 190px at 25% 80%, rgba(100,214,255,.12), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.24));
+      position:relative;
+      overflow:hidden;
+    }
+
+    .cardHero::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(220px 120px at 60% 45%, rgba(255,255,255,.12), transparent 70%),
+        radial-gradient(220px 120px at 40% 70%, rgba(255,255,255,.08), transparent 72%);
+      opacity:.55;
+      pointer-events:none;
+    }
+
+    
+    .thumb{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      opacity:.78;
+      transform: scale(1.02);
+      filter: saturate(1.08) contrast(1.05);
+      user-select:none;
+      pointer-events:none;
+    }
+
+    
+    .cardHero::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.10) 55%, rgba(0,0,0,.40)),
+        radial-gradient(240px 140px at 65% 55%, rgba(255,255,255,.08), transparent 70%);
+      pointer-events:none;
+    }
+
+    
+    .brandBadge{
+      position:absolute;
+      left:12px; top:12px;
+      display:flex; flex-direction:column;
+      gap:2px;
+      user-select:none;
+      text-shadow: 0 10px 25px rgba(0,0,0,.55);
+      z-index:2;
+    }
+    .brandBadge .b1{
+      font-weight:900;
+      letter-spacing:1.0px;
+      color: rgba(255,255,255,.92);
+      font-size:16px;
+      text-transform: uppercase;
+    }
+    .brandBadge .b2{
+      font-weight:900;
+      letter-spacing:3px;
+      color: rgba(47,183,255,.85);
+      font-size:10px;
+      text-transform: uppercase;
+    }
+
+    .cardBottom{
+      padding: 10px 12px 12px 12px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.22);
+    }
+
+    .meta{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+    }
+    .model{
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size:14px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      max-width: 40ch;
+    }
+    .subline{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      font-size:12px;
+      color: rgba(255,255,255,.62);
+      letter-spacing:.25px;
+    }
+    .plate{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      color: rgba(255,255,255,.65);
+      letter-spacing:.6px;
+    }
+
+    .right{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-shrink:0;
+    }
+
+    .status{
+      font-size:11px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.72);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .status.parked{
+      border-color: rgba(80,200,255,.35);
+      background: rgba(47,183,255,.12);
+      color: rgba(210,245,255,.92);
+    }
+    .status.unparked{
+      border-color: rgba(255,185,80,.35);
+      background: rgba(255,185,80,.10);
+      color: rgba(255,235,205,.92);
+    }
+
+    .callBtn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(47,183,255,.16);
+      color: rgba(255,255,255,.92);
+      padding:9px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight:900;
+      letter-spacing:.2px;
+      font-size:12px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      white-space:nowrap;
+    }
+    .callBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.55);
+      background: rgba(47,183,255,.24);
+    }
+    .callBtn:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .footer{
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background: rgba(0,0,0,.18);
+    }
+    .hint{
+      color: rgba(255,255,255,.62);
+      font-size:12px;
+      user-select:none;
+    }
+    .closeBtn{
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.90);
+      padding:10px 14px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight:900;
+      letter-spacing:.2px;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .closeBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(47,183,255,.45);
+      background: rgba(47,183,255,.10);
+    }
+
+    
+    .content::-webkit-scrollbar{ width: 10px; }
+    .content::-webkit-scrollbar-track{ background: rgba(255,255,255,.03); border-radius: 999px; }
+    .content::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; border: 2px solid rgba(0,0,0,.20); }
+    .content::-webkit-scrollbar-thumb:hover{ background: rgba(47,183,255,.22); }
+  </style>
+</head>
+
+<body>
+  <div id="app" aria-hidden="true">
+    <div class="window" role="dialog" aria-modal="true">
+      
+      <div class="chrome">
+        <div class="dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+
+        <div class="url">
+          <span>www.morsmutual.net</span>
+        </div>
+
+        <div class="chromeActions">
+          <button id="closeTop" class="iconbtn" title="Close">✕</button>
+        </div>
+      </div>
+
+      
+      <div class="hero">
+        <div class="heroInner">
+          <div class="brand">
+            <div class="big">Mors Mutual</div>
+            <div class="small">Insurance</div>
+          </div>
+
+          <div class="pitch">
+            <div class="h">Vehicle Replacement Service</div>
+            <div class="p">Select a parked vehicle — we’ll deliver it to your location.</div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="controls">
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-tab="featured">Featured</div>
+          <div class="tab" data-tab="parked">Parked</div>
+          <div class="tab" data-tab="unparked">Unparked</div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="searchWrap">
+          <div class="search" title="Search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="rgba(255,255,255,.75)" stroke-width="2"/>
+              <path d="M16.5 16.5 21 21" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input id="search" type="text" placeholder="Search model / plate..." />
+          </div>
+
+          <div id="cooldown" class="pill">Ready</div>
+
+          <button id="sortBtn" class="sortBtn" title="Sort">
+            <span>Sort</span>
+            <span style="opacity:.75">▾</span>
+          </button>
+        </div>
+      </div>
+
+      
+      <div class="content">
+        <div class="sectionTitle" id="sectionTitle">Mors Mutual</div>
+        <div id="grid" class="grid"></div>
+      </div>
+
+      
+      <div class="footer">
+        <div class="hint">Select a parked vehicle and we’ll deliver it to you.</div>
+        <button id="btnClose" class="closeBtn">Close</button>
+      </div>
+    </div>
+
+    <div class="backdrop"></div>
+  </div>
+
+  <script>
+    const app = document.getElementById('app');
+    const grid = document.getElementById('grid');
+    const search = document.getElementById('search');
+    const cooldownEl = document.getElementById('cooldown');
+    const closeTop = document.getElementById('closeTop');
+    const btnClose = document.getElementById('btnClose');
+    const tabs = document.getElementById('tabs');
+    const sectionTitle = document.getElementById('sectionTitle');
+    const sortBtn = document.getElementById('sortBtn');
+
+    let vehicles = [];
+    let okToCall = true;
+    let cooldown = 0;
+
+    let activeTab = 'featured';
+    let sortMode = 'model';
+
+    function post(name, data = {}) {
+      fetch(`https://${GetParentResourceName()}/${name}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(data)
+      });
+    }
+
+    function setVisible(v) {
+      if (v) {
+        app.classList.add('show');
+        app.setAttribute('aria-hidden', 'false');
+        setTimeout(() => search?.focus(), 0);
+      } else {
+        app.classList.remove('show');
+        app.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function isParked(row) {
+      if (row.parked === undefined || row.parked === null) return true;
+      return Number(row.parked) === 1;
+    }
+
+    function rowMatches(row, q) {
+      if (!q) return true;
+      q = q.toLowerCase();
+      return String(row.model || '').toLowerCase().includes(q) ||
+             String(row.plate || '').toLowerCase().includes(q);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function setTab(tab) {
+      activeTab = tab;
+      for (const el of tabs.querySelectorAll('.tab')) {
+        el.classList.toggle('active', el.dataset.tab === tab);
+      }
+      if (tab === 'featured') sectionTitle.textContent = "Mors Mutual";
+      if (tab === 'parked') sectionTitle.textContent = "Parked Vehicles";
+      if (tab === 'unparked') sectionTitle.textContent = "Currently Out";
+      render();
+    }
+
+    function cycleSort() {
+      const order = ['model', 'plate', 'status'];
+      const idx = order.indexOf(sortMode);
+      sortMode = order[(idx + 1) % order.length];
+      sortBtn.querySelector('span').textContent =
+        sortMode === 'model' ? 'Sort: Model' :
+        sortMode === 'plate' ? 'Sort: Plate' :
+        'Sort: Status';
+      render();
+    }
+
+    function sortRows(rows) {
+      const a = [...rows];
+      if (sortMode === 'model') {
+        a.sort((x,y) => String(x.model||'').localeCompare(String(y.model||'')));
+      } else if (sortMode === 'plate') {
+        a.sort((x,y) => String(x.plate||'').localeCompare(String(y.plate||'')));
+      } else {
+        a.sort((x,y) => Number(isParked(y)) - Number(isParked(x)));
+      }
+      return a;
+    }
+
+    function render() {
+      const q = (search.value || '').trim();
+      grid.innerHTML = '';
+
+      let filtered = vehicles.filter(v => rowMatches(v, q));
+
+      if (activeTab === 'parked') filtered = filtered.filter(v => isParked(v));
+      if (activeTab === 'unparked') filtered = filtered.filter(v => !isParked(v));
+
+      filtered = sortRows(filtered);
+
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'card disabled';
+        empty.style.minHeight = '140px';
+        empty.innerHTML = `
+          <div class="cardHero"></div>
+          <div class="cardBottom">
+            <div class="meta">
+              <div class="model">No vehicles</div>
+              <div class="subline">Nothing matched your search.</div>
+            </div>
+            <div class="right">
+              <span class="status">—</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(empty);
+        return;
+      }
+
+      for (const v of filtered) {
+        const parked = isParked(v);
+        const canCall = okToCall && parked;
+
+        const card = document.createElement('div');
+        card.className = 'card' + (canCall ? '' : ' disabled');
+
+        const plate = (v.plate || '').toUpperCase();
+        const model = v.model || 'Unknown';
+
+        const spawn = (v.spawnName || '').toString().toLowerCase();
+        const preview = (v.previewUrl && String(v.previewUrl)) ||
+          (spawn ? `https://docs.fivem.net/vehicles/${encodeURIComponent(spawn)}.webp?v=1` : '');
+
+        card.innerHTML = `
+          <div class="cardHero">
+            ${preview ? `<img class="thumb" src="${preview}" alt="">` : ``}
+            <div class="brandBadge">
+              <div class="b1">Mors Mutual</div>
+              <div class="b2">Insurance</div>
+            </div>
+          </div>
+          <div class="cardBottom">
+            <div class="meta">
+              <div class="model">${escapeHtml(model)}</div>
+              <div class="subline">
+                <span class="plate">PLATE • ${escapeHtml(plate)}</span>
+              </div>
+            </div>
+            <div class="right">
+              <span class="status ${parked ? 'parked' : 'unparked'}">${parked ? 'Parked' : 'Unparked'}</span>
+              <button class="callBtn" ${canCall ? '' : 'disabled'}>
+                <span>Call</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8.3 3.9c.3-.7 1-.9 1.7-.7l2.2.9c.6.2.9.9.7 1.5l-.9 2.4c-.2.5-.7.8-1.2.7l-1.4-.3c-.2.7-.2 1.4 0 2.1.4 1.6 1.7 3.3 3.3 4.5.7.5 1.5.8 2.2.9l.5-1.4c.2-.6.9-.9 1.5-.7l2.2.9c.7.3 1 1 .7 1.7l-.8 2c-.2.6-.8 1-1.5 1-7.7 0-14-6.3-14-14 0-.7.4-1.3 1-1.5l2-.8Z"
+                        stroke="rgba(255,255,255,.9)" stroke-width="1.6" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+
+
+        const img = card.querySelector('img.thumb');
+        if (img) img.onerror = () => img.remove();
+
+        const btn = card.querySelector('.callBtn');
+        if (btn) {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            if (!canCall) return;
+            post('requestDelivery', { plate });
+          };
+        }
+
+        card.onclick = () => {
+          if (!canCall) return;
+          post('requestDelivery', { plate });
+        };
+
+        grid.appendChild(card);
+      }
+    }
+
+    setVisible(false);
+
+    tabs.addEventListener('click', (e) => {
+      const t = e.target.closest('.tab');
+      if (!t) return;
+      setTab(t.dataset.tab);
+    });
+
+    sortBtn.addEventListener('click', cycleSort);
+    cycleSort();
+
+    window.addEventListener('message', (e) => {
+      const msg = e.data || {};
+      if (msg.type === 'setVisible') setVisible(!!msg.visible);
+
+      if (msg.type === 'setTheme' && msg.accent) {
+        document.documentElement.style.setProperty('--blue', msg.accent);
+        document.documentElement.style.setProperty('--blue2', msg.accent);
+      }
+
+      if (msg.type === 'setData') {
+        okToCall = !!msg.ok;
+        cooldown = Number(msg.cooldown || 0);
+        vehicles = Array.isArray(msg.vehicles) ? msg.vehicles : [];
+        cooldownEl.textContent = okToCall ? 'Ready' : `Cooldown: ${cooldown}s`;
+        render();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        post('morsClose');
+      }
+    });
+
+    closeTop.addEventListener('click', () => post('morsClose'));
+    btnClose.addEventListener('click', () => post('morsClose'));
+
+    search.addEventListener('input', render);
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Az-Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="chat-root">
+    <div id="chat-anchor">
+      <div id="message-stack"></div>
+
+      <div id="input-shell" class="hidden">
+        <div id="suggestions" class="hidden"></div>
+        <div id="emoji-picker" class="hidden"></div>
+        <div id="input-row">
+          <button id="emoji-toggle" type="button" aria-label="Open emoji picker">😊</button>
+          <input id="chat-input" type="text" maxlength="400" autocomplete="off" spellcheck="false" placeholder="Type a message or /command" />
+          <div id="chat-hint">ENTER send · ESC close</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
