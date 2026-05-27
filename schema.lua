@@ -532,6 +532,17 @@ CREATE TABLE IF NOT EXISTS `azfw_appearance` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ]],
 [[
+CREATE TABLE IF NOT EXISTS `az_framework_setup` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `setup_key` varchar(64) NOT NULL,
+  `setup_value` longtext DEFAULT NULL,
+  `updated_by` varchar(128) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_setup_key` (`setup_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+]],
+[[
 CREATE TABLE IF NOT EXISTS `azfw_lastpos` (
   `discordid` varchar(32) NOT NULL,
   `charid` varchar(64) NOT NULL,
