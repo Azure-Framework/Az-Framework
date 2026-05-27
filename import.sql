@@ -652,6 +652,7 @@ CREATE TABLE IF NOT EXISTS `user_characters` (
   `license_status` varchar(32) NOT NULL DEFAULT 'UNKNOWN',
   `hunting_license` tinyint(1) NOT NULL DEFAULT 0,
   `pin_hash` varchar(128) DEFAULT '',
+  `inventory` longtext DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `discord_char` (`discordid`,`charid`),
   UNIQUE KEY `idx_user_characters__discordid_charid_` (`discordid`,`charid`)
@@ -687,6 +688,8 @@ CREATE TABLE IF NOT EXISTS `user_vehicles` (
   `windowTint` int(11) NOT NULL,
   `mods` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `extras` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `glovebox` longtext DEFAULT NULL,
+  `trunk` longtext DEFAULT NULL,
   `parked` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_vehicle` (`discordid`,`plate`),

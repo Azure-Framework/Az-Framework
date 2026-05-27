@@ -7,9 +7,76 @@ local SYNC_MONEY = GetConvarInt('inventory:azframeworkmoney', 1) == 1
 local pendingLoads = {}
 local clientSnapshots = {}
 local initialLoadSources = {}
+local debugPrint
 
+local function parseAzInventoryIdentifier(identifier)
+    identifier = tostring(identifier or '')
+    local discord, charid = identifier:match('^az:([^:]+):(.+)$')
+    if discord and charid then return discord, charid end
 
-local function debugPrint(category, ...)
+    charid = identifier:match('^azlic:[^:]+:(.+)$') or identifier:match('^azchar:(.+)$')
+    if charid and charid ~= '' then return nil, charid end
+
+    return nil, identifier ~= '' and identifier or nil
+end
+
+local function installAzInventoryStorage()
+    if type(db) ~= 'table' then
+        SetTimeout(250, installAzInventoryStorage)
+        return
+    end
+
+    CreateThread(function()
+        pcall(MySQL.query.await, 'ALTER TABLE `user_characters` ADD COLUMN `inventory` LONGTEXT NULL')
+        pcall(MySQL.query.await, 'ALTER TABLE `user_vehicles` ADD COLUMN `glovebox` LONGTEXT NULL')
+        pcall(MySQL.query.await, 'ALTER TABLE `user_vehicles` ADD COLUMN `trunk` LONGTEXT NULL')
+    end)
+
+    db.loadPlayer = function(identifier)
+        local discord, charid = parseAzInventoryIdentifier(identifier)
+        if not charid then return end
+
+        local inventory
+        if discord and discord ~= '' then
+            inventory = MySQL.prepare.await('SELECT inventory FROM `user_characters` WHERE `discordid` = ? AND `charid` = ? LIMIT 1', { discord, charid })
+        else
+            inventory = MySQL.prepare.await('SELECT inventory FROM `user_characters` WHERE `charid` = ? LIMIT 1', { charid })
+        end
+
+        return inventory and json.decode(inventory)
+    end
+
+    db.savePlayer = function(owner, inventory)
+        local discord, charid = parseAzInventoryIdentifier(owner)
+        if not charid then return end
+
+        if discord and discord ~= '' then
+            return MySQL.prepare('UPDATE `user_characters` SET inventory = ? WHERE `discordid` = ? AND `charid` = ?', { inventory, discord, charid })
+        end
+
+        return MySQL.prepare('UPDATE `user_characters` SET inventory = ? WHERE `charid` = ?', { inventory, charid })
+    end
+
+    db.loadGlovebox = function(plate)
+        return MySQL.prepare.await('SELECT plate, glovebox FROM `user_vehicles` WHERE `plate` = ? LIMIT 1', { plate })
+    end
+
+    db.saveGlovebox = function(plate, inventory)
+        return MySQL.prepare('UPDATE `user_vehicles` SET glovebox = ? WHERE `plate` = ?', { inventory, plate })
+    end
+
+    db.loadTrunk = function(plate)
+        return MySQL.prepare.await('SELECT plate, trunk FROM `user_vehicles` WHERE `plate` = ? LIMIT 1', { plate })
+    end
+
+    db.saveTrunk = function(plate, inventory)
+        return MySQL.prepare('UPDATE `user_vehicles` SET trunk = ? WHERE `plate` = ?', { inventory, plate })
+    end
+
+    if debugPrint then debugPrint('storage', 'Az inventory storage installed for user_characters/user_vehicles') end
+end
+
+function debugPrint(category, ...)
     if not AZ_DEBUG then return end
     if shared and shared.debugLog then
         return shared.debugLog(('az:%s'):format(tostring(category or 'bridge')), ...)
@@ -21,6 +88,8 @@ local function verbosePrint(category, ...)
     if not AZ_VERBOSE then return end
     debugPrint(category, ...)
 end
+
+installAzInventoryStorage()
 
 local function azReady()
     local state = GetResourceState(AZ_RESOURCE)
