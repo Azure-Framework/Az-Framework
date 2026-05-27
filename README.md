@@ -12,6 +12,12 @@ Az-Framework is a modular FiveM framework focused on character-based gameplay, m
 - HUD and player status data
 - Discord presence integration
 - Modular gameplay resources, including banking, housing, DMV, fuel, death, insurance, and chat
+- Compatibility bridge support for QBCore, qb-inventory, qb-target, ESX, and ND_Core resources
+
+## Documentation and Support
+
+- Framework docs: https://madebyazure.com/framework/
+- Discord support: https://discord.gg/tBg2U6CTHE
 
 ## Resource Name
 
@@ -28,6 +34,53 @@ ensure Az-Framework
 ```
 
 Start inventory, targeting, vMenu, MDT, phone, jobs, and other gameplay resources after Az-Framework.
+
+## Compatibility Bridges
+
+KSRP-Core bridge resources are published as Az-Framework bridge repos for servers that still run QBCore, qb-inventory, qb-target, ESX, or ND-style resources.
+
+```cfg
+ensure Az-Framework
+ensure qb-core
+ensure qb-inventory
+ensure qb-target
+ensure es_extended
+ensure ND_Core
+```
+
+Bridge repositories:
+
+- `Az-QBCore-Bridge` provides the `qb-core` resource name.
+- `Az-QBInventory-Bridge` provides the `qb-inventory` resource name.
+- `Az-QBTarget-Bridge` provides the `qb-target` resource name.
+- `Az-ESX-Bridge` provides the `es_extended` resource name.
+- `Az-NDCore-Bridge` provides the `ND_Core` resource name.
+
+## Summer 2.0 Pack
+
+Summer 2.0 resources use `Az-Summer2Core` for contract registration, objective routing, rewards, cooldowns, validation, and dispatch hooks. Start the core before the activity resources.
+
+```cfg
+ensure Az-Summer2Core
+ensure Az-Lifeguard
+ensure Az-Marina
+ensure Az-IceCream
+ensure Az-Camping
+ensure Az-ParkEvents
+ensure Az-ResortStaff
+ensure Az-FoodFestival
+ensure Az-Fishing2
+ensure Az-SmugglingRun
+ensure Az-Boosting2
+ensure Az-Burglary2
+ensure Az-DrugLabs2
+ensure Az-IllegalFishing
+ensure Az-Poaching
+ensure Az-ScrapTheft
+ensure Az-FraudOps
+ensure Az-StreetRacing2
+ensure Az-BlackMarketBeach
+```
 
 ## Folder Layout
 
