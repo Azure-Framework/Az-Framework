@@ -44,14 +44,9 @@ end
 local function startRadarEnforcer()
   if radarEnforceThread then return end
   radarEnforceThread = CreateThread(function()
-    local fastUntil = GetGameTimer() + 30000
     while gameplayReady do
       setRadarVisible(true)
-      if GetGameTimer() < fastUntil then
-        Wait(0)
-      else
-        Wait(500)
-      end
+      Wait(0)
     end
     if not gameplayReady then
       setRadarVisible(false)
@@ -84,12 +79,18 @@ CreateThread(function()
   while true do
     if gameplayReady then
       setRadarVisible(true)
-      Wait(1000)
+      Wait(250)
     else
       Wait(1250)
     end
   end
 end)
+
+RegisterCommand('fixminimap', function()
+  setGameplayReady(true, 'fixminimap_command')
+  setRadarVisible(true)
+  startRadarEnforcer()
+end, false)
 
 _G.AzClientCoreExports = _G.AzClientCoreExports or {}
 _G.AzClientCoreExports.IsGameplayReady = function() return gameplayReady end

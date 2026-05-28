@@ -207,7 +207,7 @@
     const closeOverlayBtn = document.getElementById('closeOverlay');
 
 
-    const sounds = { open: 'sounds/game.mp3', claim: 'sounds/level.mp3', spin: 'sounds/spin.mp3', reel: 'sounds/reel.mp3' };
+    const sounds = { open: 'sounds/game.mp3', claim: 'sounds/level.mp3', spin: 'sounds/spin.mp3', reel: 'sounds/spin.mp3' };
     const audioEls = {};
     function preloadAudio(){ try{ Object.keys(sounds).forEach(k=>{ const a=new Audio(); a.src=sounds[k]; a.preload='auto'; audioEls[k]=a; }); }catch(e){} }
     preloadAudio();
